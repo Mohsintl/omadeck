@@ -1,0 +1,60 @@
+# ~/.config/omarchy-voice/config.toml
+# Add this [local] section to switch to universal multi-provider or fully local inference.
+# Works with ANY AI provider (Groq, OpenAI, OpenRouter, DeepSeek, Mistral, NVIDIA NIM, Ollama, LM Studio).
+
+[local]
+# Set to "local" to activate the engine (bypasses OpenAI Realtime requirement).
+engine = "local"
+
+# ---------------------------------------------------------------------------
+# LLM Planner / Model Provider
+# ---------------------------------------------------------------------------
+# Provider options: "groq" | "openai" | "openrouter" | "deepseek" | "mistral" | "nvidia" | "ollama" | "auto"
+# If left unset or set to "auto", Omarchy Voice auto-detects the provider based
+# on which API key is exported or present in ~/.config/omarchy-voice/env:
+#
+#   GROQ_API_KEY       -> provider = "groq"        (Fastest: 500+ tok/s with Llama-3.3-70b)
+#   OPENAI_API_KEY     -> provider = "openai"      (Default model: gpt-4o-mini)
+#   OPENROUTER_API_KEY -> provider = "openrouter"  (Default model: meta-llama/llama-3.3-70b-instruct)
+#   DEEPSEEK_API_KEY   -> provider = "deepseek"    (Default model: deepseek-chat)
+#   MISTRAL_API_KEY    -> provider = "mistral"     (Default model: mistral-small-latest)
+#   NVIDIA_API_KEY     -> provider = "nvidia"      (Default model: nemotron-3.5-lightning-30b)
+#   (none)             -> provider = "ollama"      (100% free & local, default model: qwen2.5:7b)
+#
+provider = "auto"
+
+# Override model name if desired (defaults to best recommended for provider above):
+# llm_model = "llama-3.3-70b-versatile"
+
+# Optional fallback model(s) if primary model hits rate limits or is retired:
+# llm_fallback = "llama-3.1-8b-instant"
+
+# Any custom OpenAI-compatible endpoint (LM Studio, vLLM, LocalAI, self-hosted):
+# base_url   = "http://localhost:1234/v1"
+# api_key    = "optional-key"
+
+# ---------------------------------------------------------------------------
+# Speech-To-Text (Voice Input)
+# ---------------------------------------------------------------------------
+# STT backend: "auto" | "faster-whisper" | "groq" | "openai"
+# "auto" uses local faster-whisper (offline), and gracefully falls back to cloud
+# Whisper API (Groq/OpenAI) if faster-whisper is not installed.
+stt = "auto"
+
+# faster-whisper local model size: tiny.en | base.en | small.en | medium.en | large-v3
+# "base.en" is a great balance of speed (~1.5s) and accuracy on CPU.
+stt_model = "base.en"
+
+# webrtcvad aggressiveness: 0 (least aggressive) to 3 (most aggressive at cutting noise)
+vad_level = 2
+
+# ---------------------------------------------------------------------------
+# Text-To-Speech (Spoken Audio Output)
+# ---------------------------------------------------------------------------
+# TTS backend: "piper" | "espeak" | "none"
+# piper gives natural-sounding neural speech; espeak-ng is instant and lightweight.
+tts = "piper"
+
+# Path to a piper .onnx voice model.
+# Leave empty to auto-detect first voice in ~/.local/share/piper/ or /usr/share/piper-voices/
+piper_voice = ""

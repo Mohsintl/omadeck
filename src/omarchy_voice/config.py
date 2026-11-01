@@ -195,6 +195,8 @@ class Config:
 
 def load(path: Path | None = None, **overrides) -> Config:
     """Load config.toml, then apply keyword overrides (CLI flags win)."""
+    if path is None:
+        load_env_file()
     path = path or CONFIG_FILE
     data: dict = {}
     if path.exists():

@@ -32,9 +32,25 @@ def _tick(ok: bool) -> str:
 def cmd_say(args, config) -> int:
     """One command, typed instead of spoken. The whole pipeline minus the mic."""
     text = " ".join(args.text)
+    print(f'{_bold("heard")}   {text}')
+
+    if daemon_running():
+        reply = send_control(f"say {text}")
+        print(f'{_bold("reply")}   {reply}')
+        return 0
+
+    local_cfg = _get_local_engine_cfg(config)
+    if local_cfg.get("engine") == "local":
+        from .feedback import Feedback
+        from .local_engine import LocalPlanner
+        executor = Executor(config)
+        planner = LocalPlanner(config, executor, Feedback(config))
+        reply = planner.think(text)
+        print(f'{_bold("reply")}   {reply}')
+        return 0
+
     executor = Executor(config)
     planner = Planner(config, executor)
-    print(f'{_bold("heard")}   {text}')
     turn = planner.think(text)
     for action in turn.actions:
         print(f'{_bold("action")}  {action}')
@@ -59,7 +75,30 @@ def cmd_say(args, config) -> int:
     return 0 if not turn.error else 1
 
 
+def _get_local_engine_cfg(config) -> dict:
+    """Read [local] section from config.toml without touching Config dataclass."""
+    try:
+        if sys.version_info >= (3, 11):
+            import tomllib
+        else:
+            try:
+                import tomllib  # type: ignore[no-redef]
+            except ImportError:
+                import tomli as tomllib  # type: ignore[no-redef]
+        cfg_file = cfg.CONFIG_DIR / "config.toml"
+        if cfg_file.exists():
+            with cfg_file.open("rb") as fh:
+                return tomllib.load(fh).get("local", {})
+    except Exception:
+        pass
+    return {}
+
+
 def cmd_run(args, config) -> int:
+    local_cfg = _get_local_engine_cfg(config)
+    if local_cfg.get("engine") == "local":
+        from . import local_engine
+        return local_engine.run(config)
     return realtime_mod.run(config)
 
 
@@ -201,6 +240,41 @@ def cmd_log(args, config) -> int:
     return 0
 
 
+def cmd_mobile(args, config) -> int:
+    """Start the LAN HTTPS remote-control bridge (for phone/tablet)."""
+    from . import mobile_bridge
+    return mobile_bridge.run(config, port=args.port)
+
+
+def cmd_settings(args, config) -> int:
+    """View and configure AI providers via GUI."""
+    import webbrowser
+    from .local_engine import get_provider_status
+
+    status = get_provider_status(config)
+    prov = status["provider"]
+    model = status["model"]
+    key_set = status["api_key_set"]
+    masked = status["api_key_masked"]
+
+    print(_bold("Oma AI Provider & Settings\n"))
+    print(f"  Active Provider: {_bold(prov.upper())}")
+    print(f"  Active Model:    {model}")
+    print(f"  API Key:         {'Configured (' + masked + ')' if key_set else 'Not configured'}")
+    print(f"  STT Backend:     {status['stt']}")
+
+    url = "http://127.0.0.1:8765#settings"
+    print(f"\nOpening Oma Settings GUI in your browser...")
+    try:
+        webbrowser.open(url)
+        print(f"Opened: {url}")
+        print("Tip: You can also tap ⚙️ on Oma Remote from your mobile phone!")
+    except Exception as exc:
+        print(f"Could not open browser automatically: {exc}")
+        print(f"Open {url} in your browser.")
+    return 0
+
+
 # --- parser -----------------------------------------------------------------
 
 def build_parser() -> argparse.ArgumentParser:
@@ -247,6 +321,13 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument("-n", "--lines", type=int, default=40)
     p.add_argument("-f", "--follow", action="store_true")
     p.set_defaults(func=cmd_log)
+
+    p = sub.add_parser("mobile", help="start the LAN remote-control bridge for phone/tablet")
+    p.add_argument("--port", type=int, default=8765, help="LAN port (default 8765)")
+    p.set_defaults(func=cmd_mobile)
+
+    p = sub.add_parser("settings", help="view and configure AI providers via GUI")
+    p.set_defaults(func=cmd_settings)
 
     return parser
 

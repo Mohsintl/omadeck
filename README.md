@@ -116,8 +116,39 @@ omarchy-voice listen toggle           # what the keybinding calls
 omarchy-voice listen confirm          # local confirm of a held action
 omarchy-voice listen cancel
 omarchy-voice status --json           # for the bar
+omarchy-voice mobile                  # start LAN remote control on port 8765
+omarchy-voice settings                # open interactive GUI to select provider & set API keys
 omarchy-voice log -f
 ```
+
+## Oma Remote (Mobile & Tablet Control)
+
+Control your desktop directly from your phone (iOS or Android) across your local Wi-Fi:
+
+```bash
+omarchy-voice mobile                  # start bridge on default port 8765
+omarchy-voice mobile --port 9000
+```
+
+Open `http://<your-lan-ip>:8765` on your phone (e.g. in Safari or Chrome):
+
+- **⚙️ Interactive GUI Settings**: Tap **⚙️** in the top bar (or run `omarchy-voice settings` on your PC) to open two panes: **API Keys** (LLM provider, model, and a separate speech-to-text key so voice can use Groq or OpenAI Whisper independently) and **Theme** (Midnight, plus the hacker-flavoured **Phosphor** green CRT and **Amber** terminal palettes, remembered per device). Click **"Test & Save Keys"** to verify the LLM connection live before saving — an STT key is still saved even if that test fails.
+- **Zero-Scroll Touch Deck**: Calibrated to fit completely within mobile viewports (such as iPhone 16 Pro Max) with quick category filtering (`All`, `Media`, `Browser`, `Window`, `System`).
+- **Direct PC Typing**: Tap **⌨️ Direct PC Typing** to use your phone's keyboard (and iOS dictation) to type directly into whatever window, address bar, or terminal is active on your laptop, with hardware auxiliary keys (`⏎ Enter`, `⌫ Del`, `Tab ⇥`, `📋 Paste`, `Esc`).
+- **Touch Gestures & Quick Actions**: Swipe gestures directly on the remote control deck scroll the active PC page. Instant hardware control for workspaces, media playback, tabs, windows, brightness, volume, and desktop launchers.
+- **Voice from Phone**: Tap and hold the mic to transcribe and execute spoken desktop commands or dictate text directly into PC inputs.
+- **Security**: Protected with an auto-generated authorization token and optional 4-digit PIN lock (`[local] pin = "1234"`).
+- **Background Service**: Auto-start on boot via `systemctl --user enable --now omarchy-voice-mobile.service`.
+
+## Multi-Provider & Local Engine Alternative
+
+Works with ANY AI provider (Groq, OpenAI, OpenRouter, DeepSeek, Mistral, NVIDIA NIM, Ollama) — configure via GUI (⚙️) or in `~/.config/omarchy-voice/config.toml`:
+
+- **Universal Cloud Providers**: Ultra-low latency voice responses with **Groq** (500+ tok/s with Llama-3.3-70b), **OpenRouter**, **DeepSeek**, or **OpenAI**.
+- **100% Offline with Ollama**: Fully local offline planner with `qwen2.5:7b` or `llama3.2:3b`.
+- **Speech-to-Text Flexibility**: Local speech transcription via `faster-whisper` (`base.en`), with automatic fallback to cloud Whisper (Groq/OpenAI) for instant execution.
+- **Fast Deterministic Actions**: Common navigation (workspaces, volume, tabs, media, window management) executes instantly in milliseconds without LLM overhead.
+
 
 `--dry-run` still runs read-only queries (`hypr_query`) so the planner can
 see live windows; it only narrates the actions that would change the desktop.

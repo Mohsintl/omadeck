@@ -1,0 +1,27 @@
+[Unit]
+Description=omarchy-voice — phone/LAN remote-control bridge
+Documentation=https://omarchy.org
+PartOf=graphical-session.target
+After=graphical-session.target
+# The bridge is useful without the voice daemon: the page still loads and
+# reports "not running". It is more useful with it, so try to keep both up.
+Wants=omarchy-voice.service
+
+[Service]
+Type=simple
+ExecStart=%h/.local/share/omarchy-voice/bin/omarchy-voice mobile
+# Same key file as the daemon: `omarchy-voice mobile` from a terminal cannot
+# see a key exported in your shell once it is started by systemd.
+EnvironmentFile=-%h/.config/omarchy-voice/env
+Restart=on-failure
+RestartSec=3
+PrivateTmp=true
+ProtectSystem=strict
+ProtectKernelTunables=true
+ProtectKernelModules=true
+ProtectControlGroups=true
+RestrictSUIDSGID=true
+NoNewPrivileges=true
+
+[Install]
+WantedBy=graphical-session.target

@@ -7,7 +7,9 @@ PREFIX="${PREFIX:-$HOME/.local/share/omarchy-voice}"
 BINDIR="${BINDIR:-$HOME/.local/bin}"
 
 systemctl --user disable --now omarchy-voice.service 2>/dev/null || true
+systemctl --user disable --now omarchy-voice-mobile.service 2>/dev/null || true
 rm -f "$HOME/.config/systemd/user/omarchy-voice.service"
+rm -f "$HOME/.config/systemd/user/omarchy-voice-mobile.service"
 systemctl --user daemon-reload 2>/dev/null || true
 rm -rf "$PREFIX" "$HOME/.config/omarchy/plugins/voice.indicator"
 rm -f "$BINDIR/omarchy-voice"

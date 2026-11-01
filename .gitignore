@@ -12,3 +12,7 @@ __pycache__/
 # Backups the installer/uninstaller leave behind
 *.bak-voice
 *.bak-voice-uninstall
+
+# Local agent & skill workspaces
+.gemini/
+.agents/

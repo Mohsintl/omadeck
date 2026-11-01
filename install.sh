@@ -141,6 +141,17 @@ if ask "install the systemd user service (starts with your session)?"; then
   echo "   enabled. Start it now with: systemctl --user start omarchy-voice"
 fi
 
+# The phone bridge is a separate long-running process: it has to stay up even
+# while the daemon is off, and restarting one should not restart the other.
+if ask "also serve the phone/LAN page (systemd user service on port 8765)?"; then
+  mkdir -p "$UNITDIR"
+  cp "$SOURCE/share/omarchy-voice-mobile.service" "$UNITDIR/"
+  systemctl --user daemon-reload
+  systemctl --user enable --now omarchy-voice-mobile.service
+  echo "   running. Open the printed URL in your phone's browser:"
+  echo "   omarchy-voice mobile --help, or: systemctl --user status omarchy-voice-mobile"
+fi
+
 # --- keybindings -----------------------------------------------------------
 echo
 step "keybindings"

@@ -1167,6 +1167,16 @@ def normalise_omarchy(command: str) -> tuple[list[str], str | None]:
             f"{', '.join(placeholders)} is a placeholder from the command signature, "
             "not a value. Replace it with a real one — a window pattern is a short "
             'word matching the window, e.g. "x" for x.com.')
+    if argv and argv[0] in ("brightness", "backlight"):
+        args = argv[1:]
+        if args and args[0] in ("set", "display"):
+            args = args[1:]
+        if args and args[0].rstrip("%").isdigit():
+            val = args[0].rstrip("%")
+            argv = ["brightness", "display", f"{val}%"]
+        elif args and (args[0].startswith("+") or args[0].endswith("-")):
+            val = args[0] if "%" in args[0] else f"{args[0]}%"
+            argv = ["brightness", "display", val]
     if error := _misused_launch_browser(argv):
         return argv, error
     return argv, None
