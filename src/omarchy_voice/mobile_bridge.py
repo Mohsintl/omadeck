@@ -800,12 +800,14 @@ _PWA_HTML = r"""<!DOCTYPE html>
   .mode-bar {
     width: 100%;
     display: flex;
-    gap: 4px;
+    align-items: center;
+    gap: 6px;
     height: 34px;
     flex-shrink: 0;
   }
   .mode-pill {
     flex: 1;
+    height: 100%;
     background: var(--surface);
     border: 1px solid var(--border);
     border-radius: var(--radius-sm);
@@ -822,6 +824,15 @@ _PWA_HTML = r"""<!DOCTYPE html>
     justify-content: center;
     gap: 5px;
     -webkit-tap-highlight-color: transparent;
+  }
+  .mode-sep {
+    font-size: 0.68rem;
+    font-weight: 600;
+    color: var(--text-muted);
+    opacity: 0.65;
+    user-select: none;
+    letter-spacing: 0.02em;
+    flex-shrink: 0;
   }
   .mode-pill:hover { color: var(--text); }
   .mode-pill.active {
@@ -1659,6 +1670,7 @@ _PWA_HTML = r"""<!DOCTYPE html>
           <svg class="icon-svg" style="width:13px;height:13px;" viewBox="0 0 24 24"><polyline points="4 17 10 11 4 5"></polyline><line x1="12" y1="19" x2="20" y2="19"></line></svg>
           <span>Command</span>
         </button>
+        <span class="mode-sep">(or)</span>
         <button class="mode-pill" id="mode-type">
           <svg class="icon-svg" style="width:13px;height:13px;" viewBox="0 0 24 24"><rect x="2" y="4" width="20" height="16" rx="2"></rect><line x1="6" y1="8" x2="6" y2="8"></line><line x1="10" y1="8" x2="10" y2="8"></line><line x1="14" y1="8" x2="14" y2="8"></line><line x1="18" y1="8" x2="18" y2="8"></line><line x1="6" y1="12" x2="6" y2="12"></line><line x1="10" y1="12" x2="10" y2="12"></line><line x1="14" y1="12" x2="14" y2="12"></line><line x1="18" y1="12" x2="18" y2="12"></line><line x1="7" y1="16" x2="17" y2="16"></line></svg>
           <span>Direct Type</span>
