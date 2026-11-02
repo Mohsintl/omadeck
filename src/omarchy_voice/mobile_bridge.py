@@ -284,20 +284,34 @@ def _decode_to_pcm(audio_bytes: bytes) -> bytes:
 # daemon state reader
 # ---------------------------------------------------------------------------
 
+
+def _get_current_desktop_theme() -> str:
+    """Read the active Omarchy desktop theme name, slugified."""
+    try:
+        res = subprocess.run(["omarchy", "theme", "current"], capture_output=True, text=True, timeout=1.5)
+        if res.returncode == 0 and res.stdout.strip():
+            slug = res.stdout.strip().lower().replace(" ", "-")
+            return slug
+    except Exception:
+        pass
+    return "gruvbox"
+
 def _read_state() -> dict:
     # With the daemon down the state file is stale — last time it said
     # "OPENAI_API_KEY is not set" and stayed that way on every page load.
     # The phone bridge works on its own now, so say what is actually true.
     if not daemon_running():
-        return {"status": "idle", "icon": "󰍭",
-                "text": "daemon off — text and mic from the phone still work",
-                "class": "idle"}
+        d = {"status": "idle", "icon": "󰍭", "text": "daemon off — text and mic from the phone still work", "class": "idle"}
+        d["desktop_theme"] = _get_current_desktop_theme()
+        return d
     try:
         if STATE_FILE.exists():
-            return json.loads(STATE_FILE.read_text())
+            d = json.loads(STATE_FILE.read_text())
+            d["desktop_theme"] = _get_current_desktop_theme()
+            return d
     except Exception:
         pass
-    return {"status": "unknown", "text": "", "icon": ""}
+    return {"status": "unknown", "text": "", "icon": "", "desktop_theme": _get_current_desktop_theme()}
 
 
 # ---------------------------------------------------------------------------
@@ -1358,6 +1372,1010 @@ _PWA_HTML = r"""<!DOCTYPE html>
     --btn-fg: #1a1203;
   }
 
+  :root[data-theme="gruvbox"] {
+    --bg: #1e1e1e;
+    --chassis: #161616;
+    --surface: #282828;
+    --surface-hover: #3c3836;
+    --surface-active: #3c3836;
+    --deck-key: #282828;
+    --deck-key-hover: #3c3836;
+    --deck-key-active: #161616;
+    --border: #665c5444;
+    --border-subtle: #665c5422;
+    --border-highlight: #7daea355;
+    --text: #d4be98;
+    --text-muted: #665c54;
+    --text-dim: #7c6f64;
+    --accent: #7daea3;
+    --accent-fg: #161616;
+    --status-ok: #a9b665;
+    --status-warn: #d8a657;
+    --status-danger: #ea6962;
+    --status-info: #7daea3;
+    --key-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.08), 0 2px 4px rgba(0, 0, 0, 0.45);
+    --key-shadow-active: inset 0 2px 5px rgba(0, 0, 0, 0.85);
+    --selection-bg: #504945;
+    --scroll-thumb: #665c5466;
+    --scroll-thumb-hover: #665c54aa;
+    --tag-bg: #3c3836;
+    --reply-text: #d4be98;
+    --profile-bar-bg: #161616;
+    --active-bg: #3c3836;
+    --active-border: #7daea388;
+    --input-bg: #1e1e1e;
+    --input-border: #665c5444;
+    --input-focus: #7daea3;
+    --placeholder: #7c6f64;
+    --action-bg: #3c3836;
+    --action-border: #665c5466;
+    --action-hover: #7daea333;
+    --action-hover-border: #7daea3;
+    --mic-bg: #3c3836;
+    --mic-border: #665c5466;
+    --msg-you-bg: #3c3836;
+    --msg-you-border: #665c5466;
+    --msg-oma-bg: #282828;
+    --btn-bg: #7daea3;
+    --btn-fg: #161616;
+  }
+  .theme-swatch-gruvbox { background: #1e1e1e; }
+  .theme-swatch-gruvbox .theme-swatch-bar { background: #7daea3; }
+  .theme-swatch-gruvbox i { background: #282828; border: 1px solid #665c5455; }
+  :root[data-theme="catppuccin"] {
+    --bg: #161622;
+    --chassis: #101019;
+    --surface: #1e1e2e;
+    --surface-hover: #313244;
+    --surface-active: #313244;
+    --deck-key: #1e1e2e;
+    --deck-key-hover: #313244;
+    --deck-key-active: #101019;
+    --border: #585b7044;
+    --border-subtle: #585b7022;
+    --border-highlight: #89b4fa55;
+    --text: #cdd6f4;
+    --text-muted: #585b70;
+    --text-dim: #6c7086;
+    --accent: #89b4fa;
+    --accent-fg: #101019;
+    --status-ok: #a6e3a1;
+    --status-warn: #f9e2af;
+    --status-danger: #f38ba8;
+    --status-info: #89b4fa;
+    --key-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.08), 0 2px 4px rgba(0, 0, 0, 0.45);
+    --key-shadow-active: inset 0 2px 5px rgba(0, 0, 0, 0.85);
+    --selection-bg: #45475a;
+    --scroll-thumb: #585b7066;
+    --scroll-thumb-hover: #585b70aa;
+    --tag-bg: #313244;
+    --reply-text: #cdd6f4;
+    --profile-bar-bg: #101019;
+    --active-bg: #313244;
+    --active-border: #89b4fa88;
+    --input-bg: #161622;
+    --input-border: #585b7044;
+    --input-focus: #89b4fa;
+    --placeholder: #6c7086;
+    --action-bg: #313244;
+    --action-border: #585b7066;
+    --action-hover: #89b4fa33;
+    --action-hover-border: #89b4fa;
+    --mic-bg: #313244;
+    --mic-border: #585b7066;
+    --msg-you-bg: #313244;
+    --msg-you-border: #585b7066;
+    --msg-oma-bg: #1e1e2e;
+    --btn-bg: #89b4fa;
+    --btn-fg: #101019;
+  }
+  .theme-swatch-catppuccin { background: #161622; }
+  .theme-swatch-catppuccin .theme-swatch-bar { background: #89b4fa; }
+  .theme-swatch-catppuccin i { background: #1e1e2e; border: 1px solid #585b7055; }
+  :root[data-theme="tokyo-night"] {
+    --bg: #13141c;
+    --chassis: #0e0e14;
+    --surface: #1a1b26;
+    --surface-hover: #24283b;
+    --surface-active: #24283b;
+    --deck-key: #1a1b26;
+    --deck-key-hover: #24283b;
+    --deck-key-active: #0e0e14;
+    --border: #41486844;
+    --border-subtle: #41486822;
+    --border-highlight: #7aa2f755;
+    --text: #a9b1d6;
+    --text-muted: #414868;
+    --text-dim: #565f89;
+    --accent: #7aa2f7;
+    --accent-fg: #0e0e14;
+    --status-ok: #9ece6a;
+    --status-warn: #e0af68;
+    --status-danger: #f7768e;
+    --status-info: #7aa2f7;
+    --key-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.08), 0 2px 4px rgba(0, 0, 0, 0.45);
+    --key-shadow-active: inset 0 2px 5px rgba(0, 0, 0, 0.85);
+    --selection-bg: #292e42;
+    --scroll-thumb: #41486866;
+    --scroll-thumb-hover: #414868aa;
+    --tag-bg: #24283b;
+    --reply-text: #a9b1d6;
+    --profile-bar-bg: #0e0e14;
+    --active-bg: #24283b;
+    --active-border: #7aa2f788;
+    --input-bg: #13141c;
+    --input-border: #41486844;
+    --input-focus: #7aa2f7;
+    --placeholder: #565f89;
+    --action-bg: #24283b;
+    --action-border: #41486866;
+    --action-hover: #7aa2f733;
+    --action-hover-border: #7aa2f7;
+    --mic-bg: #24283b;
+    --mic-border: #41486866;
+    --msg-you-bg: #24283b;
+    --msg-you-border: #41486866;
+    --msg-oma-bg: #1a1b26;
+    --btn-bg: #7aa2f7;
+    --btn-fg: #0e0e14;
+  }
+  .theme-swatch-tokyo-night { background: #13141c; }
+  .theme-swatch-tokyo-night .theme-swatch-bar { background: #7aa2f7; }
+  .theme-swatch-tokyo-night i { background: #1a1b26; border: 1px solid #41486855; }
+  :root[data-theme="nord"] {
+    --bg: #222730;
+    --chassis: #191c23;
+    --surface: #2e3440;
+    --surface-hover: #3b4252;
+    --surface-active: #3b4252;
+    --deck-key: #2e3440;
+    --deck-key-hover: #3b4252;
+    --deck-key-active: #191c23;
+    --border: #4c566a44;
+    --border-subtle: #4c566a22;
+    --border-highlight: #81a1c155;
+    --text: #d8dee9;
+    --text-muted: #4c566a;
+    --text-dim: #667080;
+    --accent: #81a1c1;
+    --accent-fg: #191c23;
+    --status-ok: #a3be8c;
+    --status-warn: #ebcb8b;
+    --status-danger: #bf616a;
+    --status-info: #81a1c1;
+    --key-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.08), 0 2px 4px rgba(0, 0, 0, 0.45);
+    --key-shadow-active: inset 0 2px 5px rgba(0, 0, 0, 0.85);
+    --selection-bg: #434c5e;
+    --scroll-thumb: #4c566a66;
+    --scroll-thumb-hover: #4c566aaa;
+    --tag-bg: #3b4252;
+    --reply-text: #d8dee9;
+    --profile-bar-bg: #191c23;
+    --active-bg: #3b4252;
+    --active-border: #81a1c188;
+    --input-bg: #222730;
+    --input-border: #4c566a44;
+    --input-focus: #81a1c1;
+    --placeholder: #667080;
+    --action-bg: #3b4252;
+    --action-border: #4c566a66;
+    --action-hover: #81a1c133;
+    --action-hover-border: #81a1c1;
+    --mic-bg: #3b4252;
+    --mic-border: #4c566a66;
+    --msg-you-bg: #3b4252;
+    --msg-you-border: #4c566a66;
+    --msg-oma-bg: #2e3440;
+    --btn-bg: #81a1c1;
+    --btn-fg: #191c23;
+  }
+  .theme-swatch-nord { background: #222730; }
+  .theme-swatch-nord .theme-swatch-bar { background: #81a1c1; }
+  .theme-swatch-nord i { background: #2e3440; border: 1px solid #4c566a55; }
+  :root[data-theme="everforest"] {
+    --bg: #21272c;
+    --chassis: #181d20;
+    --surface: #2d353b;
+    --surface-hover: #343f44;
+    --surface-active: #343f44;
+    --deck-key: #2d353b;
+    --deck-key-hover: #343f44;
+    --deck-key-active: #181d20;
+    --border: #47525844;
+    --border-subtle: #47525822;
+    --border-highlight: #7fbbb355;
+    --text: #d3c6aa;
+    --text-muted: #475258;
+    --text-dim: #4f585e;
+    --accent: #7fbbb3;
+    --accent-fg: #181d20;
+    --status-ok: #a7c080;
+    --status-warn: #dbbc7f;
+    --status-danger: #e67e80;
+    --status-info: #7fbbb3;
+    --key-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.08), 0 2px 4px rgba(0, 0, 0, 0.45);
+    --key-shadow-active: inset 0 2px 5px rgba(0, 0, 0, 0.85);
+    --selection-bg: #3d484d;
+    --scroll-thumb: #47525866;
+    --scroll-thumb-hover: #475258aa;
+    --tag-bg: #343f44;
+    --reply-text: #d3c6aa;
+    --profile-bar-bg: #181d20;
+    --active-bg: #343f44;
+    --active-border: #7fbbb388;
+    --input-bg: #21272c;
+    --input-border: #47525844;
+    --input-focus: #7fbbb3;
+    --placeholder: #4f585e;
+    --action-bg: #343f44;
+    --action-border: #47525866;
+    --action-hover: #7fbbb333;
+    --action-hover-border: #7fbbb3;
+    --mic-bg: #343f44;
+    --mic-border: #47525866;
+    --msg-you-bg: #343f44;
+    --msg-you-border: #47525866;
+    --msg-oma-bg: #2d353b;
+    --btn-bg: #7fbbb3;
+    --btn-fg: #181d20;
+  }
+  .theme-swatch-everforest { background: #21272c; }
+  .theme-swatch-everforest .theme-swatch-bar { background: #7fbbb3; }
+  .theme-swatch-everforest i { background: #2d353b; border: 1px solid #47525855; }
+  :root[data-theme="kanagawa"] {
+    --bg: #17171e;
+    --chassis: #111116;
+    --surface: #1f1f28;
+    --surface-hover: #223249;
+    --surface-active: #223249;
+    --deck-key: #1f1f28;
+    --deck-key-hover: #223249;
+    --deck-key-active: #111116;
+    --border: #54546D44;
+    --border-subtle: #54546D22;
+    --border-highlight: #dcd7ba55;
+    --text: #dcd7ba;
+    --text-muted: #54546D;
+    --text-dim: #727169;
+    --accent: #dcd7ba;
+    --accent-fg: #111116;
+    --status-ok: #76946a;
+    --status-warn: #c0a36e;
+    --status-danger: #c34043;
+    --status-info: #7e9cd8;
+    --key-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.08), 0 2px 4px rgba(0, 0, 0, 0.45);
+    --key-shadow-active: inset 0 2px 5px rgba(0, 0, 0, 0.85);
+    --selection-bg: #363646;
+    --scroll-thumb: #54546D66;
+    --scroll-thumb-hover: #54546Daa;
+    --tag-bg: #223249;
+    --reply-text: #dcd7ba;
+    --profile-bar-bg: #111116;
+    --active-bg: #223249;
+    --active-border: #dcd7ba88;
+    --input-bg: #17171e;
+    --input-border: #54546D44;
+    --input-focus: #dcd7ba;
+    --placeholder: #727169;
+    --action-bg: #223249;
+    --action-border: #54546D66;
+    --action-hover: #dcd7ba33;
+    --action-hover-border: #dcd7ba;
+    --mic-bg: #223249;
+    --mic-border: #54546D66;
+    --msg-you-bg: #223249;
+    --msg-you-border: #54546D66;
+    --msg-oma-bg: #1f1f28;
+    --btn-bg: #dcd7ba;
+    --btn-fg: #111116;
+  }
+  .theme-swatch-kanagawa { background: #17171e; }
+  .theme-swatch-kanagawa .theme-swatch-bar { background: #dcd7ba; }
+  .theme-swatch-kanagawa i { background: #1f1f28; border: 1px solid #54546D55; }
+  :root[data-theme="rose-pine"] {
+    --bg: #ede7e1;
+    --chassis: #e1dbd5;
+    --surface: #faf4ed;
+    --surface-hover: #f2e9e1;
+    --surface-active: #f2e9e1;
+    --deck-key: #faf4ed;
+    --deck-key-hover: #f2e9e1;
+    --deck-key-active: #e1dbd5;
+    --border: #cecacd44;
+    --border-subtle: #cecacd22;
+    --border-highlight: #56949f55;
+    --text: #575279;
+    --text-muted: #cecacd;
+    --text-dim: #9893a5;
+    --accent: #56949f;
+    --accent-fg: #e1dbd5;
+    --status-ok: #286983;
+    --status-warn: #ea9d34;
+    --status-danger: #b4637a;
+    --status-info: #56949f;
+    --key-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.08), 0 2px 4px rgba(0, 0, 0, 0.45);
+    --key-shadow-active: inset 0 2px 5px rgba(0, 0, 0, 0.85);
+    --selection-bg: #dfdad9;
+    --scroll-thumb: #cecacd66;
+    --scroll-thumb-hover: #cecacdaa;
+    --tag-bg: #f2e9e1;
+    --reply-text: #575279;
+    --profile-bar-bg: #e1dbd5;
+    --active-bg: #f2e9e1;
+    --active-border: #56949f88;
+    --input-bg: #ede7e1;
+    --input-border: #cecacd44;
+    --input-focus: #56949f;
+    --placeholder: #9893a5;
+    --action-bg: #f2e9e1;
+    --action-border: #cecacd66;
+    --action-hover: #56949f33;
+    --action-hover-border: #56949f;
+    --mic-bg: #f2e9e1;
+    --mic-border: #cecacd66;
+    --msg-you-bg: #f2e9e1;
+    --msg-you-border: #cecacd66;
+    --msg-oma-bg: #faf4ed;
+    --btn-bg: #56949f;
+    --btn-fg: #e1dbd5;
+  }
+  .theme-swatch-rose-pine { background: #ede7e1; }
+  .theme-swatch-rose-pine .theme-swatch-bar { background: #56949f; }
+  .theme-swatch-rose-pine i { background: #faf4ed; border: 1px solid #cecacd55; }
+  :root[data-theme="hackerman"] {
+    --bg: #080910;
+    --chassis: #06060c;
+    --surface: #0B0C16;
+    --surface-hover: #151828;
+    --surface-active: #151828;
+    --deck-key: #0B0C16;
+    --deck-key-hover: #151828;
+    --deck-key-active: #06060c;
+    --border: #2d345044;
+    --border-subtle: #2d345022;
+    --border-highlight: #82FB9C55;
+    --text: #ddf7ff;
+    --text-muted: #2d3450;
+    --text-dim: #6a6e95;
+    --accent: #82FB9C;
+    --accent-fg: #06060c;
+    --status-ok: #4fe88f;
+    --status-warn: #50f7d4;
+    --status-danger: #50f872;
+    --status-info: #829dd4;
+    --key-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.08), 0 2px 4px rgba(0, 0, 0, 0.45);
+    --key-shadow-active: inset 0 2px 5px rgba(0, 0, 0, 0.85);
+    --selection-bg: #1f253a;
+    --scroll-thumb: #2d345066;
+    --scroll-thumb-hover: #2d3450aa;
+    --tag-bg: #151828;
+    --reply-text: #ddf7ff;
+    --profile-bar-bg: #06060c;
+    --active-bg: #151828;
+    --active-border: #82FB9C88;
+    --input-bg: #080910;
+    --input-border: #2d345044;
+    --input-focus: #82FB9C;
+    --placeholder: #6a6e95;
+    --action-bg: #151828;
+    --action-border: #2d345066;
+    --action-hover: #82FB9C33;
+    --action-hover-border: #82FB9C;
+    --mic-bg: #151828;
+    --mic-border: #2d345066;
+    --msg-you-bg: #151828;
+    --msg-you-border: #2d345066;
+    --msg-oma-bg: #0B0C16;
+    --btn-bg: #82FB9C;
+    --btn-fg: #06060c;
+  }
+  .theme-swatch-hackerman { background: #080910; }
+  .theme-swatch-hackerman .theme-swatch-bar { background: #82FB9C; }
+  .theme-swatch-hackerman i { background: #0B0C16; border: 1px solid #2d345055; }
+  :root[data-theme="matte-black"] {
+    --bg: #0d0d0d;
+    --chassis: #090909;
+    --surface: #121212;
+    --surface-hover: #1e1e1e;
+    --surface-active: #1e1e1e;
+    --deck-key: #121212;
+    --deck-key-hover: #1e1e1e;
+    --deck-key-active: #090909;
+    --border: #33333344;
+    --border-subtle: #33333322;
+    --border-highlight: #e68e0d55;
+    --text: #bebebe;
+    --text-muted: #333333;
+    --text-dim: #555555;
+    --accent: #e68e0d;
+    --accent-fg: #090909;
+    --status-ok: #FFC107;
+    --status-warn: #b91c1c;
+    --status-danger: #D35F5F;
+    --status-info: #e68e0d;
+    --key-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.08), 0 2px 4px rgba(0, 0, 0, 0.45);
+    --key-shadow-active: inset 0 2px 5px rgba(0, 0, 0, 0.85);
+    --selection-bg: #2a2a2a;
+    --scroll-thumb: #33333366;
+    --scroll-thumb-hover: #333333aa;
+    --tag-bg: #1e1e1e;
+    --reply-text: #bebebe;
+    --profile-bar-bg: #090909;
+    --active-bg: #1e1e1e;
+    --active-border: #e68e0d88;
+    --input-bg: #0d0d0d;
+    --input-border: #33333344;
+    --input-focus: #e68e0d;
+    --placeholder: #555555;
+    --action-bg: #1e1e1e;
+    --action-border: #33333366;
+    --action-hover: #e68e0d33;
+    --action-hover-border: #e68e0d;
+    --mic-bg: #1e1e1e;
+    --mic-border: #33333366;
+    --msg-you-bg: #1e1e1e;
+    --msg-you-border: #33333366;
+    --msg-oma-bg: #121212;
+    --btn-bg: #e68e0d;
+    --btn-fg: #090909;
+  }
+  .theme-swatch-matte-black { background: #0d0d0d; }
+  .theme-swatch-matte-black .theme-swatch-bar { background: #e68e0d; }
+  .theme-swatch-matte-black i { background: #121212; border: 1px solid #33333355; }
+  :root[data-theme="osaka-jade"] {
+    --bg: #0c1512;
+    --chassis: #090f0d;
+    --surface: #111c18;
+    --surface-hover: #23372B;
+    --surface-active: #23372B;
+    --deck-key: #111c18;
+    --deck-key-hover: #23372B;
+    --deck-key-active: #090f0d;
+    --border: #53685B44;
+    --border-subtle: #53685B22;
+    --border-highlight: #50947555;
+    --text: #C1C497;
+    --text-muted: #53685B;
+    --text-dim: #81B8A8;
+    --accent: #509475;
+    --accent-fg: #090f0d;
+    --status-ok: #549e6a;
+    --status-warn: #459451;
+    --status-danger: #FF5345;
+    --status-info: #509475;
+    --key-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.08), 0 2px 4px rgba(0, 0, 0, 0.45);
+    --key-shadow-active: inset 0 2px 5px rgba(0, 0, 0, 0.85);
+    --selection-bg: #32473B;
+    --scroll-thumb: #53685B66;
+    --scroll-thumb-hover: #53685Baa;
+    --tag-bg: #23372B;
+    --reply-text: #C1C497;
+    --profile-bar-bg: #090f0d;
+    --active-bg: #23372B;
+    --active-border: #50947588;
+    --input-bg: #0c1512;
+    --input-border: #53685B44;
+    --input-focus: #509475;
+    --placeholder: #81B8A8;
+    --action-bg: #23372B;
+    --action-border: #53685B66;
+    --action-hover: #50947533;
+    --action-hover-border: #509475;
+    --mic-bg: #23372B;
+    --mic-border: #53685B66;
+    --msg-you-bg: #23372B;
+    --msg-you-border: #53685B66;
+    --msg-oma-bg: #111c18;
+    --btn-bg: #509475;
+    --btn-fg: #090f0d;
+  }
+  .theme-swatch-osaka-jade { background: #0c1512; }
+  .theme-swatch-osaka-jade .theme-swatch-bar { background: #509475; }
+  .theme-swatch-osaka-jade i { background: #111c18; border: 1px solid #53685B55; }
+  :root[data-theme="retro-82"] {
+    --bg: #031222;
+    --chassis: #020c17;
+    --surface: #05182e;
+    --surface-hover: #0a2540;
+    --surface-active: #0a2540;
+    --deck-key: #05182e;
+    --deck-key-hover: #0a2540;
+    --deck-key-active: #020c17;
+    --border: #2a6b7844;
+    --border-subtle: #2a6b7822;
+    --border-highlight: #faa96855;
+    --text: #f6dcac;
+    --text-muted: #2a6b78;
+    --text-dim: #3f8f8a;
+    --accent: #faa968;
+    --accent-fg: #020c17;
+    --status-ok: #028391;
+    --status-warn: #e97b3c;
+    --status-danger: #f85525;
+    --status-info: #3f8f8a;
+    --key-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.08), 0 2px 4px rgba(0, 0, 0, 0.45);
+    --key-shadow-active: inset 0 2px 5px rgba(0, 0, 0, 0.85);
+    --selection-bg: #134e5a;
+    --scroll-thumb: #2a6b7866;
+    --scroll-thumb-hover: #2a6b78aa;
+    --tag-bg: #0a2540;
+    --reply-text: #f6dcac;
+    --profile-bar-bg: #020c17;
+    --active-bg: #0a2540;
+    --active-border: #faa96888;
+    --input-bg: #031222;
+    --input-border: #2a6b7844;
+    --input-focus: #faa968;
+    --placeholder: #3f8f8a;
+    --action-bg: #0a2540;
+    --action-border: #2a6b7866;
+    --action-hover: #faa96833;
+    --action-hover-border: #faa968;
+    --mic-bg: #0a2540;
+    --mic-border: #2a6b7866;
+    --msg-you-bg: #0a2540;
+    --msg-you-border: #2a6b7866;
+    --msg-oma-bg: #05182e;
+    --btn-bg: #faa968;
+    --btn-fg: #020c17;
+  }
+  .theme-swatch-retro-82 { background: #031222; }
+  .theme-swatch-retro-82 .theme-swatch-bar { background: #faa968; }
+  .theme-swatch-retro-82 i { background: #05182e; border: 1px solid #2a6b7855; }
+  :root[data-theme="ristretto"] {
+    --bg: #211b1b;
+    --chassis: #181414;
+    --surface: #2c2525;
+    --surface-hover: #3d2f2a;
+    --surface-active: #3d2f2a;
+    --deck-key: #2c2525;
+    --deck-key-hover: #3d2f2a;
+    --deck-key-active: #181414;
+    --border: #72696a44;
+    --border-subtle: #72696a22;
+    --border-highlight: #f38d7055;
+    --text: #e6d9db;
+    --text-muted: #72696a;
+    --text-dim: #72696a;
+    --accent: #f38d70;
+    --accent-fg: #181414;
+    --status-ok: #adda78;
+    --status-warn: #f9cc6c;
+    --status-danger: #fd6883;
+    --status-info: #f38d70;
+    --key-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.08), 0 2px 4px rgba(0, 0, 0, 0.45);
+    --key-shadow-active: inset 0 2px 5px rgba(0, 0, 0, 0.85);
+    --selection-bg: #403e41;
+    --scroll-thumb: #72696a66;
+    --scroll-thumb-hover: #72696aaa;
+    --tag-bg: #3d2f2a;
+    --reply-text: #e6d9db;
+    --profile-bar-bg: #181414;
+    --active-bg: #3d2f2a;
+    --active-border: #f38d7088;
+    --input-bg: #211b1b;
+    --input-border: #72696a44;
+    --input-focus: #f38d70;
+    --placeholder: #72696a;
+    --action-bg: #3d2f2a;
+    --action-border: #72696a66;
+    --action-hover: #f38d7033;
+    --action-hover-border: #f38d70;
+    --mic-bg: #3d2f2a;
+    --mic-border: #72696a66;
+    --msg-you-bg: #3d2f2a;
+    --msg-you-border: #72696a66;
+    --msg-oma-bg: #2c2525;
+    --btn-bg: #f38d70;
+    --btn-fg: #181414;
+  }
+  .theme-swatch-ristretto { background: #211b1b; }
+  .theme-swatch-ristretto .theme-swatch-bar { background: #f38d70; }
+  .theme-swatch-ristretto i { background: #2c2525; border: 1px solid #72696a55; }
+  :root[data-theme="lumon"] {
+    --bg: #101b21;
+    --chassis: #0b1216;
+    --surface: #16242d;
+    --surface-hover: #1b2d40;
+    --surface-active: #1b2d40;
+    --deck-key: #16242d;
+    --deck-key-hover: #1b2d40;
+    --deck-key-active: #0b1216;
+    --border: #30486044;
+    --border-subtle: #30486022;
+    --border-highlight: #8bc9eb55;
+    --text: #d6e2ee;
+    --text-muted: #304860;
+    --text-dim: #4d86b0;
+    --accent: #8bc9eb;
+    --accent-fg: #0b1216;
+    --status-ok: #5e95bc;
+    --status-warn: #6fa4c9;
+    --status-danger: #4d86b0;
+    --status-info: #6fb8e3;
+    --key-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.08), 0 2px 4px rgba(0, 0, 0, 0.45);
+    --key-shadow-active: inset 0 2px 5px rgba(0, 0, 0, 0.85);
+    --selection-bg: #243d56;
+    --scroll-thumb: #30486066;
+    --scroll-thumb-hover: #304860aa;
+    --tag-bg: #1b2d40;
+    --reply-text: #d6e2ee;
+    --profile-bar-bg: #0b1216;
+    --active-bg: #1b2d40;
+    --active-border: #8bc9eb88;
+    --input-bg: #101b21;
+    --input-border: #30486044;
+    --input-focus: #8bc9eb;
+    --placeholder: #4d86b0;
+    --action-bg: #1b2d40;
+    --action-border: #30486066;
+    --action-hover: #8bc9eb33;
+    --action-hover-border: #8bc9eb;
+    --mic-bg: #1b2d40;
+    --mic-border: #30486066;
+    --msg-you-bg: #1b2d40;
+    --msg-you-border: #30486066;
+    --msg-oma-bg: #16242d;
+    --btn-bg: #8bc9eb;
+    --btn-fg: #0b1216;
+  }
+  .theme-swatch-lumon { background: #101b21; }
+  .theme-swatch-lumon .theme-swatch-bar { background: #8bc9eb; }
+  .theme-swatch-lumon i { background: #16242d; border: 1px solid #30486055; }
+  :root[data-theme="solitude"] {
+    --bg: #0c0e10;
+    --chassis: #080a0b;
+    --surface: #101315;
+    --surface-hover: #101315;
+    --surface-active: #101315;
+    --deck-key: #101315;
+    --deck-key-hover: #101315;
+    --deck-key-active: #080a0b;
+    --border: #4b4e5544;
+    --border-subtle: #4b4e5522;
+    --border-highlight: #79818655;
+    --text: #cacccc;
+    --text-muted: #4b4e55;
+    --text-dim: #4b4e55;
+    --accent: #798186;
+    --accent-fg: #080a0b;
+    --status-ok: #9fa5a9;
+    --status-warn: #d9dbdc;
+    --status-danger: #565d60;
+    --status-info: #798186;
+    --key-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.08), 0 2px 4px rgba(0, 0, 0, 0.45);
+    --key-shadow-active: inset 0 2px 5px rgba(0, 0, 0, 0.85);
+    --selection-bg: #343d41;
+    --scroll-thumb: #4b4e5566;
+    --scroll-thumb-hover: #4b4e55aa;
+    --tag-bg: #101315;
+    --reply-text: #cacccc;
+    --profile-bar-bg: #080a0b;
+    --active-bg: #101315;
+    --active-border: #79818688;
+    --input-bg: #0c0e10;
+    --input-border: #4b4e5544;
+    --input-focus: #798186;
+    --placeholder: #4b4e55;
+    --action-bg: #101315;
+    --action-border: #4b4e5566;
+    --action-hover: #79818633;
+    --action-hover-border: #798186;
+    --mic-bg: #101315;
+    --mic-border: #4b4e5566;
+    --msg-you-bg: #101315;
+    --msg-you-border: #4b4e5566;
+    --msg-oma-bg: #101315;
+    --btn-bg: #798186;
+    --btn-fg: #080a0b;
+  }
+  .theme-swatch-solitude { background: #0c0e10; }
+  .theme-swatch-solitude .theme-swatch-bar { background: #798186; }
+  .theme-swatch-solitude i { background: #101315; border: 1px solid #4b4e5555; }
+  :root[data-theme="vantablack"] {
+    --bg: #090909;
+    --chassis: #070707;
+    --surface: #000000;
+    --surface-hover: #1a1a1a;
+    --surface-active: #1a1a1a;
+    --deck-key: #000000;
+    --deck-key-hover: #1a1a1a;
+    --deck-key-active: #070707;
+    --border: #7a7a7a44;
+    --border-subtle: #7a7a7a22;
+    --border-highlight: #8d8d8d55;
+    --text: #ffffff;
+    --text-muted: #7a7a7a;
+    --text-dim: #505050;
+    --accent: #8d8d8d;
+    --accent-fg: #070707;
+    --status-ok: #b6b6b6;
+    --status-warn: #cecece;
+    --status-danger: #a4a4a4;
+    --status-info: #8d8d8d;
+    --key-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.08), 0 2px 4px rgba(0, 0, 0, 0.45);
+    --key-shadow-active: inset 0 2px 5px rgba(0, 0, 0, 0.85);
+    --selection-bg: #1a1a1a;
+    --scroll-thumb: #7a7a7a66;
+    --scroll-thumb-hover: #7a7a7aaa;
+    --tag-bg: #1a1a1a;
+    --reply-text: #ffffff;
+    --profile-bar-bg: #070707;
+    --active-bg: #1a1a1a;
+    --active-border: #8d8d8d88;
+    --input-bg: #090909;
+    --input-border: #7a7a7a44;
+    --input-focus: #8d8d8d;
+    --placeholder: #505050;
+    --action-bg: #1a1a1a;
+    --action-border: #7a7a7a66;
+    --action-hover: #8d8d8d33;
+    --action-hover-border: #8d8d8d;
+    --mic-bg: #1a1a1a;
+    --mic-border: #7a7a7a66;
+    --msg-you-bg: #1a1a1a;
+    --msg-you-border: #7a7a7a66;
+    --msg-oma-bg: #000000;
+    --btn-bg: #8d8d8d;
+    --btn-fg: #070707;
+  }
+  .theme-swatch-vantablack { background: #090909; }
+  .theme-swatch-vantablack .theme-swatch-bar { background: #8d8d8d; }
+  .theme-swatch-vantablack i { background: #000000; border: 1px solid #7a7a7a55; }
+  :root[data-theme="ethereal"] {
+    --bg: #040816;
+    --chassis: #030610;
+    --surface: #060B1E;
+    --surface-hover: #131a3a;
+    --surface-active: #131a3a;
+    --deck-key: #060B1E;
+    --deck-key-hover: #131a3a;
+    --deck-key-active: #030610;
+    --border: #6d7db644;
+    --border-subtle: #6d7db622;
+    --border-highlight: #7d82d955;
+    --text: #ffcead;
+    --text-muted: #6d7db6;
+    --text-dim: #6d7db6;
+    --accent: #7d82d9;
+    --accent-fg: #030610;
+    --status-ok: #92a593;
+    --status-warn: #E9BB4F;
+    --status-danger: #ED5B5A;
+    --status-info: #7d82d9;
+    --key-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.08), 0 2px 4px rgba(0, 0, 0, 0.45);
+    --key-shadow-active: inset 0 2px 5px rgba(0, 0, 0, 0.85);
+    --selection-bg: #252e56;
+    --scroll-thumb: #6d7db666;
+    --scroll-thumb-hover: #6d7db6aa;
+    --tag-bg: #131a3a;
+    --reply-text: #ffcead;
+    --profile-bar-bg: #030610;
+    --active-bg: #131a3a;
+    --active-border: #7d82d988;
+    --input-bg: #040816;
+    --input-border: #6d7db644;
+    --input-focus: #7d82d9;
+    --placeholder: #6d7db6;
+    --action-bg: #131a3a;
+    --action-border: #6d7db666;
+    --action-hover: #7d82d933;
+    --action-hover-border: #7d82d9;
+    --mic-bg: #131a3a;
+    --mic-border: #6d7db666;
+    --msg-you-bg: #131a3a;
+    --msg-you-border: #6d7db666;
+    --msg-oma-bg: #060B1E;
+    --btn-bg: #7d82d9;
+    --btn-fg: #030610;
+  }
+  .theme-swatch-ethereal { background: #040816; }
+  .theme-swatch-ethereal .theme-swatch-bar { background: #7d82d9; }
+  .theme-swatch-ethereal i { background: #060B1E; border: 1px solid #6d7db655; }
+  :root[data-theme="miasma"] {
+    --bg: #191919;
+    --chassis: #121212;
+    --surface: #222222;
+    --surface-hover: #2c2c2c;
+    --surface-active: #2c2c2c;
+    --deck-key: #222222;
+    --deck-key-hover: #2c2c2c;
+    --deck-key-active: #121212;
+    --border: #66666644;
+    --border-subtle: #66666622;
+    --border-highlight: #78824b55;
+    --text: #c2c2b0;
+    --text-muted: #666666;
+    --text-dim: #555555;
+    --accent: #78824b;
+    --accent-fg: #121212;
+    --status-ok: #5f875f;
+    --status-warn: #b36d43;
+    --status-danger: #685742;
+    --status-info: #78824b;
+    --key-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.08), 0 2px 4px rgba(0, 0, 0, 0.45);
+    --key-shadow-active: inset 0 2px 5px rgba(0, 0, 0, 0.85);
+    --selection-bg: #383838;
+    --scroll-thumb: #66666666;
+    --scroll-thumb-hover: #666666aa;
+    --tag-bg: #2c2c2c;
+    --reply-text: #c2c2b0;
+    --profile-bar-bg: #121212;
+    --active-bg: #2c2c2c;
+    --active-border: #78824b88;
+    --input-bg: #191919;
+    --input-border: #66666644;
+    --input-focus: #78824b;
+    --placeholder: #555555;
+    --action-bg: #2c2c2c;
+    --action-border: #66666666;
+    --action-hover: #78824b33;
+    --action-hover-border: #78824b;
+    --mic-bg: #2c2c2c;
+    --mic-border: #66666666;
+    --msg-you-bg: #2c2c2c;
+    --msg-you-border: #66666666;
+    --msg-oma-bg: #222222;
+    --btn-bg: #78824b;
+    --btn-fg: #121212;
+  }
+  .theme-swatch-miasma { background: #191919; }
+  .theme-swatch-miasma .theme-swatch-bar { background: #78824b; }
+  .theme-swatch-miasma i { background: #222222; border: 1px solid #66666655; }
+  :root[data-theme="last-horizon"] {
+    --bg: #090809;
+    --chassis: #060606;
+    --surface: #0c0b0c;
+    --surface-hover: #0c0b0c;
+    --surface-active: #0c0b0c;
+    --deck-key: #0c0b0c;
+    --deck-key-hover: #0c0b0c;
+    --deck-key-active: #060606;
+    --border: #584e5144;
+    --border-subtle: #584e5122;
+    --border-highlight: #b5979055;
+    --text: #FAFCFB;
+    --text-muted: #584e51;
+    --text-dim: #584e51;
+    --accent: #b59790;
+    --accent-fg: #060606;
+    --status-ok: #87a9b0;
+    --status-warn: #6B5E73;
+    --status-danger: #c38b7b;
+    --status-info: #b59790;
+    --key-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.08), 0 2px 4px rgba(0, 0, 0, 0.45);
+    --key-shadow-active: inset 0 2px 5px rgba(0, 0, 0, 0.85);
+    --selection-bg: #584e51;
+    --scroll-thumb: #584e5166;
+    --scroll-thumb-hover: #584e51aa;
+    --tag-bg: #0c0b0c;
+    --reply-text: #FAFCFB;
+    --profile-bar-bg: #060606;
+    --active-bg: #0c0b0c;
+    --active-border: #b5979088;
+    --input-bg: #090809;
+    --input-border: #584e5144;
+    --input-focus: #b59790;
+    --placeholder: #584e51;
+    --action-bg: #0c0b0c;
+    --action-border: #584e5166;
+    --action-hover: #b5979033;
+    --action-hover-border: #b59790;
+    --mic-bg: #0c0b0c;
+    --mic-border: #584e5166;
+    --msg-you-bg: #0c0b0c;
+    --msg-you-border: #584e5166;
+    --msg-oma-bg: #0c0b0c;
+    --btn-bg: #b59790;
+    --btn-fg: #060606;
+  }
+  .theme-swatch-last-horizon { background: #090809; }
+  .theme-swatch-last-horizon .theme-swatch-bar { background: #b59790; }
+  .theme-swatch-last-horizon i { background: #0c0b0c; border: 1px solid #584e5155; }
+  :root[data-theme="catppuccin-latte"] {
+    --bg: #e3e4e8;
+    --chassis: #d7d8dc;
+    --surface: #eff1f5;
+    --surface-hover: #dce0e8;
+    --surface-active: #dce0e8;
+    --deck-key: #eff1f5;
+    --deck-key-hover: #dce0e8;
+    --deck-key-active: #d7d8dc;
+    --border: #acb0be44;
+    --border-subtle: #acb0be22;
+    --border-highlight: #1e66f555;
+    --text: #4c4f69;
+    --text-muted: #acb0be;
+    --text-dim: #9ca0b0;
+    --accent: #1e66f5;
+    --accent-fg: #d7d8dc;
+    --status-ok: #40a02b;
+    --status-warn: #df8e1d;
+    --status-danger: #d20f39;
+    --status-info: #1e66f5;
+    --key-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.08), 0 2px 4px rgba(0, 0, 0, 0.45);
+    --key-shadow-active: inset 0 2px 5px rgba(0, 0, 0, 0.85);
+    --selection-bg: #ccd0da;
+    --scroll-thumb: #acb0be66;
+    --scroll-thumb-hover: #acb0beaa;
+    --tag-bg: #dce0e8;
+    --reply-text: #4c4f69;
+    --profile-bar-bg: #d7d8dc;
+    --active-bg: #dce0e8;
+    --active-border: #1e66f588;
+    --input-bg: #e3e4e8;
+    --input-border: #acb0be44;
+    --input-focus: #1e66f5;
+    --placeholder: #9ca0b0;
+    --action-bg: #dce0e8;
+    --action-border: #acb0be66;
+    --action-hover: #1e66f533;
+    --action-hover-border: #1e66f5;
+    --mic-bg: #dce0e8;
+    --mic-border: #acb0be66;
+    --msg-you-bg: #dce0e8;
+    --msg-you-border: #acb0be66;
+    --msg-oma-bg: #eff1f5;
+    --btn-bg: #1e66f5;
+    --btn-fg: #d7d8dc;
+  }
+  .theme-swatch-catppuccin-latte { background: #e3e4e8; }
+  .theme-swatch-catppuccin-latte .theme-swatch-bar { background: #1e66f5; }
+  .theme-swatch-catppuccin-latte i { background: #eff1f5; border: 1px solid #acb0be55; }
+  :root[data-theme="flexoki-light"] {
+    --bg: #f2efe4;
+    --chassis: #e5e2d8;
+    --surface: #FFFCF0;
+    --surface-hover: #E6E4D9;
+    --surface-active: #E6E4D9;
+    --deck-key: #FFFCF0;
+    --deck-key-hover: #E6E4D9;
+    --deck-key-active: #e5e2d8;
+    --border: #B7B5AC44;
+    --border-subtle: #B7B5AC22;
+    --border-highlight: #205EA655;
+    --text: #100F0F;
+    --text-muted: #B7B5AC;
+    --text-dim: #878580;
+    --accent: #205EA6;
+    --accent-fg: #e5e2d8;
+    --status-ok: #879A39;
+    --status-warn: #D0A215;
+    --status-danger: #D14D41;
+    --status-info: #205EA6;
+    --key-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.08), 0 2px 4px rgba(0, 0, 0, 0.45);
+    --key-shadow-active: inset 0 2px 5px rgba(0, 0, 0, 0.85);
+    --selection-bg: #CECDC3;
+    --scroll-thumb: #B7B5AC66;
+    --scroll-thumb-hover: #B7B5ACaa;
+    --tag-bg: #E6E4D9;
+    --reply-text: #100F0F;
+    --profile-bar-bg: #e5e2d8;
+    --active-bg: #E6E4D9;
+    --active-border: #205EA688;
+    --input-bg: #f2efe4;
+    --input-border: #B7B5AC44;
+    --input-focus: #205EA6;
+    --placeholder: #878580;
+    --action-bg: #E6E4D9;
+    --action-border: #B7B5AC66;
+    --action-hover: #205EA633;
+    --action-hover-border: #205EA6;
+    --mic-bg: #E6E4D9;
+    --mic-border: #B7B5AC66;
+    --msg-you-bg: #E6E4D9;
+    --msg-you-border: #B7B5AC66;
+    --msg-oma-bg: #FFFCF0;
+    --btn-bg: #205EA6;
+    --btn-fg: #e5e2d8;
+  }
+  .theme-swatch-flexoki-light { background: #f2efe4; }
+  .theme-swatch-flexoki-light .theme-swatch-bar { background: #205EA6; }
+  .theme-swatch-flexoki-light i { background: #FFFCF0; border: 1px solid #B7B5AC55; }
+  .theme-swatch-auto { background: linear-gradient(135deg, #1e1e1e 0%, #161622 50%, #222730 100%); }
+  .theme-swatch-auto .theme-swatch-bar { background: linear-gradient(90deg, #7daea3, #89b4fa, #81a1c1); }
+  .theme-swatch-auto i { background: #282828; border: 1px solid rgba(255, 255, 255, 0.15); }
+
   /* Settings tabs (API keys / Theme) */
   #settings-panel-keys, #settings-panel-theme {
     display: flex;
@@ -1609,6 +2627,15 @@ _PWA_HTML = r"""<!DOCTYPE html>
           <div class="setting-desc">Saved on this device only. Applies instantly.</div>
         </div>
         <div class="theme-grid" id="theme-grid">
+          <button class="theme-card" data-theme-choice="auto" title="Auto Sync — Matches Omarchy desktop theme live">
+            <div class="theme-swatch theme-swatch-auto">
+              <span class="theme-swatch-bar"></span>
+              <span class="theme-swatch-keys"><i></i><i></i><i></i></span>
+            </div>
+            <span class="theme-name">Auto (Desktop)</span>
+            <span class="theme-desc">Matches Omarchy desktop live</span>
+            <span class="theme-check"></span>
+          </button>
           <button class="theme-card active" data-theme-choice="midnight" title="Midnight — neutral dark">
             <div class="theme-swatch theme-swatch-midnight">
               <span class="theme-swatch-bar"></span>
@@ -1634,6 +2661,186 @@ _PWA_HTML = r"""<!DOCTYPE html>
             </div>
             <span class="theme-name">Amber</span>
             <span class="theme-desc">Warm monochrome terminal.</span>
+            <span class="theme-check"></span>
+          </button>
+          <button class="theme-card" data-theme-choice="gruvbox" title="Gruvbox — Warm retro groove palette">
+            <div class="theme-swatch theme-swatch-gruvbox">
+              <span class="theme-swatch-bar"></span>
+              <span class="theme-swatch-keys"><i></i><i></i><i></i></span>
+            </div>
+            <span class="theme-name">Gruvbox</span>
+            <span class="theme-desc">Warm retro groove palette</span>
+            <span class="theme-check"></span>
+          </button>
+          <button class="theme-card" data-theme-choice="catppuccin" title="Catppuccin — Soothing pastel dark">
+            <div class="theme-swatch theme-swatch-catppuccin">
+              <span class="theme-swatch-bar"></span>
+              <span class="theme-swatch-keys"><i></i><i></i><i></i></span>
+            </div>
+            <span class="theme-name">Catppuccin</span>
+            <span class="theme-desc">Soothing pastel dark</span>
+            <span class="theme-check"></span>
+          </button>
+          <button class="theme-card" data-theme-choice="tokyo-night" title="Tokyo Night — Vibrant neon cyberpunk night">
+            <div class="theme-swatch theme-swatch-tokyo-night">
+              <span class="theme-swatch-bar"></span>
+              <span class="theme-swatch-keys"><i></i><i></i><i></i></span>
+            </div>
+            <span class="theme-name">Tokyo Night</span>
+            <span class="theme-desc">Vibrant neon cyberpunk night</span>
+            <span class="theme-check"></span>
+          </button>
+          <button class="theme-card" data-theme-choice="nord" title="Nord — Arctic north-bluish clean">
+            <div class="theme-swatch theme-swatch-nord">
+              <span class="theme-swatch-bar"></span>
+              <span class="theme-swatch-keys"><i></i><i></i><i></i></span>
+            </div>
+            <span class="theme-name">Nord</span>
+            <span class="theme-desc">Arctic north-bluish clean</span>
+            <span class="theme-check"></span>
+          </button>
+          <button class="theme-card" data-theme-choice="everforest" title="Everforest — Comforting natural green forest">
+            <div class="theme-swatch theme-swatch-everforest">
+              <span class="theme-swatch-bar"></span>
+              <span class="theme-swatch-keys"><i></i><i></i><i></i></span>
+            </div>
+            <span class="theme-name">Everforest</span>
+            <span class="theme-desc">Comforting natural green forest</span>
+            <span class="theme-check"></span>
+          </button>
+          <button class="theme-card" data-theme-choice="kanagawa" title="Kanagawa — Edo-period ink wash painting">
+            <div class="theme-swatch theme-swatch-kanagawa">
+              <span class="theme-swatch-bar"></span>
+              <span class="theme-swatch-keys"><i></i><i></i><i></i></span>
+            </div>
+            <span class="theme-name">Kanagawa</span>
+            <span class="theme-desc">Edo-period ink wash painting</span>
+            <span class="theme-check"></span>
+          </button>
+          <button class="theme-card" data-theme-choice="rose-pine" title="Rose Pine — Warm pine & soft bougainvillea">
+            <div class="theme-swatch theme-swatch-rose-pine">
+              <span class="theme-swatch-bar"></span>
+              <span class="theme-swatch-keys"><i></i><i></i><i></i></span>
+            </div>
+            <span class="theme-name">Rose Pine</span>
+            <span class="theme-desc">Warm pine & soft bougainvillea</span>
+            <span class="theme-check"></span>
+          </button>
+          <button class="theme-card" data-theme-choice="hackerman" title="Hackerman — Matrix neon terminal glow">
+            <div class="theme-swatch theme-swatch-hackerman">
+              <span class="theme-swatch-bar"></span>
+              <span class="theme-swatch-keys"><i></i><i></i><i></i></span>
+            </div>
+            <span class="theme-name">Hackerman</span>
+            <span class="theme-desc">Matrix neon terminal glow</span>
+            <span class="theme-check"></span>
+          </button>
+          <button class="theme-card" data-theme-choice="matte-black" title="Matte Black — Stealth black with amber pop">
+            <div class="theme-swatch theme-swatch-matte-black">
+              <span class="theme-swatch-bar"></span>
+              <span class="theme-swatch-keys"><i></i><i></i><i></i></span>
+            </div>
+            <span class="theme-name">Matte Black</span>
+            <span class="theme-desc">Stealth black with amber pop</span>
+            <span class="theme-check"></span>
+          </button>
+          <button class="theme-card" data-theme-choice="osaka-jade" title="Osaka Jade — Moody jade & sage reflections">
+            <div class="theme-swatch theme-swatch-osaka-jade">
+              <span class="theme-swatch-bar"></span>
+              <span class="theme-swatch-keys"><i></i><i></i><i></i></span>
+            </div>
+            <span class="theme-name">Osaka Jade</span>
+            <span class="theme-desc">Moody jade & sage reflections</span>
+            <span class="theme-check"></span>
+          </button>
+          <button class="theme-card" data-theme-choice="retro-82" title="Retro 82 — 1982 arcade navy & sunset orange">
+            <div class="theme-swatch theme-swatch-retro-82">
+              <span class="theme-swatch-bar"></span>
+              <span class="theme-swatch-keys"><i></i><i></i><i></i></span>
+            </div>
+            <span class="theme-name">Retro 82</span>
+            <span class="theme-desc">1982 arcade navy & sunset orange</span>
+            <span class="theme-check"></span>
+          </button>
+          <button class="theme-card" data-theme-choice="ristretto" title="Ristretto — Rich espresso & dark cocoa">
+            <div class="theme-swatch theme-swatch-ristretto">
+              <span class="theme-swatch-bar"></span>
+              <span class="theme-swatch-keys"><i></i><i></i><i></i></span>
+            </div>
+            <span class="theme-name">Ristretto</span>
+            <span class="theme-desc">Rich espresso & dark cocoa</span>
+            <span class="theme-check"></span>
+          </button>
+          <button class="theme-card" data-theme-choice="lumon" title="Lumon — Severance cold terminal clean">
+            <div class="theme-swatch theme-swatch-lumon">
+              <span class="theme-swatch-bar"></span>
+              <span class="theme-swatch-keys"><i></i><i></i><i></i></span>
+            </div>
+            <span class="theme-name">Lumon</span>
+            <span class="theme-desc">Severance cold terminal clean</span>
+            <span class="theme-check"></span>
+          </button>
+          <button class="theme-card" data-theme-choice="solitude" title="Solitude — Deep graphite minimal solitude">
+            <div class="theme-swatch theme-swatch-solitude">
+              <span class="theme-swatch-bar"></span>
+              <span class="theme-swatch-keys"><i></i><i></i><i></i></span>
+            </div>
+            <span class="theme-name">Solitude</span>
+            <span class="theme-desc">Deep graphite minimal solitude</span>
+            <span class="theme-check"></span>
+          </button>
+          <button class="theme-card" data-theme-choice="vantablack" title="Vantablack — True pure OLED pitch black">
+            <div class="theme-swatch theme-swatch-vantablack">
+              <span class="theme-swatch-bar"></span>
+              <span class="theme-swatch-keys"><i></i><i></i><i></i></span>
+            </div>
+            <span class="theme-name">Vantablack</span>
+            <span class="theme-desc">True pure OLED pitch black</span>
+            <span class="theme-check"></span>
+          </button>
+          <button class="theme-card" data-theme-choice="ethereal" title="Ethereal — Cosmic deep space purple">
+            <div class="theme-swatch theme-swatch-ethereal">
+              <span class="theme-swatch-bar"></span>
+              <span class="theme-swatch-keys"><i></i><i></i><i></i></span>
+            </div>
+            <span class="theme-name">Ethereal</span>
+            <span class="theme-desc">Cosmic deep space purple</span>
+            <span class="theme-check"></span>
+          </button>
+          <button class="theme-card" data-theme-choice="miasma" title="Miasma — Swamp olive & earth tones">
+            <div class="theme-swatch theme-swatch-miasma">
+              <span class="theme-swatch-bar"></span>
+              <span class="theme-swatch-keys"><i></i><i></i><i></i></span>
+            </div>
+            <span class="theme-name">Miasma</span>
+            <span class="theme-desc">Swamp olive & earth tones</span>
+            <span class="theme-check"></span>
+          </button>
+          <button class="theme-card" data-theme-choice="last-horizon" title="Last Horizon — Minimal dusk horizon">
+            <div class="theme-swatch theme-swatch-last-horizon">
+              <span class="theme-swatch-bar"></span>
+              <span class="theme-swatch-keys"><i></i><i></i><i></i></span>
+            </div>
+            <span class="theme-name">Last Horizon</span>
+            <span class="theme-desc">Minimal dusk horizon</span>
+            <span class="theme-check"></span>
+          </button>
+          <button class="theme-card" data-theme-choice="catppuccin-latte" title="Catppuccin Latte — Crisp light pastel">
+            <div class="theme-swatch theme-swatch-catppuccin-latte">
+              <span class="theme-swatch-bar"></span>
+              <span class="theme-swatch-keys"><i></i><i></i><i></i></span>
+            </div>
+            <span class="theme-name">Catppuccin Latte</span>
+            <span class="theme-desc">Crisp light pastel</span>
+            <span class="theme-check"></span>
+          </button>
+          <button class="theme-card" data-theme-choice="flexoki-light" title="Flexoki Light — Inky warm paper editorial">
+            <div class="theme-swatch theme-swatch-flexoki-light">
+              <span class="theme-swatch-bar"></span>
+              <span class="theme-swatch-keys"><i></i><i></i><i></i></span>
+            </div>
+            <span class="theme-name">Flexoki Light</span>
+            <span class="theme-desc">Inky warm paper editorial</span>
             <span class="theme-check"></span>
           </button>
         </div>
@@ -1758,8 +2965,8 @@ _PWA_HTML = r"""<!DOCTYPE html>
         <span>Web</span>
       </button>
       <button class="profile-pill" data-profile="custom">
-        <svg class="icon-svg" viewBox="0 0 24 24"><rect x="2" y="3" width="20" height="14" rx="2" ry="2"></rect><line x1="8" y1="21" x2="16" y2="21"></line><line x1="12" y1="17" x2="12" y2="21"></line></svg>
-        <span>Custom</span>
+        <svg class="icon-svg" viewBox="0 0 24 24"><path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"></path></svg>
+        <span>Utils</span>
       </button>
     </div>
 
@@ -2050,12 +3257,12 @@ _PWA_HTML = r"""<!DOCTYPE html>
       </section>
     </div>
 
-    <!-- PROFILE 5: CUSTOM & SYSTEM (Clean Custom Manager: btop, T3 Dashboard, Devices, Automations) -->
+    <!-- PROFILE 5: UTILS & SYSTEM (System Tools: btop, T3 Dashboard, Lazygit, Docker, Terminator, Zen Mode) -->
     <div class="profile-view" id="profile-custom" data-profile-section="custom" style="display: none;">
       <section class="control-section">
         <div class="section-header">
           <span class="section-title">Dev &amp; System</span>
-          <span class="section-badge">CUSTOM</span>
+          <span class="section-badge">UTILS</span>
         </div>
         <div class="btn-grid-4">
           <button class="chip" data-cmd="open btop" title="Btop Hardware & Task Manager (CPU, RAM, Disks, Network, Processes)">
@@ -2359,23 +3566,50 @@ if (tabTheme) tabTheme.onclick = () => { haptic(6); showSettingsTab('theme'); };
 
 // --- theme picker ----------------------------------------------------------
 const THEME_META = {
-  midnight: '#09090c',
-  phosphor: '#020604',
-  amber: '#0a0703'
+  "auto": "#09090c",
+  "midnight": "#09090c",
+  "phosphor": "#020604",
+  "amber": "#0a0703",
+  "gruvbox": "#1e1e1e",
+  "catppuccin": "#161622",
+  "tokyo-night": "#13141c",
+  "nord": "#222730",
+  "everforest": "#21272c",
+  "kanagawa": "#17171e",
+  "rose-pine": "#ede7e1",
+  "hackerman": "#080910",
+  "matte-black": "#0d0d0d",
+  "osaka-jade": "#0c1512",
+  "retro-82": "#031222",
+  "ristretto": "#211b1b",
+  "lumon": "#101b21",
+  "solitude": "#0c0e10",
+  "vantablack": "#090909",
+  "ethereal": "#040816",
+  "miasma": "#191919",
+  "last-horizon": "#090809",
+  "catppuccin-latte": "#e3e4e8",
+  "flexoki-light": "#f2efe4"
 };
+let _desktopTheme = 'gruvbox';
 
 function currentTheme() {
-  return document.documentElement.dataset.theme || 'midnight';
+  return localStorage.getItem('oma-deck-theme') || 'auto';
 }
 
-function applyTheme(name) {
-  if (!THEME_META[name]) name = 'midnight';
-  document.documentElement.dataset.theme = name;
-  try { localStorage.setItem('oma-deck-theme', name); } catch (e) {}
+function applyTheme(choice) {
+  if (!choice) choice = 'auto';
+  try { localStorage.setItem('oma-deck-theme', choice); } catch (e) {}
+  
+  // Resolve actual theme stylesheet name
+  const effectiveTheme = (choice === 'auto') ? (_desktopTheme || 'gruvbox') : choice;
+  document.documentElement.dataset.theme = effectiveTheme;
+  
   const meta = document.querySelector('meta[name="theme-color"]');
-  if (meta) meta.setAttribute('content', THEME_META[name]);
+  if (meta && THEME_META[effectiveTheme]) meta.setAttribute('content', THEME_META[effectiveTheme]);
+  
   document.querySelectorAll('.theme-card').forEach(card => {
-    const active = card.dataset.themeChoice === name;
+    const active = card.dataset.themeChoice === choice;
     card.classList.toggle('active', active);
     const check = card.querySelector('.theme-check');
     if (check) check.textContent = active ? '✓' : '';

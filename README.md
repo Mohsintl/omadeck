@@ -41,7 +41,7 @@ Most Linux remote tools are either clunky VNC viewers that eat battery, or singl
 ```
        📱 Phone / Tablet (PWA)                     💻 Omarchy Linux Desktop (PC)
   ┌────────────────────────────────┐         ┌──────────────────────────────────────┐
-  │  [Desk] [Code] [Media] [Custom]│ ──LAN──▶│  • Instant Workspace & Window Switch │
+  │  [Desk] [Code] [Media] [Utils] │ ──LAN──▶│  • Instant Workspace & Window Switch │
   │  ⌨️ Direct PC Typing (iOS mic) │  HTTPS  │  • Terminal TUIs (OpenCode, Lazydock)│
   │  🎙️ Tactile Hold-to-Talk AI    │  (8765) │  • Audio / Media / Brightness / Apps │
   │  ⚡ Process Killer & Dev Tools │         │  • Hyprland Lua Dispatcher Engine    │
@@ -53,14 +53,14 @@ Most Linux remote tools are either clunky VNC viewers that eat battery, or singl
 ## 🌟 Highlights
 
 - **📱 Touch Remote Deck (PWA)**: Calibrated for zero-scroll viewport precision across both portrait (e.g. 390×844) and landscape (844×390). Add to iOS or Android Home Screen for an instant fullscreen hardware deck experience with tactile haptic feedback.
-- **⌨️ Direct PC Typing & Hardware Keys**: Type directly into whatever browser bar, code editor, or terminal window is focused on your Linux desktop with auxiliary keys (`⏎ Enter`, `⌫ Del`, `Tab ⇥`, `📋 Paste`, `Esc`). Use iOS/Android keyboard dictation for effortless voice-to-text typing straight into your PC!
+- **⌨️ Direct PC Typing & Hardware Keys**: Type directly into whatever browser bar, code editor, or terminal window is focused on your Linux desktop with auxiliary keys (`↵ Enter`, `⌫ Del`, `Tab ⇥`, `📋 Paste`, `Esc`). Use iOS/Android keyboard dictation for effortless voice-to-text typing straight into your PC!
 - **🤖 Universal AI Model Support**: Works with **any** modern LLM provider:
   - **Groq** (Ultra-fast 500+ tok/s with Llama 3.3 70B)
   - **Ollama** (100% offline, local & free)
   - **OpenAI** (gpt-4o / gpt-4o-mini)
   - **OpenRouter**, **DeepSeek**, **Mistral**, **NVIDIA NIM**, and **Custom OpenAI-compatible endpoints** (vLLM, LM Studio).
 - **🎙️ Independent Speech-to-Text (`STT_API_KEY`)**: Decoupled voice transcription so you can run a local LLM (Ollama) while taking advantage of blazing-fast cloud Whisper (Groq/OpenAI), or keep it 100% offline with local `faster-whisper`.
-- **🎨 Hacker-Grade OLED Themes**: Switch instantly between **Midnight** (true dark), **Phosphor** (green CRT glow), and **Amber** (vintage terminal warmth), remembered per device.
+- **🎨 24 Omarchy Color Themes & Auto-Sync**: Auto-matches your active Omarchy desktop theme live (Gruvbox, Catppuccin, Tokyo Night, Nord, Everforest, Kanagawa, Rose Pine, Hackerman, etc.) or manually select your favorite OLED theme!
 - **🛑 Dev Process & Port Management**: Kill stuck dev servers (`:3000`, `:8000`, Local LLM `:11434`, T3 Dash `:3773`) or use the Crosshair Window Terminator directly from your phone.
 - **🔒 Secure by Design**: Runs locally over LAN HTTPS with an auto-generated authentication token, self-signed CA certificates, and an optional 4-digit PIN lock.
 
@@ -74,7 +74,7 @@ Most Linux remote tools are either clunky VNC viewers that eat battery, or singl
 | **💻 Code** | Terminal shortcuts, Git status / diff / push, test runner, process kill (`:3000`, `:8000`), `Ctrl+C`, `Ctrl+L`, terminal copy/paste. |
 | **🎵 Media** | Play/pause, track skip, volume slider & steps, mute, display brightness presets, audio output device switcher. |
 | **🌐 Web** | Browser launch, new tab, close tab, tab switcher (next/prev), refresh, zoom in/out, bookmark search, copy active URL. |
-| **⚡ Custom** | Clean system utility dashboard: Btop system monitor, T3 Code Dashboard, OpenCode AI terminal, Lazygit, Lazydocker, Kill Window, Zen Mode, Caffeine (keep awake), Night Light, and Clipboard history. |
+| **🛠️ Utils** | Clean system utility dashboard: Btop system monitor, T3 Code Dashboard, OpenCode AI terminal, Lazygit, Lazydocker, Kill Window, Zen Mode, Caffeine (keep awake), Night Light, and Clipboard history. |
 
 ---
 
