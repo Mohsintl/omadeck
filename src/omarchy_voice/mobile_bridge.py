@@ -533,6 +533,10 @@ _PWA_HTML = r"""<!DOCTYPE html>
   }
   .icon-chip:hover { background: var(--surface-hover); color: var(--text); border-color: var(--border-highlight); }
   .icon-chip:active { background: var(--surface-active); transform: scale(0.96); }
+  .icon-chip.muted {
+    border-color: rgba(239, 68, 68, 0.4);
+    background: rgba(239, 68, 68, 0.08);
+  }
 
   /* Live Single-line Feedback Strip */
   .reply-strip {
@@ -1642,6 +1646,9 @@ _PWA_HTML = r"""<!DOCTYPE html>
       </div>
       <div class="header-right">
         <div id="status-badge" class="idle">READY</div>
+        <button class="icon-chip" id="sound-toggle" title="Toggle OmaDeck Voice Sound">
+          <svg class="icon-svg" style="width:13px;height:13px;" viewBox="0 0 24 24"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"></polygon><path d="M15.54 8.46a5 5 0 0 1 0 7.07"></path><path d="M19.07 4.93a10 10 0 0 1 0 14.14"></path></svg>
+        </button>
         <button class="icon-chip" id="history-toggle" title="Conversation History">
           <svg class="icon-svg" style="width:13px;height:13px;" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"></circle><polyline points="12 6 12 12 16 14"></polyline></svg>
           <span>Logs</span>
@@ -2734,22 +2741,35 @@ document.querySelectorAll('.ws-key[data-cmd]').forEach(c => {
 // --- spoken replies ---
 let speakOn = localStorage.getItem('oma-speak') !== '0';
 const speakBtn = document.getElementById('speak-toggle');
+const soundToggleBtn = document.getElementById('sound-toggle');
+
+function toggleSound() {
+  haptic(10);
+  speakOn = !speakOn;
+  localStorage.setItem('oma-speak', speakOn ? '1' : '0');
+  if (!speakOn && window.speechSynthesis) speechSynthesis.cancel();
+  paintSpeak();
+  if (latestReply) latestReply.textContent = speakOn ? '🔊 OmaDeck voice sound unmuted' : '🔇 OmaDeck voice sound muted';
+}
+
 function paintSpeak() {
-  if (!speakBtn) return;
-  speakBtn.classList.toggle('off', !speakOn);
-  speakBtn.innerHTML = speakOn
-    ? '<svg class="icon icon-svg" viewBox="0 0 24 24"><path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3z"></path><path d="M19 10v2a7 7 0 0 1-14 0v-2"></path><line x1="12" y1="19" x2="12" y2="22"></line></svg><span class="label">Voice On</span>'
-    : '<svg class="icon icon-svg" viewBox="0 0 24 24"><line x1="1" y1="1" x2="23" y2="23"></line><path d="M9 9v3a3 3 0 0 0 5.12 2.12M15 9.34V4a3 3 0 0 0-5.94-.6"></path><path d="M17 16.95A7 7 0 0 1 5 12v-2m14 0v2a7 7 0 0 1-.11 1.23"></path><line x1="12" y1="19" x2="12" y2="23"></line><line x1="8" y1="23" x2="16" y2="23"></line></svg><span class="label">Voice Off</span>';
+  if (speakBtn) {
+    speakBtn.classList.toggle('off', !speakOn);
+    speakBtn.innerHTML = speakOn
+      ? '<svg class="icon icon-svg" viewBox="0 0 24 24"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"></polygon><path d="M15.54 8.46a5 5 0 0 1 0 7.07"></path><path d="M19.07 4.93a10 10 0 0 1 0 14.14"></path></svg><span class="label">Voice On</span>'
+      : '<svg class="icon icon-svg" viewBox="0 0 24 24"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"></polygon><line x1="23" y1="9" x2="17" y2="15"></line><line x1="17" y1="9" x2="23" y2="15"></line></svg><span class="label">Voice Off</span>';
+  }
+  if (soundToggleBtn) {
+    soundToggleBtn.classList.toggle('muted', !speakOn);
+    soundToggleBtn.title = speakOn ? 'OmaDeck Voice Sound: On (Tap to Mute)' : 'OmaDeck Voice Sound: Muted (Tap to Unmute)';
+    soundToggleBtn.innerHTML = speakOn
+      ? '<svg class="icon-svg" style="width:13px;height:13px;" viewBox="0 0 24 24"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"></polygon><path d="M15.54 8.46a5 5 0 0 1 0 7.07"></path><path d="M19.07 4.93a10 10 0 0 1 0 14.14"></path></svg>'
+      : '<svg class="icon-svg" style="width:13px;height:13px;color:#ef4444;" viewBox="0 0 24 24"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"></polygon><line x1="23" y1="9" x2="17" y2="15"></line><line x1="17" y1="9" x2="23" y2="15"></line></svg>';
+  }
 }
 paintSpeak();
-if (speakBtn) {
-  speakBtn.addEventListener('click', () => {
-    speakOn = !speakOn;
-    localStorage.setItem('oma-speak', speakOn ? '1' : '0');
-    if (!speakOn && window.speechSynthesis) speechSynthesis.cancel();
-    paintSpeak();
-  });
-}
+if (speakBtn) speakBtn.addEventListener('click', toggleSound);
+if (soundToggleBtn) soundToggleBtn.addEventListener('click', toggleSound);
 function speak(text) {
   if (!speakOn || !text || !window.speechSynthesis) return;
   try {
