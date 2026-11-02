@@ -1,8 +1,42 @@
 # 🎮 OmaDeck
 
-**Tactile PWA Mobile Remote Deck & Universal AI Voice Companion for Omarchy / Hyprland Linux**
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
+[![Platform](https://img.shields.io/badge/Client-iOS%20%7C%20Android%20(PWA)-blue)](#)
+[![Compositor](https://img.shields.io/badge/Compositor-Hyprland%20%2F%20Wayland-blueviolet)](#)
+[![Linux](https://img.shields.io/badge/Linux-Arch%20%2F%20Omarchy-0f94d2)](#)
+[![Roadmap](https://img.shields.io/badge/Roadmap-View%20Goals-purple)](ROADMAP.md)
 
-OmaDeck transforms your phone or tablet into an ultra-responsive, zero-scroll touch deck and universal AI voice controller for your Omarchy desktop. Run desktop macros, switch workspaces, control media, launch apps, send terminal hotkeys, and type directly into PC windows from your couch or desk.
+> **Tactile PWA Mobile Remote Deck & Universal AI Voice Companion for Omarchy / Hyprland Linux**
+
+OmaDeck transforms any iPhone, iPad, or Android device into an ultra-responsive, zero-scroll touch deck and universal AI voice controller for your Linux desktop. Switch workspaces, control media, launch apps, trigger dev hotkeys, kill stuck processes, and type directly into PC windows from your desk or couch.
+
+[🚀 Quick Start](#-quick-start) • [💡 Why OmaDeck?](#-why-omadeck) • [📱 Profiles](#-five-dedicated-touch-profiles) • [⚙️ AI Setup](#️-interactive-settings--ai-configuration) • [🗺️ Roadmap](ROADMAP.md) • [🤝 Contributing](CONTRIBUTING.md)
+
+---
+
+### ⚡ At a Glance
+
+| Question | Details |
+|:---|:---|
+| **What is it?** | A self-hosted Web App (PWA) that acts like a physical Stream Deck + AI voice remote for Linux. |
+| **Who is it for?** | Omarchy, Arch Linux, and Hyprland users who want tactile desk control or couch remote power. |
+| **Why not a physical deck?** | Physical decks cost $150+, have fixed buttons, and lack Wayland awareness. OmaDeck uses your existing phone, has 5 context profiles, OLED themes, and direct PC voice typing. |
+| **Supported Devices** | Any phone or tablet with iOS Safari (iOS 16.4+) or Android Chrome. Zero app store installs. |
+| **Privacy & Connection** | 100% Local LAN HTTPS with token/PIN authentication. Fully functional offline with Ollama. |
+
+---
+
+## 💡 Why OmaDeck?
+
+Most Linux remote tools are either clunky VNC viewers that eat battery, or single-purpose media remotes that can't interact with modern Wayland compositors.
+
+| The Problem | How OmaDeck Solves It |
+|:---|:---|
+| Reaching for the keyboard just to switch workspaces or adjust volume while relaxing. | **One-tap touch grid**: Instant Hyprland workspace jumps, window moves, and scratchpad toggles. |
+| Typing long URLs, prompts, or text on the PC from across the room. | **Direct PC Typing**: Type or dictate via your phone's native speech keyboard straight into the focused PC window. |
+| A dev server or port `:3000` is hanging your system. | **One-tap Process Killer**: Kill `:3000`, `:8000`, or launch the crosshair window terminator with 1 tap. |
+| Physical macro pads cost $150+ and require proprietary drivers. | **Zero Hardware Cost**: Turn any spare or current phone into an OLED macro board with haptic feedback. |
+| Most AI voice assistants send everything to a proprietary cloud. | **Universal AI Engine**: Bring your own Groq, Ollama (100% local/offline), OpenAI, DeepSeek, or custom endpoint. |
 
 ```
        📱 Phone / Tablet (PWA)                     💻 Omarchy Linux Desktop (PC)
@@ -106,6 +140,14 @@ journalctl --user -u omarchy-voice-mobile -f
 # Stop the service
 systemctl --user stop omarchy-voice-mobile.service
 ```
+
+---
+
+## 🗺️ Roadmap & Contributing
+
+- Check out the **[OmaDeck Roadmap](ROADMAP.md)** for planned features and upcoming milestones.
+- Interested in contributing? Read **[CONTRIBUTING.md](CONTRIBUTING.md)** for local development and setup guidelines.
+- Have ideas or issues? Open an issue on our [GitHub Issue Tracker](https://github.com/Mohsintl/omadeck/issues).
 
 ---
 

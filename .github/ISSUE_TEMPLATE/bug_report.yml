@@ -1,0 +1,58 @@
+name: 🐛 Bug Report
+description: Report a bug, crash, or unexpected behavior in OmaDeck
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for filing a bug report! Please make sure you are running the latest version of OmaDeck.
+  - type: input
+    id: environment
+    attributes:
+      label: Environment & Devices
+      description: What phone/OS and Linux desktop environment are you running?
+      placeholder: "e.g. Phone: iPhone 15 Pro (iOS 18 Safari) | Desktop: Arch Linux / Omarchy / Hyprland 0.45"
+    validations:
+      required: true
+  - type: dropdown
+    id: ai_provider
+    attributes:
+      label: AI Provider
+      description: Which LLM provider are you using?
+      options:
+        - Groq (Default / Recommended)
+        - Ollama (Local)
+        - OpenAI
+        - OpenRouter
+        - DeepSeek
+        - Mistral
+        - NVIDIA NIM
+        - Custom Endpoint
+        - None / Not applicable
+    validations:
+      required: true
+  - type: textarea
+    id: description
+    attributes:
+      label: What happened?
+      description: A clear and concise description of the bug.
+      placeholder: "When I tap on Workspace 3 or speak a command..."
+    validations:
+      required: true
+  - type: textarea
+    id: reproduction
+    attributes:
+      label: Steps to Reproduce
+      description: How can we reproduce this?
+      placeholder: |
+        1. Open OmaDeck in browser at http://<ip>:8765
+        2. Tap on ...
+        3. See error
+    validations:
+      required: true
+  - type: textarea
+    id: logs
+    attributes:
+      label: Relevant Logs
+      description: Paste any output from `journalctl --user -u omarchy-voice-mobile -n 50` or browser console.
+      render: shell

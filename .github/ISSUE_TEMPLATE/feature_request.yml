@@ -1,0 +1,29 @@
+name: 💡 Feature Request
+description: Suggest an idea or new deck capability for OmaDeck
+labels: ["enhancement"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thank you for helping make OmaDeck better! Share your ideas for new touch profiles, desktop actions, or voice features.
+  - type: textarea
+    id: problem
+    attributes:
+      label: Is your feature request related to a problem?
+      description: A clear and concise description of what the pain point is.
+      placeholder: "I'm always frustrated when I need to..."
+    validations:
+      required: true
+  - type: textarea
+    id: solution
+    attributes:
+      label: Describe the solution you'd like
+      description: A clear and concise description of what you want to happen.
+      placeholder: "Add a button or voice macro that..."
+    validations:
+      required: true
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Describe alternatives you've considered
+      description: Any alternative solutions or features you've evaluated.
