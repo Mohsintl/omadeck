@@ -312,7 +312,7 @@ _PWA_HTML = r"""<!DOCTYPE html>
 <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-capable" content="yes">
-<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-status-bar-style" content="black">
 <meta name="theme-color" content="#09090c">
 <script>
   // Apply the saved theme before first paint so the deck never flashes the
@@ -400,6 +400,10 @@ _PWA_HTML = r"""<!DOCTYPE html>
     background: var(--bg);
     color: var(--text);
     font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Display', 'Inter', 'Segoe UI', Roboto, sans-serif;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    text-rendering: optimizeLegibility;
+    overscroll-behavior: none;
     user-select: none;
     -webkit-user-select: none;
     -webkit-touch-callout: none;
@@ -407,7 +411,7 @@ _PWA_HTML = r"""<!DOCTYPE html>
   body {
     display: flex;
     justify-content: center;
-    align-items: center;
+    align-items: flex-start;
     touch-action: manipulation;
   }
 
@@ -421,6 +425,8 @@ _PWA_HTML = r"""<!DOCTYPE html>
     stroke-linecap: round;
     stroke-linejoin: round;
     flex-shrink: 0;
+    vector-effect: non-scaling-stroke;
+    shape-rendering: geometricPrecision;
   }
 
   /* App Shell - Default (Portrait) */
@@ -432,7 +438,8 @@ _PWA_HTML = r"""<!DOCTYPE html>
     flex-direction: column;
     justify-content: space-between;
     gap: 6px;
-    padding: calc(env(safe-area-inset-top, 0px) + 8px) 10px max(env(safe-area-inset-bottom, 0px), 8px) 10px;
+    padding: max(calc(env(safe-area-inset-top, 0px) + 16px), 48px) 10px max(env(safe-area-inset-bottom, 0px), 8px) 10px;
+    isolation: isolate;
   }
 
   /* Cockpit / Header */
@@ -448,29 +455,36 @@ _PWA_HTML = r"""<!DOCTYPE html>
     display: flex;
     align-items: center;
     justify-content: space-between;
-    height: 32px;
+    height: 36px;
     flex-shrink: 0;
+    position: relative;
+    z-index: 10;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    text-rendering: optimizeLegibility;
   }
   .brand-group {
     display: flex;
     align-items: center;
     gap: 8px;
+    flex-shrink: 0;
   }
   .logo {
-    font-size: 0.95rem;
+    font-size: 16px;
     font-weight: 800;
     letter-spacing: -0.02em;
     display: flex;
     align-items: center;
-    gap: 5px;
+    gap: 6px;
+    color: var(--text);
   }
   .logo .tag {
     font-family: ui-monospace, 'SF Mono', Menlo, monospace;
-    font-size: 0.70rem;
+    font-size: 11px;
     font-weight: 700;
     background: var(--tag-bg);
     border: 1px solid var(--border);
-    padding: 1px 5px;
+    padding: 1px 6px;
     border-radius: 4px;
     color: var(--accent);
     letter-spacing: 0.05em;
@@ -479,22 +493,23 @@ _PWA_HTML = r"""<!DOCTYPE html>
     display: flex;
     align-items: center;
     gap: 6px;
+    flex-shrink: 0;
   }
   #status-badge {
     font-family: ui-monospace, 'SF Mono', Menlo, monospace;
-    font-size: 0.70rem;
+    font-size: 11px;
     font-weight: 700;
-    padding: 3px 8px;
+    padding: 4px 8px;
     border-radius: 99px;
     background: var(--surface);
     border: 1px solid var(--border);
-    color: var(--text-muted);
+    color: var(--text);
     text-transform: uppercase;
     letter-spacing: 0.04em;
     display: flex;
     align-items: center;
     gap: 5px;
-    transition: all 0.2s;
+    transition: background 0.15s, border-color 0.15s, color 0.15s;
   }
   #status-badge::before {
     content: '';
@@ -511,28 +526,28 @@ _PWA_HTML = r"""<!DOCTYPE html>
   #status-badge.acting::before { background: var(--status-warn); box-shadow: 0 0 6px var(--status-warn); }
   #status-badge.error     { background: #291212; border-color: #5c1f1f; color: #fca5a5; }
   #status-badge.error::before { background: var(--status-danger); }
-  #status-badge.idle      { color: var(--text-muted); }
+  #status-badge.idle      { color: var(--text); }
   #status-badge.idle::before { background: #34d399; }
 
   .icon-chip {
     background: var(--surface);
     border: 1px solid var(--border);
-    color: var(--text-muted);
-    font-size: 0.75rem;
+    color: var(--text);
+    font-size: 12px;
     font-weight: 600;
-    padding: 6px 10px;
-    min-height: 30px;
+    padding: 5px 9px;
+    min-height: 28px;
     border-radius: 99px;
     cursor: pointer;
     touch-action: manipulation;
     display: flex;
     align-items: center;
     gap: 4px;
-    transition: all 0.15s;
+    transition: background 0.15s, border-color 0.15s, color 0.15s;
     -webkit-tap-highlight-color: transparent;
   }
   .icon-chip:hover { background: var(--surface-hover); color: var(--text); border-color: var(--border-highlight); }
-  .icon-chip:active { background: var(--surface-active); transform: scale(0.96); }
+  .icon-chip:active { background: var(--surface-active); }
   .icon-chip.muted {
     border-color: rgba(239, 68, 68, 0.4);
     background: rgba(239, 68, 68, 0.08);
@@ -1001,7 +1016,7 @@ _PWA_HTML = r"""<!DOCTYPE html>
       justify-content: stretch;
       align-items: stretch;
       gap: 12px;
-      padding: max(env(safe-area-inset-top, 0px), 8px) max(env(safe-area-inset-right, 0px), 12px) max(env(safe-area-inset-bottom, 0px), 8px) max(env(safe-area-inset-left, 0px), 12px);
+      padding: max(calc(env(safe-area-inset-top, 0px) + 20px), 54px) max(env(safe-area-inset-right, 0px), 14px) max(env(safe-area-inset-bottom, 0px), 10px) max(env(safe-area-inset-left, 0px), 14px);
     }
 
     /* Left Control Cockpit */
@@ -1056,9 +1071,7 @@ _PWA_HTML = r"""<!DOCTYPE html>
   .modal-overlay {
     position: fixed;
     inset: 0;
-    background: rgba(9, 9, 12, 0.88);
-    backdrop-filter: blur(14px);
-    -webkit-backdrop-filter: blur(14px);
+    background: rgba(9, 9, 12, 0.94);
     display: flex;
     align-items: center;
     justify-content: center;
@@ -1198,9 +1211,7 @@ _PWA_HTML = r"""<!DOCTYPE html>
   .pin-overlay {
     position: fixed;
     inset: 0;
-    background: rgba(9, 9, 12, 0.96);
-    backdrop-filter: blur(14px);
-    -webkit-backdrop-filter: blur(14px);
+    background: rgba(9, 9, 12, 0.98);
     display: flex;
     align-items: center;
     justify-content: center;
