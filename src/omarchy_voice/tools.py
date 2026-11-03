@@ -1060,7 +1060,8 @@ def tools_for(config: Config) -> list[dict]:
     """
     if config.allow_shell:
         return list(TOOL_SCHEMAS)
-    return [schema for schema in TOOL_SCHEMAS if schema["name"] != "run_shell"]
+    return [schema for schema in TOOL_SCHEMAS
+            if schema["name"] not in ("run_shell", "run_in_terminal")]
 
 
 _BARE_ADDRESS_RE = re.compile(r'(window\s*=\s*")(0x[0-9a-fA-F]+)(")')
@@ -2426,6 +2427,8 @@ class Executor:
         return None
 
     def _tool_run_in_terminal(self, command: str, target: str = "") -> Result:
+        if not self.config.allow_shell:
+            return Result(False, "shell access is disabled in config (allow_shell = false)")
         if error := self._validate_run_in_terminal(command, target):
             return Result(False, error)
         command = command.strip()

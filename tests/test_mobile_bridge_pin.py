@@ -26,6 +26,9 @@ from omarchy_voice.mobile_bridge import (
 
 class MobileBridgePinTests(unittest.TestCase):
     def setUp(self):
+        from omarchy_voice.mobile_bridge import _AUTH_FAILURES, _AUTH_LOCK
+        with _AUTH_LOCK:
+            _AUTH_FAILURES.clear()
         self.orig_pin = BridgeHandler.pin
         self.orig_token = BridgeHandler.token
         BridgeHandler.pin = "1234"
@@ -39,6 +42,9 @@ class MobileBridgePinTests(unittest.TestCase):
         self.mock_save_token = self.save_token_patch.start()
 
     def tearDown(self):
+        from omarchy_voice.mobile_bridge import _AUTH_FAILURES, _AUTH_LOCK
+        with _AUTH_LOCK:
+            _AUTH_FAILURES.clear()
         self.save_local_config_patch.stop()
         self.save_token_patch.stop()
         BridgeHandler.pin = self.orig_pin
@@ -285,6 +291,28 @@ class MobileBridgePinTests(unittest.TestCase):
             status_line6, data6 = self._call_post("/auth", {"pin": "wrong"}, token="")
             self.assertIn("429", status_line6)
             self.assertIn("Too many failed attempts", data6.get("error", ""))
+
+    def test_parallel_auth_attempts_strictly_rate_limited(self):
+        """Concurrent requests arriving in parallel cannot race past the 5-attempt rate limit."""
+        import concurrent.futures
+
+        # With 20 parallel attempts with a wrong PIN, exactly 5 must be evaluated (HTTP 401)
+        # and the remaining 15 must be rejected with 429 Too Many Requests.
+        def do_attempt():
+            status_line, _ = self._call_post("/auth", {"pin": "wrong"}, token="")
+            if "401" in status_line:
+                return 401
+            if "429" in status_line:
+                return 429
+            return 0
+
+        with mock.patch("time.sleep", side_effect=lambda s: None):
+            with concurrent.futures.ThreadPoolExecutor(max_workers=10) as executor:
+                futures = [executor.submit(do_attempt) for _ in range(20)]
+                results = [f.result() for f in concurrent.futures.as_completed(futures)]
+
+        self.assertEqual(results.count(401), 5)
+        self.assertEqual(results.count(429), 15)
 
     def test_voice_endpoint_passes_voice_guard(self):
         with mock.patch("omarchy_voice.mobile_bridge._transcribe_wav", return_value="git push"):

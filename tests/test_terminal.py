@@ -34,8 +34,8 @@ PANES = "\n".join([
 class FakeTmux(Executor):
     """An executor with a scripted tmux and a desktop that has a terminal on it."""
 
-    def __init__(self, panes=PANES, capture="build ok", terminal_visible=True):
-        super().__init__(Config())
+    def __init__(self, panes=PANES, capture="build ok", terminal_visible=True, allow_shell=True):
+        super().__init__(Config(allow_shell=allow_shell))
         self.panes_raw = panes
         self.capture = capture
         self.sent: list[list[str]] = []
@@ -203,6 +203,13 @@ class RunningTests(unittest.TestCase):
         ex = FakeTmux()
         result = ex.call("run_in_terminal", {"command": "sudo rm -rf /"})
         self.assertFalse(result.ok)
+        self.assertEqual([c for c in ex.sent if c[:2] == ["tmux", "send-keys"]], [])
+
+    def test_run_in_terminal_refused_when_allow_shell_is_false(self):
+        ex = FakeTmux(allow_shell=False)
+        result = ex.call("run_in_terminal", {"command": "ls", "target": "Work:1.1"})
+        self.assertFalse(result.ok)
+        self.assertIn("disabled", result.output)
         self.assertEqual([c for c in ex.sent if c[:2] == ["tmux", "send-keys"]], [])
 
     def test_the_gate_sees_the_actual_command(self):

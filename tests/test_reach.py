@@ -456,14 +456,16 @@ class OfferedToolsTests(unittest.TestCase):
         a whole round trip when the model reaches for it."""
         names = {s["name"] for s in tools_for(Config())}
         self.assertNotIn("run_shell", names)
+        self.assertNotIn("run_in_terminal", names)
 
     def test_it_is_offered_when_the_user_turned_it_on(self):
         names = {s["name"] for s in tools_for(Config(allow_shell=True))}
         self.assertIn("run_shell", names)
+        self.assertIn("run_in_terminal", names)
 
     def test_everything_else_is_always_offered(self):
         offered = {s["name"] for s in tools_for(Config())}
-        self.assertEqual(offered, {s["name"] for s in TOOL_SCHEMAS} - {"run_shell"})
+        self.assertEqual(offered, {s["name"] for s in TOOL_SCHEMAS} - {"run_shell", "run_in_terminal"})
 
     def test_every_offered_tool_has_a_handler(self):
         executor = Executor(Config(allow_shell=True))
