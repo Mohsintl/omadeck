@@ -330,13 +330,16 @@ _PWA_HTML = r"""<!DOCTYPE html>
 <meta name="theme-color" content="#09090c">
 <script>
   // Apply the saved theme before first paint so the deck never flashes the
-  // default palette on a device that chose Phosphor or Amber.
+  // default palette on a device that chose Phosphor, Amber, or Tokyo Night.
   try {
-    var _omaTheme = localStorage.getItem('oma-deck-theme') || 'midnight';
+    var _params = new URLSearchParams(window.location.search);
+    var _urlTheme = _params.get('theme');
+    if (_urlTheme) localStorage.setItem('oma-deck-theme', _urlTheme);
+    var _omaTheme = _urlTheme || localStorage.getItem('oma-deck-theme') || 'midnight';
     document.documentElement.dataset.theme = _omaTheme;
     var _omaMeta = document.querySelector('meta[name="theme-color"]');
     if (_omaMeta) _omaMeta.setAttribute('content',
-      _omaTheme === 'phosphor' ? '#020604' : _omaTheme === 'amber' ? '#0a0703' : '#09090c');
+      _omaTheme === 'phosphor' ? '#020604' : _omaTheme === 'amber' ? '#0a0703' : _omaTheme === 'tokyo-night' ? '#13141c' : '#09090c');
   } catch (e) {}
 </script>
 <link rel="manifest" href="/manifest.webmanifest">
@@ -458,13 +461,10 @@ _PWA_HTML = r"""<!DOCTYPE html>
 
   /* Cockpit / Header */
   .deck-cockpit {
-    display: flex;
-    flex-direction: column;
-    gap: 6px;
-    width: 100%;
-    flex-shrink: 0;
+    display: contents;
   }
   header {
+    order: 1;
     width: 100%;
     display: flex;
     align-items: center;
@@ -476,6 +476,12 @@ _PWA_HTML = r"""<!DOCTYPE html>
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
     text-rendering: optimizeLegibility;
+  }
+  .reply-strip {
+    order: 2;
+  }
+  .notice {
+    order: 2;
   }
   .brand-group {
     display: flex;
@@ -642,6 +648,7 @@ _PWA_HTML = r"""<!DOCTYPE html>
 
   /* Deck Bank (Macro Surface) */
   .deck-bank {
+    order: 3;
     width: 100%;
     flex: 1;
     display: flex;
@@ -822,6 +829,7 @@ _PWA_HTML = r"""<!DOCTYPE html>
 
   /* Bottom Controls Deck (Input, Mode Switch, Mic) */
   .deck-controls-dock {
+    order: 4;
     width: 100%;
     display: flex;
     flex-direction: column;
@@ -938,38 +946,129 @@ _PWA_HTML = r"""<!DOCTYPE html>
   #mic-btn.recording {
     background: var(--status-danger);
     border-color: #f87171;
-    animation: rec-pulse 1.2s infinite;
+    animation: rec-pulse-radar 1.3s infinite cubic-bezier(0.25, 0.8, 0.25, 1);
+  }
+  #mic-btn.recording.latched {
+    background: #dc2626;
+    border-color: #fca5a5;
+    animation: rec-pulse-radar 1.0s infinite cubic-bezier(0.25, 0.8, 0.25, 1);
   }
   #mic-btn.thinking {
     background: #1e293b;
     border-color: #38bdf8;
     animation: spin-glow 1.5s infinite;
   }
-  @keyframes rec-pulse {
-    0%   { box-shadow: 0 0 0 0 rgba(239, 68, 68, 0.6); }
-    70%  { box-shadow: 0 0 0 12px rgba(239, 68, 68, 0); }
-    100% { box-shadow: 0 0 0 0 rgba(239, 68, 68, 0); }
+  @keyframes rec-pulse-radar {
+    0% {
+      box-shadow: 0 0 0 0 rgba(239, 68, 68, 0.75),
+                  0 0 0 0 rgba(239, 68, 68, 0.4);
+      transform: scale(1.02);
+    }
+    50% {
+      box-shadow: 0 0 0 8px rgba(239, 68, 68, 0.35),
+                  0 0 0 16px rgba(239, 68, 68, 0);
+      transform: scale(0.97);
+    }
+    100% {
+      box-shadow: 0 0 0 0 rgba(239, 68, 68, 0),
+                  0 0 0 20px rgba(239, 68, 68, 0);
+      transform: scale(1.02);
+    }
+  }
+  /* Sound Wave Equalizer Bars for Live Feedback Strip */
+  .sound-wave-bars {
+    display: inline-flex;
+    align-items: center;
+    gap: 2.5px;
+    height: 14px;
+    vertical-align: middle;
+    margin-right: 5px;
+    flex-shrink: 0;
+  }
+  .sound-wave-bars span {
+    display: block;
+    width: 3px;
+    background: #ef4444;
+    border-radius: 2px;
+    animation: sound-bar-bounce 0.7s ease-in-out infinite alternate;
+  }
+  .sound-wave-bars span:nth-child(1) { height: 6px;  animation-delay: 0.0s; }
+  .sound-wave-bars span:nth-child(2) { height: 14px; animation-delay: 0.15s; }
+  .sound-wave-bars span:nth-child(3) { height: 9px;  animation-delay: 0.3s; }
+  .sound-wave-bars span:nth-child(4) { height: 13px; animation-delay: 0.45s; }
+
+  @keyframes sound-bar-bounce {
+    0%   { height: 4px; opacity: 0.4; }
+    100% { height: 14px; opacity: 1; }
+  }
+  #cmd-input.recording-glow {
+    border-color: rgba(239, 68, 68, 0.8) !important;
+    box-shadow: 0 0 10px rgba(239, 68, 68, 0.3) !important;
   }
   @keyframes spin-glow {
     0%   { box-shadow: 0 0 0 0 rgba(56, 189, 248, 0.6); }
     50%  { box-shadow: 0 0 0 10px rgba(56, 189, 248, 0); }
     100% { box-shadow: 0 0 0 0 rgba(56, 189, 248, 0.6); }
   }
-  #cmd-input {
+  .cmd-input-wrap {
     flex: 1;
     min-width: 0;
+    position: relative;
+    display: flex;
+    align-items: center;
     height: 40px;
+  }
+  .cmd-input-wrap #cmd-input {
+    width: 100%;
+    height: 100%;
     background: var(--surface);
     border: 1px solid var(--border);
     border-radius: var(--radius-md);
     color: var(--text);
     font-size: 0.86rem;
-    padding: 0 12px;
+    padding: 0 34px 0 12px;
     outline: none;
-    transition: border-color 0.15s;
+    transition: border-color 0.15s, box-shadow 0.15s;
   }
-  #cmd-input:focus { border-color: var(--input-focus); }
-  #cmd-input::placeholder { color: var(--placeholder); opacity: 1; }
+  .cmd-input-wrap #cmd-input:focus { border-color: var(--input-focus); }
+  .cmd-input-wrap #cmd-input::placeholder { color: var(--placeholder); opacity: 1; }
+  .input-inline-btn {
+    position: absolute;
+    right: 4px;
+    width: 30px;
+    height: 30px;
+    border-radius: var(--radius-sm);
+    border: none;
+    background: transparent;
+    color: var(--text-muted);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    touch-action: none;
+    transition: color 0.15s, background 0.15s, transform 0.1s;
+    -webkit-tap-highlight-color: transparent;
+  }
+  .input-inline-btn .icon-svg {
+    width: 15px;
+    height: 15px;
+    stroke: currentColor;
+  }
+  .input-inline-btn:hover {
+    color: var(--text);
+    background: rgba(255, 255, 255, 0.08);
+  }
+  .input-inline-btn:active {
+    transform: scale(0.92);
+  }
+  .input-inline-btn.recording {
+    color: #ef4444;
+    animation: rec-pulse-radar 1.2s infinite;
+  }
+  .input-inline-btn.thinking {
+    color: #38bdf8;
+    animation: spin-glow 1.5s infinite;
+  }
   .cmd-action-btn {
     height: 40px;
     padding: 0 12px;
@@ -1030,17 +1129,112 @@ _PWA_HTML = r"""<!DOCTYPE html>
       justify-content: stretch;
       align-items: stretch;
       gap: 12px;
-      padding: max(calc(env(safe-area-inset-top, 0px) + 20px), 54px) max(env(safe-area-inset-right, 0px), 14px) max(env(safe-area-inset-bottom, 0px), 10px) max(env(safe-area-inset-left, 0px), 14px);
+      padding: max(env(safe-area-inset-top, 0px), 8px) max(env(safe-area-inset-right, 0px), 12px) max(env(safe-area-inset-bottom, 0px), 8px) max(env(safe-area-inset-left, 0px), 12px);
     }
 
     /* Left Control Cockpit */
     .deck-cockpit {
+      display: flex;
+      flex-direction: column;
       width: min(340px, 38vw);
       height: 100%;
       border-right: 1px solid var(--border);
-      padding-right: 12px;
+      padding-right: 10px;
       justify-content: space-between;
-      gap: 8px;
+      gap: 6px;
+      overflow: hidden;
+    }
+    header,
+    .reply-strip,
+    .notice,
+    .deck-bank,
+    .deck-controls-dock {
+      order: 0;
+    }
+
+    /* Compact Header in Landscape so Lock & Settings never overlap */
+    header {
+      height: 32px;
+      width: 100%;
+      min-width: 0;
+      gap: 4px;
+    }
+    .brand-group {
+      min-width: 0;
+      flex-shrink: 1;
+    }
+    .brand-group .logo {
+      font-size: 13px;
+      white-space: nowrap;
+    }
+    .header-right {
+      gap: 4px;
+      flex-shrink: 0;
+      min-width: 0;
+    }
+    .header-right #status-badge {
+      font-size: 9px;
+      padding: 2px 6px;
+    }
+    .header-right .icon-chip {
+      padding: 0;
+      width: 26px;
+      height: 26px;
+      min-height: 26px;
+      justify-content: center;
+      border-radius: 6px;
+    }
+    .header-right .icon-chip svg {
+      width: 12px !important;
+      height: 12px !important;
+    }
+    .header-right #history-toggle span {
+      display: none;
+    }
+
+    /* Left Dock Controls in Landscape */
+    .deck-controls-dock {
+      gap: 4px;
+    }
+    .aux-keys {
+      height: 25px;
+      gap: 3px;
+    }
+    .key-chip {
+      font-size: 0.62rem;
+      border-radius: 4px;
+    }
+    .mode-bar {
+      height: 26px;
+      gap: 4px;
+    }
+    .mode-pill {
+      font-size: 0.62rem;
+    }
+    .cmd-bar {
+      height: 32px;
+      gap: 4px;
+    }
+    .cmd-input-wrap {
+      height: 32px;
+    }
+    .cmd-input-wrap #cmd-input {
+      font-size: 0.80rem;
+      padding: 0 30px 0 8px;
+    }
+    .input-inline-btn {
+      width: 26px;
+      height: 26px;
+      right: 2px;
+    }
+    .cmd-action-btn {
+      height: 32px;
+      padding: 0 8px;
+      font-size: 0.70rem;
+    }
+    #mic-btn {
+      width: 32px;
+      height: 32px;
     }
 
     /* Right Deck Action Bank */
@@ -1049,35 +1243,78 @@ _PWA_HTML = r"""<!DOCTYPE html>
       height: 100%;
       min-width: 0;
       justify-content: space-between;
-      gap: 8px;
+      gap: 6px;
+    }
+    .workspace-row {
+      height: 30px;
+      gap: 3px;
+    }
+    .ws-key {
+      font-size: 0.74rem;
+    }
+    .move-to-row {
+      height: 26px;
+      gap: 3px;
+    }
+    .ws-key.move-btn {
+      font-size: 0.65rem;
+    }
+    .deck-profile-bar {
+      height: 28px;
+      gap: 4px;
+    }
+    .profile-pill {
+      font-size: 0.65rem;
+      padding: 0 4px;
     }
 
-    /* In landscape, buttons fit comfortably */
+    /* In landscape, sections and chips fit without overflowing */
     .profile-view {
       flex: 1;
       height: 100%;
+      min-height: 0;
       justify-content: flex-start;
-      gap: 8px;
+      gap: 6px;
+      overflow-y: auto;
+      -webkit-overflow-scrolling: touch;
     }
     .control-section {
-      height: 100%;
-      padding: 7px 10px;
-      gap: 6px;
+      height: auto;
+      flex: 1;
+      min-height: 0;
+      padding: 5px 8px;
+      gap: 4px;
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+    }
+    .section-header {
+      line-height: 1;
+    }
+    .section-title {
+      font-size: 0.64rem;
+    }
+    .section-badge {
+      font-size: 0.64rem;
     }
     .btn-grid-4 {
-      gap: 6px;
+      gap: 4px;
+      flex: 1;
+      min-height: 0;
     }
     .chip {
-      min-height: 42px;
-      padding: 6px 4px;
-      gap: 4px;
+      min-height: 28px;
+      height: 100%;
+      padding: 2px 2px;
+      gap: 2px;
+      border-radius: var(--radius-sm);
     }
     .chip .icon {
-      width: 22px;
-      height: 22px;
+      width: 17px;
+      height: 17px;
     }
     .chip .label {
-      font-size: 0.72rem;
+      font-size: 0.64rem;
     }
   }
 
@@ -2664,6 +2901,26 @@ _PWA_HTML = r"""<!DOCTYPE html>
           <div class="setting-desc" id="setting-stt-key-desc">Saved as STT_API_KEY in the same env file. Leave blank to reuse your LLM key.</div>
         </div>
 
+        <!-- AI Dictation Polish (Amical style) -->
+        <div class="setting-group" id="group-ai-dictate">
+          <label class="setting-label" for="setting-ai-dictate-polish" style="display: flex; align-items: center; justify-content: space-between; cursor: pointer;">
+            <span>AI Dictation Polish</span>
+            <input type="checkbox" id="setting-ai-dictate-polish" style="cursor: pointer;" checked>
+          </label>
+          <div class="setting-desc">Clean transcribed speech with AI: remove filler words ("um", "uh"), fix punctuation, and format code/chat for the active app.</div>
+        </div>
+
+        <!-- Mic Trigger Mode -->
+        <div class="setting-group" id="group-mic-trigger">
+          <label class="setting-label" for="setting-mic-trigger">Mic Activation</label>
+          <select id="setting-mic-trigger" class="setting-select">
+            <option value="both">Both (Hold to talk OR Tap to toggle)</option>
+            <option value="hold">Hold to talk (Push-to-talk only)</option>
+            <option value="tap">Tap to toggle (Tap to start / stop)</option>
+          </select>
+          <div class="setting-desc">In 'Both' mode: quick tap latches recording hands-free with animated wave, or hold to talk.</div>
+        </div>
+
         <!-- Action Button & Status -->
         <div style="display: flex; flex-direction: column; gap: 8px; margin-top: 4px;">
           <button id="save-settings-btn" class="primary-btn">Test &amp; Save Keys</button>
@@ -2980,36 +3237,41 @@ _PWA_HTML = r"""<!DOCTYPE html>
 
     <!-- Controls Dock (Mic, Input, Mode) -->
     <div class="deck-controls-dock">
+      <!-- Aux Keys for Typing (Always Visible) -->
+      <div class="aux-keys" id="aux-keys">
+        <button class="key-chip" data-key="enter" title="Send Enter to PC">↵ Enter</button>
+        <button class="key-chip" data-key="backspace" title="Send Backspace to PC">⌫ Del</button>
+        <button class="key-chip" data-key="tab" title="Send Tab to PC">Tab ⇥</button>
+        <button class="key-chip" data-key="paste" title="Paste clipboard into PC">📋 Paste</button>
+        <button class="key-chip" data-key="escape" title="Send Escape to PC">Esc</button>
+      </div>
+
       <!-- Mode Toggle -->
       <div class="mode-bar">
-        <button class="mode-pill active" id="mode-cmd">
+        <button class="mode-pill active" id="mode-cmd" title="Instant voice & desktop commands">
           <svg class="icon-svg" style="width:13px;height:13px;" viewBox="0 0 24 24"><polyline points="4 17 10 11 4 5"></polyline><line x1="12" y1="19" x2="20" y2="19"></line></svg>
           <span>Command</span>
         </button>
         <span class="mode-sep">(or)</span>
-        <button class="mode-pill" id="mode-type">
+        <button class="mode-pill" id="mode-type" title="Direct keystrokes into active PC window">
           <svg class="icon-svg" style="width:13px;height:13px;" viewBox="0 0 24 24"><rect x="2" y="4" width="20" height="16" rx="2"></rect><line x1="6" y1="8" x2="6" y2="8"></line><line x1="10" y1="8" x2="10" y2="8"></line><line x1="14" y1="8" x2="14" y2="8"></line><line x1="18" y1="8" x2="18" y2="8"></line><line x1="6" y1="12" x2="6" y2="12"></line><line x1="10" y1="12" x2="10" y2="12"></line><line x1="14" y1="12" x2="14" y2="12"></line><line x1="18" y1="12" x2="18" y2="12"></line><line x1="7" y1="16" x2="17" y2="16"></line></svg>
           <span>Direct Type</span>
         </button>
       </div>
 
-      <!-- Aux Keys for Typing -->
-      <div class="aux-keys" id="aux-keys" style="display: none;">
-        <button class="key-chip" data-key="enter">↵ Enter</button>
-        <button class="key-chip" data-key="backspace">⌫ Del</button>
-        <button class="key-chip" data-key="tab">Tab ⇥</button>
-        <button class="key-chip" data-key="paste">📋 Paste</button>
-        <button class="key-chip" data-key="escape">Esc</button>
-      </div>
-
-      <!-- Command Bar -->
+      <!-- Command Bar with Inline Dictation Mic -->
       <div class="cmd-bar">
-        <button id="mic-btn" title="Hold to record voice">
-          <svg class="icon-svg" viewBox="0 0 24 24"><path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"></path><path d="M19 10v2a7 7 0 0 1-14 0v-2"></path><line x1="12" y1="19" x2="12" y2="23"></line><line x1="8" y1="23" x2="16" y2="23"></line></svg>
-        </button>
-        <input id="cmd-input" type="text" placeholder="Type a command…" autocomplete="off" autocorrect="off">
+        <div class="cmd-input-wrap">
+          <input id="cmd-input" type="text" placeholder="Type a command…" autocomplete="off" autocorrect="off">
+          <button id="dictate-btn" class="input-inline-btn" title="Dictate speech into input box">
+            <svg class="icon-svg" viewBox="0 0 24 24"><path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"></path><path d="M19 10v2a7 7 0 0 1-14 0v-2"></path><line x1="12" y1="19" x2="12" y2="23"></line><line x1="8" y1="23" x2="16" y2="23"></line></svg>
+          </button>
+        </div>
         <button id="type-direct-btn" class="cmd-action-btn" title="Type into PC">Type</button>
         <button id="cmd-send" class="cmd-action-btn">Send</button>
+        <button id="mic-btn" title="Voice command (Hold or Tap)">
+          <svg class="icon-svg" viewBox="0 0 24 24"><path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"></path><path d="M19 10v2a7 7 0 0 1-14 0v-2"></path><line x1="12" y1="19" x2="12" y2="23"></line><line x1="8" y1="23" x2="16" y2="23"></line></svg>
+        </button>
       </div>
     </div>
   </div>
@@ -4037,6 +4299,16 @@ async function loadSettings() {
         if (settingApiKey) settingApiKey.placeholder = 'Paste your API key…';
       }
     }
+    const settingAiPolish = document.getElementById('setting-ai-dictate-polish');
+    if (settingAiPolish && data.ai_dictate_polish !== undefined) {
+      settingAiPolish.checked = !!data.ai_dictate_polish;
+    }
+    const settingMicTrigger = document.getElementById('setting-mic-trigger');
+    const savedTrigger = localStorage.getItem('omadeck_mic_trigger') || data.mic_trigger || 'both';
+    micTriggerMode = savedTrigger;
+    if (settingMicTrigger) {
+      settingMicTrigger.value = savedTrigger;
+    }
     updateProviderUI(settingProvider.value);
   } catch (e) {}
 }
@@ -4051,6 +4323,11 @@ if (saveSettingsBtn) {
     const baseUrl = settingBaseUrl.value.trim();
     const stt = settingStt.value;
     const sttKey = settingSttKey ? settingSttKey.value.trim() : '';
+    const settingAiPolish = document.getElementById('setting-ai-dictate-polish');
+    const settingMicTrigger = document.getElementById('setting-mic-trigger');
+    const micTriggerVal = settingMicTrigger ? settingMicTrigger.value : 'both';
+    micTriggerMode = micTriggerVal;
+    localStorage.setItem('omadeck_mic_trigger', micTriggerVal);
 
     haptic(10);
     saveSettingsBtn.disabled = true;
@@ -4072,6 +4349,8 @@ if (saveSettingsBtn) {
           base_url: baseUrl,
           stt: stt,
           stt_api_key: sttKey,
+          ai_dictate_polish: settingAiPolish ? settingAiPolish.checked : true,
+          mic_trigger: micTriggerVal,
           test: true,
         }),
       });
@@ -4099,8 +4378,10 @@ if (saveSettingsBtn) {
   };
 }
 
-if (window.location.hash === '#settings') {
+if (window.location.hash === '#settings' || (new URLSearchParams(window.location.search)).get('modal') === 'settings') {
   openSettingsModal();
+  const _tabParam = (new URLSearchParams(window.location.search)).get('tab');
+  if (_tabParam) showSettingsTab(_tabParam);
 }
 
 // --- send command ---
@@ -4139,11 +4420,12 @@ function setMode(mode) {
   activeMode = mode;
   if (modeCmdBtn) modeCmdBtn.classList.toggle('active', mode === 'cmd');
   if (modeTypeBtn) modeTypeBtn.classList.toggle('active', mode === 'type');
-  if (auxKeys) auxKeys.style.display = (mode === 'type') ? 'grid' : 'none';
   if (cmdInput) {
-    cmdInput.placeholder = (mode === 'type')
-      ? 'Type text into active PC app…'
-      : 'Type a command…';
+    if (mode === 'type') {
+      cmdInput.placeholder = 'Type text into active PC app…';
+    } else {
+      cmdInput.placeholder = 'Type a command…';
+    }
     cmdInput.focus();
   }
   if (cmdSend) {
@@ -4310,15 +4592,25 @@ function speak(text) {
 
 // --- mic recording ---
 const SECURE_URL = "HTTPS_PLACEHOLDER";
-const micBtn = document.getElementById('mic-btn');
-const hint   = document.getElementById('mic-hint');
-const trans  = document.getElementById('transcript');
-const note   = document.getElementById('mic-note');
+const micBtn     = document.getElementById('mic-btn');
+const dictateBtn = document.getElementById('dictate-btn');
+const hint       = document.getElementById('mic-hint');
+const trans      = document.getElementById('transcript');
+const note       = document.getElementById('mic-note');
 
 let recorder = null;
 let chunks = [];
 let holding = false;
+let isLatched = false;
 let holdTimer = null;
+let pressStartTime = 0;
+let activePointerId = null;
+let activeTriggerBtn = null;
+let recordingTarget = 'action'; // 'action' or 'input'
+let micTriggerMode = localStorage.getItem('omadeck_mic_trigger') || 'both';
+
+const MIC_SVG_DEFAULT = '<svg class="icon-svg" viewBox="0 0 24 24"><path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"></path><path d="M19 10v2a7 7 0 0 1-14 0v-2"></path><line x1="12" y1="19" x2="12" y2="23"></line><line x1="8" y1="23" x2="16" y2="23"></line></svg>';
+const MIC_SVG_STOP = '<svg class="icon-svg" viewBox="0 0 24 24"><rect x="6" y="6" width="12" height="12" rx="2" fill="#fff" stroke="#fff"></rect></svg>';
 
 function showNote(html) { if (note) { note.innerHTML = html; note.hidden = false; } }
 
@@ -4347,10 +4639,24 @@ function pickMime() {
   return '';
 }
 
-async function startRecording() {
-  if (holding || micBtn.classList.contains('thinking')) return;
+function updateRecordingStatus() {
+  if (!holding || !latestReply) return;
+  const waves = '<span class="sound-wave-bars"><span></span><span></span><span></span><span></span></span>';
+  const label = (recordingTarget === 'input') ? 'Dictating into input…' : 'Recording voice…';
+  if (isLatched) {
+    latestReply.innerHTML = waves + `<b>${label}</b> tap mic to stop & transcribe`;
+  } else {
+    latestReply.innerHTML = waves + `<b>${label}</b> release to send`;
+  }
+}
+
+async function startRecording(triggerBtn, target = 'action', latched = false) {
+  if (holding || (triggerBtn && triggerBtn.classList.contains('thinking'))) return;
   if (micProblem()) return;
   holding = true;
+  isLatched = latched;
+  activeTriggerBtn = triggerBtn || micBtn;
+  recordingTarget = target;
   haptic(14);
 
   let stream;
@@ -4360,6 +4666,8 @@ async function startRecording() {
     });
   } catch (e) {
     holding = false;
+    isLatched = false;
+    activeTriggerBtn = null;
     if (latestReply) latestReply.textContent = '⚠ Mic blocked: ' + ((e && e.name) || e);
     return;
   }
@@ -4381,20 +4689,39 @@ async function startRecording() {
     await sendAudio(blob);
   };
   recorder.start();
-  micBtn.classList.add('recording');
-  if (latestReply) latestReply.textContent = '● Recording… release to send';
+  if (activeTriggerBtn) {
+    activeTriggerBtn.classList.add('recording');
+    if (isLatched) {
+      activeTriggerBtn.classList.add('latched');
+      activeTriggerBtn.innerHTML = MIC_SVG_STOP;
+      activeTriggerBtn.title = 'Tap to stop recording';
+    } else {
+      activeTriggerBtn.title = 'Release to finish recording';
+    }
+  }
+  if (cmdInput) cmdInput.classList.add('recording-glow');
+  updateRecordingStatus();
   holdTimer = setTimeout(stopRecording, 60000);
 }
 
 function stopRecording() {
   if (!holding) return;
   holding = false;
+  isLatched = false;
   haptic(10);
   clearTimeout(holdTimer);
+  if (activeTriggerBtn) {
+    activeTriggerBtn.classList.remove('recording', 'latched');
+    activeTriggerBtn.innerHTML = MIC_SVG_DEFAULT;
+    activeTriggerBtn.title = (activeTriggerBtn === dictateBtn)
+      ? 'Dictate speech into input box'
+      : 'Hold to talk or tap to dictate';
+  }
+  if (cmdInput) cmdInput.classList.remove('recording-glow');
+
   if (recorder && recorder.state === 'recording') {
     recorder.stop();
-    micBtn.classList.remove('recording');
-    micBtn.classList.add('thinking');
+    if (activeTriggerBtn) activeTriggerBtn.classList.add('thinking');
     if (latestReply) latestReply.textContent = 'Processing audio…';
   }
 }
@@ -4412,39 +4739,110 @@ async function sendAudio(blob) {
   if (hasPin && !TOKEN) { showPinScreen(); return; }
   const buf = await blob.arrayBuffer();
   const b64 = toBase64(new Uint8Array(buf));
+  const btn = activeTriggerBtn;
+  const target = recordingTarget;
   try {
     const r = await fetch('/transcribe', {
       method: 'POST',
       headers,
-      body: JSON.stringify({audio_b64: b64, mime: blob.type}),
+      body: JSON.stringify({audio_b64: b64, mime: blob.type, polish: true}),
     });
     if (checkAuth(r)) return;
     const d = await r.json();
     const heard = (d.heard || '').trim();
+    const polished = (d.polished || heard).trim();
     if (!heard || heard.startsWith('[stt error')) {
       if (latestReply) latestReply.textContent = '⚠ Could not understand — try again.';
       addMsg('sys', 'Could not make that out — try again.');
       return;
     }
-    if (latestReply) latestReply.textContent = '▶ ' + heard;
-    addMsg('you', heard);
-    if (activeMode === 'type') {
-      await directType(heard, true);
+    const finalText = polished || heard;
+    if (target === 'input') {
+      if (cmdInput) {
+        cmdInput.value = finalText;
+        cmdInput.focus();
+        cmdInput.setSelectionRange(finalText.length, finalText.length);
+      }
+      if (latestReply) latestReply.textContent = '✓ Dictated: ' + finalText;
+      addMsg('you', 'Dictated: ' + finalText);
+    } else if (activeMode === 'type') {
+      if (latestReply) latestReply.textContent = '▶ ' + finalText;
+      addMsg('you', finalText);
+      await directType(finalText, true);
     } else {
+      if (latestReply) latestReply.textContent = '▶ ' + heard;
+      addMsg('you', heard);
       await sendCmd(heard, true, false);
     }
   } catch(e) {
     addMsg('sys', 'Error: ' + e);
   } finally {
-    micBtn.classList.remove('thinking');
+    if (btn) btn.classList.remove('thinking');
+    activeTriggerBtn = null;
   }
 }
 
-micBtn.addEventListener('pointerdown',  e => { e.preventDefault(); startRecording(); });
-micBtn.addEventListener('pointerup',    e => { e.preventDefault(); stopRecording(); });
-micBtn.addEventListener('pointercancel', () => stopRecording());
-micBtn.addEventListener('contextmenu',  e => e.preventDefault());
-window.addEventListener('blur', () => stopRecording());
+function bindMicEvents(btn, targetName) {
+  if (!btn) return;
+  btn.addEventListener('pointerdown', e => {
+    e.preventDefault();
+    if (btn.classList.contains('thinking')) return;
+
+    if (holding && isLatched) {
+      stopRecording();
+      return;
+    }
+    if (holding) return;
+
+    activePointerId = e.pointerId;
+    pressStartTime = performance.now();
+
+    if (micTriggerMode === 'tap') {
+      startRecording(btn, targetName, true);
+      return;
+    }
+    startRecording(btn, targetName, false);
+  });
+
+  btn.addEventListener('pointerup', e => {
+    e.preventDefault();
+    if (!holding) return;
+    if (activePointerId !== null && e.pointerId !== activePointerId) return;
+    activePointerId = null;
+
+    const duration = performance.now() - pressStartTime;
+
+    if (micTriggerMode === 'both') {
+      if (duration < 350) {
+        isLatched = true;
+        if (activeTriggerBtn) {
+          activeTriggerBtn.classList.add('latched');
+          activeTriggerBtn.innerHTML = MIC_SVG_STOP;
+          activeTriggerBtn.title = 'Tap to stop recording';
+        }
+        haptic(12);
+        updateRecordingStatus();
+        return;
+      } else {
+        stopRecording();
+        return;
+      }
+    } else if (micTriggerMode === 'hold') {
+      stopRecording();
+    }
+  });
+
+  btn.addEventListener('pointercancel', () => {
+    if (holding && !isLatched) stopRecording();
+  });
+  btn.addEventListener('contextmenu', e => e.preventDefault());
+}
+
+bindMicEvents(micBtn, 'action');
+bindMicEvents(dictateBtn, 'input');
+window.addEventListener('blur', () => {
+  if (holding) stopRecording();
+});
 </script>
 </body>
 </html>
@@ -4768,6 +5166,12 @@ class BridgeHandler(http.server.BaseHTTPRequestHandler):
                 "llm_model": model or preset.get("default_model", ""),
                 "stt": stt,
             }
+            if "ai_dictate_polish" in payload:
+                cfg_updates["ai_dictate_polish"] = bool(payload["ai_dictate_polish"])
+            if "mic_trigger" in payload:
+                mt = str(payload.get("mic_trigger") or "both").strip().lower()
+                if mt in ("both", "hold", "tap"):
+                    cfg_updates["mic_trigger"] = mt
             if provider == "custom" and base_url:
                 cfg_updates["base_url"] = base_url
             save_local_config(cfg_updates)
@@ -4824,7 +5228,22 @@ class BridgeHandler(http.server.BaseHTTPRequestHandler):
                 return
             heard = _transcribe_wav(base64.b64decode(audio_b64),
                                     self.stt_model)
-            self._json({"heard": heard})
+            should_polish = bool(payload.get("polish", True))
+            polished = ""
+            if heard and not heard.startswith("[stt error"):
+                if should_polish:
+                    try:
+                        from .local_engine import polish_dictation
+                        from .capabilities import active_window
+                        active = active_window()
+                        app_class = str(active.get("class") or "")
+                        app_title = str(active.get("title") or "")
+                        polished = polish_dictation(heard, app_class=app_class, app_title=app_title)
+                    except Exception:
+                        polished = heard
+                else:
+                    polished = heard
+            self._json({"heard": heard, "polished": polished or heard})
 
         elif path == "/voice":
             audio_b64 = payload.get("audio_b64", "")

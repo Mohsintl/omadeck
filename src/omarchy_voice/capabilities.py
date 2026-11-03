@@ -256,6 +256,15 @@ def installed_apps(limit: int = 28) -> str:
     return "  " + "\n  ".join(rows) if rows else ""
 
 
+def active_window() -> dict:
+    """Return dict describing currently active Hyprland window, or empty dict."""
+    raw = _run(["hyprctl", "-j", "activewindow"])
+    try:
+        return json.loads(raw) if raw else {}
+    except (json.JSONDecodeError, Exception):
+        return {}
+
+
 def live_state() -> str:
     """A snapshot of the desktop right now — refreshed on every request."""
     def query(what: str):

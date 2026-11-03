@@ -399,6 +399,111 @@ class LocalSTT:
                                          provider=self.provider)
 
 
+def polish_dictation(text: str, app_class: str = "", app_title: str = "") -> str:
+    """Polish and clean raw speech-to-text into clean, punctuated text.
+    Removes verbal fillers ('um', 'uh', 'like'), fixes capitalization,
+    and applies context-aware formatting based on active application (Amical-style).
+    Falls back gracefully to fast rule-based cleanup on error or timeout.
+    """
+    raw = (text or "").strip()
+    if not raw or len(raw) < 2:
+        return raw
+
+    def _rule_based_fallback(s: str) -> str:
+        cleaned = re.sub(r'(?i)\b(um|uh|erm|ah|like|you know)\b\s*', '', s).strip()
+        cleaned = re.sub(r'\s{2,}', ' ', cleaned)
+        if not cleaned:
+            cleaned = s.strip()
+        if cleaned and cleaned[0].islower() and not cleaned.startswith((".", "/", "-", "~")):
+            cleaned = cleaned[0].upper() + cleaned[1:]
+        return cleaned
+
+    try:
+        from .config import load as load_cfg
+        lcfg = _local_config(load_cfg())
+        if not lcfg.get("ai_dictate_polish", True):
+            return _rule_based_fallback(raw)
+
+        prov_info = _resolve_provider(lcfg)
+        backend = prov_info["backend"]
+        base_url = lcfg.get("base_url") or prov_info["base_url"]
+        api_key = str(lcfg.get("api_key") or "").strip()
+        if not api_key and prov_info.get("api_key_env"):
+            api_key = os.environ.get(prov_info["api_key_env"], "").strip()
+
+        model = lcfg.get("llm_model") or prov_info["default_model"]
+
+        ctx_hint = ""
+        if app_class or app_title:
+            app_lower = f"{app_class} {app_title}".lower()
+            if any(term in app_lower for term in ("code", "cursor", "kitty", "foot", "alacritty", "terminal", "bash", "nvim")):
+                ctx_hint = f" The user is working in a code editor or terminal ({app_class}). Format CLI commands, flags, arguments, or code identifiers accurately."
+            elif any(term in app_lower for term in ("discord", "slack", "telegram", "whatsapp", "element", "signal")):
+                ctx_hint = f" The user is chatting in {app_class}. Format natural conversational text."
+            else:
+                ctx_hint = f" Active app: {app_class} ({app_title})."
+
+        system_prompt = (
+            "You are an AI dictation editor. Clean up and format the following raw speech-to-text transcript.\n"
+            "Rules:\n"
+            "1. Remove speech fillers, stutters, and verbal hesitations (e.g. 'um', 'uh', 'er', 'ah', 'like', 'you know').\n"
+            "2. Fix punctuation, capitalization, numbers, and grammar.\n"
+            "3. Preserve the speaker's exact meaning, terms, and intent."
+            + ctx_hint + "\n"
+            "4. NEVER converse, reply, answer questions, or add explanations. Output ONLY the polished text."
+        )
+
+        messages = [
+            {"role": "system", "content": system_prompt},
+            {"role": "user", "content": raw},
+        ]
+
+        import urllib.request
+        if backend == "ollama":
+            req_data = json.dumps({
+                "model": model,
+                "messages": messages,
+                "stream": False,
+                "options": {"temperature": 0.1, "num_predict": 150}
+            }).encode("utf-8")
+            url = f"{base_url.rstrip('/')}/api/chat"
+            req = urllib.request.Request(url, data=req_data, headers={"Content-Type": "application/json"})
+            with urllib.request.urlopen(req, timeout=2.5) as r:
+                res = json.loads(r.read().decode("utf-8"))
+                polished = (res.get("message", {}).get("content") or "").strip()
+                if polished:
+                    if (polished.startswith('"') and polished.endswith('"')) or (polished.startswith("'") and polished.endswith("'")):
+                        polished = polished[1:-1].strip()
+                    return polished
+        elif api_key:
+            req_data = json.dumps({
+                "model": model,
+                "messages": messages,
+                "stream": False,
+                "temperature": 0.1,
+                "max_tokens": 150
+            }).encode("utf-8")
+            url = f"{base_url.rstrip('/')}/chat/completions"
+            headers = {
+                "Content-Type": "application/json",
+                "Authorization": f"Bearer {api_key}"
+            }
+            req = urllib.request.Request(url, data=req_data, headers=headers)
+            with urllib.request.urlopen(req, timeout=2.5) as r:
+                res = json.loads(r.read().decode("utf-8"))
+                choices = res.get("choices") or []
+                if choices:
+                    polished = (choices[0].get("message", {}).get("content") or "").strip()
+                    if (polished.startswith('"') and polished.endswith('"')) or (polished.startswith("'") and polished.endswith("'")):
+                        polished = polished[1:-1].strip()
+                    if polished:
+                        return polished
+    except Exception:
+        pass
+
+    return _rule_based_fallback(raw)
+
+
 # ---------------------------------------------------------------------------
 # VAD-based recorder
 # ---------------------------------------------------------------------------
@@ -858,6 +963,8 @@ def get_provider_status(config: Config | None = None) -> dict[str, Any]:
         "stt_api_key_set": bool(stt_raw),
         "stt_api_key_masked": stt_masked,
         "stt_api_key_env": "STT_API_KEY",
+        "ai_dictate_polish": bool(lcfg.get("ai_dictate_polish", True)),
+        "mic_trigger": str(lcfg.get("mic_trigger", "both")),
         "pin_set": pin_configured,
         "has_pin": pin_configured,
         "presets": presets_data,

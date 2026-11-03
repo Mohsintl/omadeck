@@ -8,7 +8,15 @@
 
 > **Tactile PWA Mobile Remote Deck & Universal AI Voice Companion for Omarchy / Hyprland Linux**
 
-OmaDeck transforms any iPhone, iPad, or Android device into an ultra-responsive, zero-scroll touch deck and universal AI voice controller for your Linux desktop. Switch workspaces, control media, launch apps, trigger dev hotkeys, kill stuck processes, and type directly into PC windows from your desk or couch.
+<div align="center">
+
+| 📱 Mobile Touch Remote (Portrait) | 💻 Linux Desktop (Hyprland / Omarchy) |
+| :---: | :---: |
+| <img src="docs/images/portrait-deck-tokyo-night.png" width="310" alt="OmaDeck Mobile Remote (Tokyo Night)" /> | <img src="docs/images/pc-screen.png" width="510" alt="Omarchy Linux Desktop" /> |
+
+*OmaDeck running in Tokyo Night theme: tactile quick keys, inline dictation mic, instant workspace switching, and direct PC typing.*
+
+</div>
 
 [🚀 Quick Start](#-quick-start) • [💡 Why OmaDeck?](#-why-omadeck) • [📱 Profiles](#-five-dedicated-touch-profiles) • [⚙️ AI Setup](#️-interactive-settings--ai-configuration) • [🗺️ Roadmap](ROADMAP.md) • [🤝 Contributing](CONTRIBUTING.md)
 
@@ -53,7 +61,9 @@ Most Linux remote tools are either clunky VNC viewers that eat battery, or singl
 ## 🌟 Highlights
 
 - **📱 Touch Remote Deck (PWA)**: Calibrated for zero-scroll viewport precision across both portrait (e.g. 390×844) and landscape (844×390). Add to iOS or Android Home Screen for an instant fullscreen hardware deck experience with tactile haptic feedback.
-- **⌨️ Direct PC Typing & Hardware Keys**: Type directly into whatever browser bar, code editor, or terminal window is focused on your Linux desktop with auxiliary keys (`↵ Enter`, `⌫ Del`, `Tab ⇥`, `📋 Paste`, `Esc`). Use iOS/Android keyboard dictation for effortless voice-to-text typing straight into your PC!
+- **⌨️ Direct PC Typing & Always-On Key Bar**: Type directly into whatever browser bar, code editor, or terminal window is focused on your Linux desktop with persistent auxiliary keys (`↵ Enter`, `⌫ Del`, `Tab ⇥`, `📋 Paste`, `Esc`).
+- **🎙️ Inline Speech Dictation & AI Polish**: Dedicated dictation mic inside the input bar with intelligent Amical-style cleanup (strips filler words like "um", "uh", fixes punctuation, and applies context-aware formatting based on active window class).
+- **🕹️ Hold, Tap, or Hybrid Mic Activation**: Choose between Push-to-talk (hold to speak), Hands-free latch (tap to start/stop), or Both (hybrid tap/hold) with radar pulse and live sound-wave visualizers.
 - **🤖 Universal AI Model Support**: Works with **any** modern LLM provider:
   - **Groq** (Ultra-fast 500+ tok/s with Llama 3.3 70B)
   - **Ollama** (100% offline, local & free)
@@ -75,6 +85,13 @@ Most Linux remote tools are either clunky VNC viewers that eat battery, or singl
 | **🎵 Media** | Play/pause, track skip, volume slider & steps, mute, display brightness presets, audio output device switcher. |
 | **🌐 Web** | Browser launch, new tab, close tab, tab switcher (next/prev), refresh, zoom in/out, bookmark search, copy active URL. |
 | **🛠️ Utils** | Clean system utility dashboard: Btop system monitor, T3 Code Dashboard, OpenCode AI terminal, Lazygit, Lazydocker, Kill Window, Zen Mode, Caffeine (keep awake), Night Light, and Clipboard history. |
+
+### 🕹️ Ergonomic Landscape Split-Deck Mode
+Prop your phone or tablet next to your keyboard as a dedicated physical Stream Deck alternative:
+
+<div align="center">
+  <img src="docs/images/landscape-deck-tokyo-night.png" width="760" alt="OmaDeck Landscape Split-Deck (Tokyo Night)" />
+</div>
 
 ---
 
@@ -113,15 +130,24 @@ Open `http://<your-laptop-lan-ip>:8765` in Safari or Chrome on your phone.
 
 ## ⚙️ Interactive Settings & AI Configuration
 
-Configure your AI provider from either your PC or phone:
+Configure your AI provider, mic triggers, and OLED themes from either your PC or phone:
+
+<div align="center">
+
+| ⚙️ AI Keys & Settings | 🎨 24 OLED Themes & Auto-Sync |
+| :---: | :---: |
+| <img src="docs/images/settings-tokyo-night.png" width="350" alt="OmaDeck AI Settings Modal (Tokyo Night)" /> | <img src="docs/images/themes-tokyo-night.png" width="350" alt="OmaDeck Themes Modal (Tokyo Night)" /> |
+
+</div>
 
 * **On PC**: Run `omarchy-voice settings` in terminal to launch the settings panel.
 * **On Phone**: Tap the **⚙️** gear icon in the top navigation bar.
 
 In the **API Keys** pane:
 - Select your provider (**Groq**, **Ollama**, **OpenAI**, **OpenRouter**, **DeepSeek**, **Mistral**, **NVIDIA**, or **Custom**).
+- Choose your **Mic Activation** style (**Hold to talk**, **Tap to talk**, or **Both tap & hold**).
+- Enable **AI Dictation Polishing** to automatically strip filler words ("um", "uh") and fix formatting.
 - Paste your API key (stored in `~/.config/omarchy-voice/env` with `chmod 600`).
-- Optionally add a dedicated Speech-to-Text key for Groq Whisper.
 - Tap **"Test & Save Keys"** to verify connection live before saving.
 
 ---
