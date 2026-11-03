@@ -10,7 +10,18 @@ from unittest import mock
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "src"))
 
 from omarchy_voice.local_engine import get_provider_status
-from omarchy_voice.mobile_bridge import BridgeHandler, _PWA_HTML
+from omarchy_voice.mobile_bridge import (
+    BridgeHandler,
+    _PWA_HTML,
+    _is_allowed_host,
+    _dispatch,
+    _type_text,
+    _load_or_create_token,
+    _save_token,
+    TOKEN_FILE,
+    _HISTORY,
+    _HISTORY_LOCK,
+)
 
 
 class MobileBridgePinTests(unittest.TestCase):
@@ -141,6 +152,60 @@ class MobileBridgePinTests(unittest.TestCase):
         self.assertIn("app-lock-btn", _PWA_HTML)
         self.assertIn("setting-autolock-app-switch", _PWA_HTML)
         self.assertIn("lockSession", _PWA_HTML)
+        # Verify updateToken is called on PIN set/disable so client is not locked out
+        self.assertIn("if (data.token) updateToken(data.token);", _PWA_HTML)
+
+    def test_pin_rotation_persists_to_token_file(self):
+        with mock.patch("omarchy_voice.mobile_bridge._save_token") as mock_save:
+            status_line, data = self._call_post("/pin", {"action": "set", "pin": "9999"})
+            self.assertIn("200", status_line)
+            new_tok = data.get("token")
+            self.assertTrue(new_tok)
+            mock_save.assert_called_with(new_tok)
+
+    def test_is_allowed_host_validation(self):
+        # Localhost and private LAN
+        self.assertTrue(_is_allowed_host("localhost:8765"))
+        self.assertTrue(_is_allowed_host("127.0.0.1:8765"))
+        self.assertTrue(_is_allowed_host("192.168.1.100:8765"))
+        self.assertTrue(_is_allowed_host("10.0.0.5:8765"))
+
+        # Tailscale CGNAT IP (100.64.0.0/10)
+        self.assertTrue(_is_allowed_host("100.80.1.2:8765"))
+        self.assertTrue(_is_allowed_host("100.115.92.10:8765"))
+
+        # Tailscale MagicDNS and mDNS domains
+        self.assertTrue(_is_allowed_host("my-laptop.ts.net:8765"))
+        self.assertTrue(_is_allowed_host("mymachine.tailscale.ts.net"))
+        self.assertTrue(_is_allowed_host("myhost.local:8765"))
+
+        # Public IPs and external domains must be rejected
+        self.assertFalse(_is_allowed_host("8.8.8.8:8765"))
+        self.assertFalse(_is_allowed_host("1.1.1.1"))
+        self.assertFalse(_is_allowed_host("evil.com:8765"))
+        self.assertFalse(_is_allowed_host("attacker.example.org"))
+
+    def test_dispatch_timeout_does_not_execute_locally(self):
+        import socket
+        with mock.patch("omarchy_voice.mobile_bridge.send_control", side_effect=socket.timeout("timed out")):
+            with mock.patch("omarchy_voice.mobile_bridge._local_think") as mock_local:
+                reply = _dispatch("run a slow command")
+                mock_local.assert_not_called()
+                self.assertIn("timed out", reply)
+
+    def test_type_text_allows_normal_words_and_code_buttons(self):
+        with mock.patch("omarchy_voice.mobile_bridge.shutil.which", return_value="/usr/bin/wtype"):
+            with mock.patch("omarchy_voice.mobile_bridge.subprocess.run") as mock_run:
+                mock_run.return_value = mock.Mock(returncode=0, stderr="")
+                # Normal chat text mentioning reboot or ssh
+                ok, err = _type_text("Hey, did you reboot the ssh server?", enter=True)
+                self.assertTrue(ok)
+                self.assertEqual(err, "")
+
+                # Code profile button "git push"
+                ok2, err2 = _type_text("git push", enter=True)
+                self.assertTrue(ok2)
+                self.assertEqual(err2, "")
 
 
 if __name__ == "__main__":

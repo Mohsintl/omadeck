@@ -110,15 +110,29 @@ _MANIFEST_JSON = json.dumps({
 # token
 # ---------------------------------------------------------------------------
 
-def _load_or_create_token() -> str:
+def _save_token(tok: str) -> None:
+    TOKEN_FILE.parent.mkdir(parents=True, exist_ok=True)
+    TOKEN_FILE.write_text(tok)
+    try:
+        TOKEN_FILE.chmod(0o600)
+    except OSError:
+        pass
+
+
+def _load_or_create_token(config=None) -> str:
     TOKEN_FILE.parent.mkdir(parents=True, exist_ok=True)
     if TOKEN_FILE.exists():
         tok = TOKEN_FILE.read_text().strip()
         if tok:
             return tok
+    if config:
+        from .local_engine import _local_config
+        tok = str(_local_config(config).get("token") or "").strip()
+        if tok:
+            _save_token(tok)
+            return tok
     tok = secrets.token_urlsafe(16)
-    TOKEN_FILE.write_text(tok)
-    TOKEN_FILE.chmod(0o600)
+    _save_token(tok)
     return tok
 
 
@@ -128,6 +142,19 @@ def _load_or_create_token() -> str:
 
 def _openssl(*args: str) -> None:
     subprocess.run(["openssl", *args], check=True, capture_output=True)
+
+
+def _cert_valid(cert_path: Path, min_seconds: int = 86400) -> bool:
+    if not cert_path.exists():
+        return False
+    try:
+        res = subprocess.run(
+            ["openssl", "x509", "-checkend", str(min_seconds), "-noout", "-in", str(cert_path)],
+            capture_output=True,
+        )
+        return res.returncode == 0
+    except Exception:
+        return False
 
 
 def _ensure_tls(host: str) -> tuple[Path, Path] | None:
@@ -144,7 +171,8 @@ def _ensure_tls(host: str) -> tuple[Path, Path] | None:
     except OSError:
         pass
     try:
-        if not (CA_CERT_FILE.exists() and CA_KEY_FILE.exists()):
+        ca_valid = CA_CERT_FILE.exists() and CA_KEY_FILE.exists() and _cert_valid(CA_CERT_FILE, 86400)
+        if not ca_valid:
             _openssl("req", "-x509", "-newkey", "rsa:2048", "-nodes",
                      "-days", "730",
                      "-keyout", str(CA_KEY_FILE), "-out", str(CA_CERT_FILE),
@@ -156,14 +184,20 @@ def _ensure_tls(host: str) -> tuple[Path, Path] | None:
                      "-out", str(CA_DER_FILE))
             print(f"  created a local CA: {CA_CERT_FILE}")
 
-        # Re-issue the leaf when the LAN address changes, otherwise the SAN
-        # no longer matches and the phone silently refuses the page.
+        # Re-issue the leaf when the LAN address changes or when it nears expiration,
+        # otherwise the SAN no longer matches or expired cert silently refuses the page.
         current = ""
         try:
             current = CERT_HOST_FILE.read_text().strip()
         except OSError:
             pass
-        if not (current == host and CERT_FILE.exists() and KEY_FILE.exists()):
+        leaf_valid = (
+            current == host
+            and CERT_FILE.exists()
+            and KEY_FILE.exists()
+            and _cert_valid(CERT_FILE, 86400)
+        )
+        if not leaf_valid:
             csr = CONFIG_DIR / "mobile_csr.pem"
             ext = CONFIG_DIR / "mobile_ext.cnf"
             try:
@@ -4068,6 +4102,7 @@ if (savePinBtn) {
         if (settingNewPin) settingNewPin.value = '';
         showSecurityStatus(data.message || 'PIN updated! Session lock active.', 'success');
         updateSecurityUi(true);
+        if (data.token) updateToken(data.token);
       } else {
         showSecurityStatus(data.error || 'Failed to update PIN', 'error');
       }
@@ -4095,6 +4130,7 @@ if (disablePinBtn) {
       if (data.ok) {
         showSecurityStatus('PIN lock disabled.', 'info');
         updateSecurityUi(false);
+        if (data.token) updateToken(data.token);
       } else {
         showSecurityStatus(data.error || 'Failed to disable PIN', 'error');
       }
@@ -4876,18 +4912,6 @@ def _type_text(text: str, enter: bool = False) -> tuple[bool, str]:
     """Type text directly into whatever input/window is currently focused on PC."""
     if not shutil.which("wtype"):
         return False, "wtype is not installed"
-    if enter and text.strip():
-        try:
-            from .config import load as load_cfg
-            from .tools import Policy, Denied, NeedsConfirmation
-            policy = Policy(load_cfg())
-            policy.check(text.strip())
-        except Denied as exc:
-            return False, f"Refused by safety policy: {exc}"
-        except NeedsConfirmation:
-            return False, "Refused by safety policy: command requires spoken confirmation"
-        except Exception:
-            pass
     try:
         res = subprocess.run(["wtype", "--", text], capture_output=True, text=True, timeout=5)
         if res.returncode != 0:
@@ -4993,6 +5017,7 @@ _AUTH_FAILURES: dict[str, list[float]] = {}
 _AUTH_LOCK = threading.Lock()
 MAX_JSON_BODY = 128 * 1024
 MAX_AUDIO_BODY = 16 * 1024 * 1024
+_TAILSCALE_CGNAT = ipaddress.ip_network("100.64.0.0/10")
 
 
 def _is_allowed_host(host_header: str, server_host: str = "") -> bool:
@@ -5004,6 +5029,8 @@ def _is_allowed_host(host_header: str, server_host: str = "") -> bool:
         return True
     if server_host and h == server_host.lower():
         return True
+    if h.endswith(".local") or h.endswith(".ts.net"):
+        return True
     try:
         my_hostname = socket.gethostname().lower()
         if h in (my_hostname, f"{my_hostname}.local"):
@@ -5012,7 +5039,7 @@ def _is_allowed_host(host_header: str, server_host: str = "") -> bool:
         pass
     try:
         addr = ipaddress.ip_address(h)
-        if addr.is_private or addr.is_loopback:
+        if addr.is_private or addr.is_loopback or addr in _TAILSCALE_CGNAT:
             return True
     except ValueError:
         pass
@@ -5226,6 +5253,7 @@ class BridgeHandler(http.server.BaseHTTPRequestHandler):
                 self.__class__.pin = ""
                 new_token = secrets.token_urlsafe(16)
                 self.__class__.token = new_token
+                _save_token(new_token)
                 save_local_config({"pin": "", "token": new_token})
                 self._json({"ok": True, "pin_set": False, "token": new_token, "message": "PIN lock disabled."})
                 return
@@ -5237,6 +5265,7 @@ class BridgeHandler(http.server.BaseHTTPRequestHandler):
                 self.__class__.pin = new_pin
                 new_token = secrets.token_urlsafe(16)
                 self.__class__.token = new_token
+                _save_token(new_token)
                 save_local_config({"pin": new_pin, "token": new_token})
                 self._json({"ok": True, "pin_set": True, "token": new_token, "message": "PIN lock updated successfully."})
                 return
@@ -6154,7 +6183,9 @@ def _dispatch(text: str) -> str:
     else:
         try:
             reply = send_control(f"say {text}", timeout=8.0)
-        except (ConnectionError, socket.timeout, TimeoutError, OSError):
+        except (socket.timeout, TimeoutError):
+            reply = "[command timed out waiting for daemon response]"
+        except (ConnectionError, FileNotFoundError, OSError):
             reply = _local_think(text)
 
     # Keep a running chat log for the page (works for chips too, not just
@@ -6222,15 +6253,25 @@ class BridgeServer(http.server.ThreadingHTTPServer):
     def process_request_thread(self, request, client_address):
         sock = request
         if self.tls_context is not None:
+            is_tls = False
             try:
                 sock.settimeout(2.0)
                 first = sock.recv(1, socket.MSG_PEEK)
-                if first[:1] == b"\x16":
-                    sock = self.tls_context.wrap_socket(sock, server_side=True)
+                is_tls = first[:1] == b"\x16"
             except OSError:
-                pass
-            finally:
+                self.shutdown_request(sock)
+                return
+            if is_tls:
+                try:
+                    sock = self.tls_context.wrap_socket(sock, server_side=True)
+                except (OSError, ssl.SSLError):
+                    self.shutdown_request(sock)
+                    return
+            try:
                 sock.settimeout(None)
+            except OSError:
+                self.shutdown_request(sock)
+                return
         super().process_request_thread(sock, client_address)
 
     def handle_error(self, request, client_address) -> None:
@@ -6278,7 +6319,7 @@ def _firewall_hint(port: int) -> str:
 
 
 def run(config, port: int = DEFAULT_PORT) -> int:
-    token = _load_or_create_token()
+    token = _load_or_create_token(config)
 
     # find LAN IP
     try:
@@ -6340,7 +6381,8 @@ def run(config, port: int = DEFAULT_PORT) -> int:
         print(f"  certificate →  {url}/ca.pem     (install once on the phone)")
         if CA_CERT_FILE.exists():
             try:
-                fp = hashlib.sha256(CA_CERT_FILE.read_bytes()).hexdigest()
+                der = ssl.PEM_cert_to_DER_cert(CA_CERT_FILE.read_text())
+                fp = hashlib.sha256(der).hexdigest().upper()
                 fp_formatted = ":".join(fp[i:i+2] for i in range(0, len(fp), 2))
                 print(f"  fingerprint →  {fp_formatted}")
             except Exception:

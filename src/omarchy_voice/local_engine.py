@@ -415,7 +415,7 @@ def polish_dictation(text: str, app_class: str = "", app_title: str = "") -> str
     def _rule_based_fallback(s: str) -> str:
         cleaned = re.sub(r'(?i)\b(um|uh|erm|ah|you know)\b\s*', '', s)
         cleaned = re.sub(r'(?i)^\s*like\s+', '', cleaned)
-        cleaned = re.sub(r'(?i),\s*like\s*,?', '', cleaned)
+        cleaned = re.sub(r'(?i),\s*like,\s*', ' ', cleaned)
         cleaned = re.sub(r'(?i)\blike\s+(?=(?:um|uh|erm|ah|you know)\b)', '', cleaned)
         cleaned = re.sub(r'\s{2,}', ' ', cleaned).strip()
         if not cleaned:
@@ -432,7 +432,7 @@ def polish_dictation(text: str, app_class: str = "", app_title: str = "") -> str
 
         prov_info = _resolve_provider(lcfg)
         backend = prov_info["backend"]
-        base_url = lcfg.get("base_url") or prov_info["base_url"]
+        base_url = prov_info["base_url"]
         api_key = str(lcfg.get("api_key") or "").strip()
         if not api_key and prov_info.get("api_key_env"):
             api_key = os.environ.get(prov_info["api_key_env"], "").strip()

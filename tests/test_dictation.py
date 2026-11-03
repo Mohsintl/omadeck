@@ -23,6 +23,14 @@ class DictationTests(unittest.TestCase):
             res2 = polish_dictation("like you know open terminal")
             self.assertEqual(res2, "Open terminal")
 
+            # Preserves 'like' as comparison / preposition without concatenating words
+            res3 = polish_dictation("things, like apples")
+            self.assertEqual(res3, "Things, like apples")
+
+            # Properly removes parenthetical filler with commas
+            res4 = polish_dictation("I was, like, thinking about it")
+            self.assertEqual(res4, "I was thinking about it")
+
     def test_polish_dictation_empty_or_short(self):
         self.assertEqual(polish_dictation(""), "")
         self.assertEqual(polish_dictation("a"), "a")

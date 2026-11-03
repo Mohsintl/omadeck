@@ -48,7 +48,7 @@ fi
 
 # --- files -----------------------------------------------------------------
 step "installing to $PREFIX"
-mkdir -p "$PREFIX" "$BINDIR" "$CONFIGDIR"
+mkdir -p "$PREFIX" "$BINDIR" "$CONFIGDIR" "$HOME/.local/state/omarchy-voice" "$HOME/.cache/omarchy-voice"
 rm -rf "$PREFIX/src" "$PREFIX/bin" "$PREFIX/share" "$PREFIX/omarchy" "$PREFIX/.venv"
 cp -r "$SOURCE/src" "$SOURCE/bin" "$SOURCE/share" "$SOURCE/omarchy" "$PREFIX/"
 chmod +x "$PREFIX/bin/omarchy-voice"
