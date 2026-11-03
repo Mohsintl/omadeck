@@ -1,6 +1,6 @@
 # 🎮 OmaDeck
 
-[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
+[![License: Apache 2.0](https://img.shields.io/badge/License-Apache_2.0-blue.svg)](LICENSE)
 [![Platform](https://img.shields.io/badge/Client-iOS%20%7C%20Android%20(PWA)-blue)](#)
 [![Compositor](https://img.shields.io/badge/Compositor-Hyprland%20%2F%20Wayland-blueviolet)](#)
 [![Linux](https://img.shields.io/badge/Linux-Arch%20%2F%20Omarchy-0f94d2)](#)
@@ -113,18 +113,54 @@ The installer sets up:
 
 ### 2. Connect from Your Phone
 
-Check your LAN URL and token:
+Check your service logs to view your local LAN connection URLs and authentication token:
 ```bash
 systemctl --user status omarchy-voice-mobile
 ```
-Or run:
-```bash
-journalctl --user -u omarchy-voice-mobile -n 15 | grep "Oma Remote"
+You will see output similar to:
+```text
+  Oma Remote  →  http://192.168.1.50:8765
+  with mic    →  https://192.168.1.50:8765
+  token       →  ZMxr4c9IA2q-0t4YlMe4cA
 ```
 
-Open `http://<your-laptop-lan-ip>:8765` in Safari or Chrome on your phone.
-- For microphone access, tap the HTTPS link and install the self-signed local certificate once.
-- Tap **Share ➔ Add to Home Screen** on iOS/Android for a fullscreen, standalone app experience.
+#### Step-by-Step Connection Guide:
+1. **Initial Setup & Touch Control (HTTP)**:
+   - On your phone or tablet (connected to the same Wi-Fi), open the plain HTTP address: `http://<your-laptop-lan-ip>:8765`.
+   - All physical touch macro buttons, workspace switches, window controls, and keyboard typing will work immediately.
+2. **Enabling Microphone & Voice Dictation (HTTPS)**:
+   - Modern mobile browsers (iOS Safari & Android Chrome) **strictly block microphone access** (`getUserMedia`) on unencrypted non-localhost HTTP connections.
+   - To use voice commands and the inline dictation mic:
+     - On iOS: Tap the banner to download the local root certificate (`ca.crt`), open **iOS Settings ➔ Profile Downloaded ➔ Install**, then enable **Settings ➔ General ➔ About ➔ Certificate Trust Settings ➔ Enable Full Trust**.
+     - Navigate to `https://<your-laptop-lan-ip>:8765`.
+3. **PWA Standalone App**:
+   - In Safari, tap **Share ➔ Add to Home Screen** (or in Chrome, tap **⋮ ➔ Install App / Add to Home Screen**).
+   - This launches OmaDeck in fullscreen mode without URL address bars, providing an authentic hardware Stream Deck experience with haptic vibrations.
+
+---
+
+## 🔒 Network Security & Privacy Guide
+
+> [!IMPORTANT]
+> OmaDeck provides direct input execution (virtual typing and shell triggers via `hyprctl` and `wtype`) onto your Linux desktop.
+
+- **Local Network Only**: Never port-forward port `8765` directly through your home router or expose it to the public internet.
+- **PIN Session Lock**: If you share your Wi-Fi network (or use public/office networks), go to **Settings ➔ Security** and configure a 4-to-8 digit PIN lock. This prevents anyone on the subnet from controlling your desktop.
+- **Remote Access Outside Home**: To control your desktop securely while away from home, use a private encrypted mesh VPN such as **[Tailscale](https://tailscale.com)** or **WireGuard** instead of public port forwarding.
+
+---
+
+## 🧪 Verified Compatibility Matrix
+
+OmaDeck has been actively verified across the following platforms:
+
+| Component | Tested & Supported |
+|:---|:---|
+| **Linux Distros** | Omarchy, Arch Linux, Fedora (Wayland), Ubuntu 24.04+ (Wayland) |
+| **Compositors** | Hyprland (v0.38+ through v0.45+). Requires `hyprctl` and `wtype`. |
+| **Mobile Browsers** | iOS Safari (iOS 16.4+, iOS 17, iOS 18), iPadOS Safari, Android Chrome (v115+) |
+| **Hardware** | iPhone (12–16 Pro/Max), iPad (Mini, Air, Pro), Android smartphones & tablets |
+| **LLM Inference** | Groq (Llama 3.3 70B), Ollama (Local/Offline), OpenAI (gpt-4o), DeepSeek, NVIDIA NIM |
 
 ---
 
@@ -186,4 +222,4 @@ systemctl --user stop omarchy-voice-mobile.service
 
 ## 📄 License
 
-Distributed under the [MIT License](LICENSE).
+Distributed under the [Apache License 2.0](LICENSE).
