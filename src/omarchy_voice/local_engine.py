@@ -845,6 +845,8 @@ def get_provider_status(config: Config | None = None) -> dict[str, Any]:
     else:
         stt_masked = ""
 
+    pin_configured = bool(str(lcfg.get("pin") or "").strip())
+
     return {
         "provider": prov_name,
         "model": lcfg.get("llm_model") or prov_info["default_model"],
@@ -856,6 +858,8 @@ def get_provider_status(config: Config | None = None) -> dict[str, Any]:
         "stt_api_key_set": bool(stt_raw),
         "stt_api_key_masked": stt_masked,
         "stt_api_key_env": "STT_API_KEY",
+        "pin_set": pin_configured,
+        "has_pin": pin_configured,
         "presets": presets_data,
     }
 

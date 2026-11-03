@@ -1275,6 +1275,39 @@ _PWA_HTML = r"""<!DOCTYPE html>
   #pin-submit-btn:hover { filter: brightness(1.12); }
   .pin-error { font-size: 0.78rem; color: var(--status-danger); min-height: 16px; }
 
+  /* PIN keypad touch grid */
+  .pin-keypad {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 8px;
+    width: 100%;
+    max-width: 240px;
+    margin-top: 4px;
+  }
+  .pin-key {
+    background: var(--btn-bg);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-md);
+    color: var(--text);
+    font-size: 1.3rem;
+    font-weight: 600;
+    padding: 12px 0;
+    cursor: pointer;
+    touch-action: manipulation;
+    user-select: none;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+  .pin-key:active {
+    background: var(--btn-active);
+    transform: scale(0.96);
+  }
+  .pin-key.action-key {
+    font-size: 0.82rem;
+    color: var(--text-muted);
+  }
+
   /* Runtime-switchable themes. Midnight is the default deck look; the other
      two are for the terminal crowd. Every rule below only sets tokens. */
   :root[data-theme="phosphor"] {
@@ -2500,7 +2533,21 @@ _PWA_HTML = r"""<!DOCTYPE html>
     <div class="logo">OMA <span class="tag">LOCK</span></div>
     <div class="pin-subtitle">Enter PIN to access desktop</div>
     <div class="pin-input-wrap">
-      <input id="pin-input" type="password" pattern="[0-9]*" inputmode="numeric" maxlength="8" placeholder="••••" autocomplete="off">
+      <input id="pin-input" type="password" pattern="[0-9]*" inputmode="numeric" maxlength="8" placeholder="••••" autocomplete="off" readonly>
+    </div>
+    <div class="pin-keypad" id="pin-keypad">
+      <button type="button" class="pin-key" data-digit="1">1</button>
+      <button type="button" class="pin-key" data-digit="2">2</button>
+      <button type="button" class="pin-key" data-digit="3">3</button>
+      <button type="button" class="pin-key" data-digit="4">4</button>
+      <button type="button" class="pin-key" data-digit="5">5</button>
+      <button type="button" class="pin-key" data-digit="6">6</button>
+      <button type="button" class="pin-key" data-digit="7">7</button>
+      <button type="button" class="pin-key" data-digit="8">8</button>
+      <button type="button" class="pin-key" data-digit="9">9</button>
+      <button type="button" class="pin-key action-key" id="pin-clear-key">Clear</button>
+      <button type="button" class="pin-key" data-digit="0">0</button>
+      <button type="button" class="pin-key action-key" id="pin-backspace-key">⌫</button>
     </div>
     <button id="pin-submit-btn">Unlock</button>
     <div id="pin-error" class="pin-error"></div>
@@ -2531,7 +2578,7 @@ _PWA_HTML = r"""<!DOCTYPE html>
       </div>
     </div>
 
-    <!-- Two panes: keys and theme -->
+    <!-- Three panes: keys, theme, security -->
     <div class="settings-tabs" role="tablist">
       <button class="settings-tab active" id="tab-keys" role="tab" aria-selected="true" aria-controls="settings-panel-keys">
         <svg class="icon-svg" style="width:14px;height:14px;" viewBox="0 0 24 24"><path d="M21 2l-2 2m-7.61 7.61a5.5 5.5 0 1 1-7.778 7.778 5.5 5.5 0 0 1 7.777-7.777zm0 0L15.5 7.5m0 0l3 3L22 7l-3-3m-3.5 3.5L19 4"></path></svg>
@@ -2540,6 +2587,10 @@ _PWA_HTML = r"""<!DOCTYPE html>
       <button class="settings-tab" id="tab-theme" role="tab" aria-selected="false" aria-controls="settings-panel-theme">
         <svg class="icon-svg" style="width:14px;height:14px;" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"></circle><path d="M12 2a10 10 0 0 0 0 20 5 5 0 0 1 0-10 5 5 0 0 0 0-10z"></path></svg>
         Theme
+      </button>
+      <button class="settings-tab" id="tab-security" role="tab" aria-selected="false" aria-controls="settings-panel-security">
+        <svg class="icon-svg" style="width:14px;height:14px;" viewBox="0 0 24 24"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect><path d="M7 11V7a5 5 0 0 1 10 0v4"></path></svg>
+        Security
       </button>
     </div>
 
@@ -2848,6 +2899,43 @@ _PWA_HTML = r"""<!DOCTYPE html>
           <div class="setting-desc">Phosphor and Amber swap the whole deck palette — keys, borders, input focus and status colours. Monospace readouts stay monospace.</div>
         </div>
       </div>
+
+      <!-- ===================== SECURITY PANE ===================== -->
+      <div id="settings-panel-security" role="tabpanel" aria-labelledby="tab-security" style="display: none; flex-direction: column; gap: 14px;">
+        <div class="setting-group">
+          <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px;">
+            <label class="setting-label" style="margin: 0;">Deck Session Lock</label>
+            <span id="security-pin-badge" class="tag" style="font-size: 0.65rem; padding: 2px 8px;">CHECKING...</span>
+          </div>
+          <div class="setting-desc" id="security-pin-desc">Protect your OmaDeck remote with a numeric PIN so unauthorized users or devices cannot trigger shortcuts or run commands on your PC.</div>
+        </div>
+
+        <!-- PIN Configuration -->
+        <div class="setting-group" style="background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-md); padding: 12px; display: flex; flex-direction: column; gap: 8px;">
+          <label class="setting-label" for="setting-new-pin">Set / Change PIN (4–8 digits)</label>
+          <div style="display: flex; gap: 8px;">
+            <input type="password" id="setting-new-pin" class="setting-input" pattern="[0-9]*" inputmode="numeric" maxlength="8" placeholder="Enter new PIN" autocomplete="off" style="flex: 1; letter-spacing: 0.25em; font-size: 1.1rem; text-align: center;">
+            <button type="button" class="chat-btn" id="save-pin-btn" style="white-space: nowrap; padding: 0 14px; font-weight: 600;">Save PIN</button>
+          </div>
+          <div style="display: flex; gap: 8px; margin-top: 4px;">
+            <button type="button" class="chat-btn" id="disable-pin-btn" style="color: var(--status-danger); border-color: var(--status-danger); background: transparent; display: none;">Disable PIN Lock</button>
+            <button type="button" class="chat-btn" id="lock-deck-now-btn" style="display: none; margin-left: auto;">Lock Remote Now</button>
+          </div>
+        </div>
+
+        <!-- Auto-lock on app switch / background -->
+        <div class="setting-group" style="background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-md); padding: 12px;">
+          <div style="display: flex; align-items: flex-start; gap: 10px;">
+            <input type="checkbox" id="setting-autolock-app-switch" style="margin-top: 3px; cursor: pointer;" checked>
+            <div>
+              <label for="setting-autolock-app-switch" style="font-weight: 600; font-size: 0.85rem; color: var(--text); cursor: pointer; display: block;">Auto-Lock on App Switch / Background</label>
+              <div class="setting-desc" style="margin-top: 3px;">Asks for PIN again when you switch away to another app, lock your phone, or reopen the remote.</div>
+            </div>
+          </div>
+        </div>
+
+        <div id="security-status" class="status-box" style="display: none;"></div>
+      </div>
     </div>
   </div>
 </div>
@@ -2873,6 +2961,9 @@ _PWA_HTML = r"""<!DOCTYPE html>
         </button>
         <button class="icon-chip" id="settings-toggle" title="AI Settings">
           <svg class="icon-svg" style="width:13px;height:13px;" viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"></circle><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"></path></svg>
+        </button>
+        <button class="icon-chip" id="app-lock-btn" title="Lock Deck" style="display:none;">
+          <svg class="icon-svg" style="width:13px;height:13px;" viewBox="0 0 24 24"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect><path d="M7 11V7a5 5 0 0 1 10 0v4"></path></svg>
         </button>
       </div>
     </header>
@@ -3323,7 +3414,8 @@ _PWA_HTML = r"""<!DOCTYPE html>
 
 <script>
 const HAS_PIN = HAS_PIN_PLACEHOLDER;
-let TOKEN = localStorage.getItem('oma_auth_token') || "TOKEN_PLACEHOLDER";
+let hasPin = HAS_PIN;
+let TOKEN = hasPin ? "" : (localStorage.getItem('oma_auth_token') || "TOKEN_PLACEHOLDER");
 let headers = {"X-Token": TOKEN, "Content-Type": "application/json"};
 
 function haptic(ms = 8) {
@@ -3334,7 +3426,11 @@ function haptic(ms = 8) {
 
 function updateToken(tok) {
   TOKEN = tok;
-  localStorage.setItem('oma_auth_token', tok);
+  if (!hasPin) {
+    localStorage.setItem('oma_auth_token', tok);
+  } else {
+    localStorage.removeItem('oma_auth_token');
+  }
   headers = {"X-Token": TOKEN, "Content-Type": "application/json"};
 }
 
@@ -3346,9 +3442,8 @@ const pinSubmit = document.getElementById('pin-submit-btn');
 function showPinScreen() {
   if (pinOverlay && pinOverlay.style.display !== 'flex') {
     pinOverlay.style.display = 'flex';
-    pinInput.value = '';
-    pinError.textContent = '';
-    setTimeout(() => pinInput.focus(), 150);
+    if (pinInput) pinInput.value = '';
+    if (pinError) pinError.textContent = '';
   }
 }
 
@@ -3356,13 +3451,26 @@ function hidePinScreen() {
   if (pinOverlay) pinOverlay.style.display = 'none';
   loadHistory();
   pollState();
+  loadSettings();
+}
+
+function lockSession() {
+  if (!hasPin) return;
+  TOKEN = "";
+  headers = {"X-Token": "", "Content-Type": "application/json"};
+  const sm = document.getElementById('settings-modal');
+  const hm = document.getElementById('history-modal');
+  if (sm) sm.style.display = 'none';
+  if (hm) hm.style.display = 'none';
+  showPinScreen();
 }
 
 async function submitPin() {
+  if (!pinInput) return;
   const pin = pinInput.value.trim();
   if (!pin) return;
   haptic(10);
-  pinError.textContent = 'Verifying…';
+  if (pinError) pinError.textContent = 'Verifying…';
   try {
     const r = await fetch('/auth', {
       method: 'POST',
@@ -3374,29 +3482,69 @@ async function submitPin() {
       updateToken(d.token);
       hidePinScreen();
     } else {
-      pinError.textContent = d.error || 'Incorrect PIN';
+      if (pinError) pinError.textContent = d.error || 'Incorrect PIN';
       pinInput.value = '';
-      pinInput.focus();
     }
   } catch(e) {
-    pinError.textContent = 'Connection error';
+    if (pinError) pinError.textContent = 'Connection error';
   }
 }
 
 if (pinSubmit) pinSubmit.onclick = submitPin;
-if (pinInput) {
-  pinInput.addEventListener('keydown', e => {
-    if (e.key === 'Enter') submitPin();
-  });
-  pinInput.addEventListener('input', () => {
-    if (pinInput.value.length === 4) submitPin();
+
+// On-screen touch keypad
+const pinKeypad = document.getElementById('pin-keypad');
+if (pinKeypad) {
+  pinKeypad.querySelectorAll('.pin-key[data-digit]').forEach(btn => {
+    btn.addEventListener('click', (e) => {
+      e.preventDefault();
+      haptic(10);
+      if (pinInput && pinInput.value.length < 8) {
+        pinInput.value += btn.getAttribute('data-digit');
+        if (pinError) pinError.textContent = '';
+      }
+    });
   });
 }
+const pinClearKey = document.getElementById('pin-clear-key');
+if (pinClearKey) {
+  pinClearKey.addEventListener('click', (e) => {
+    e.preventDefault();
+    haptic(10);
+    if (pinInput) pinInput.value = '';
+    if (pinError) pinError.textContent = '';
+  });
+}
+const pinBackspaceKey = document.getElementById('pin-backspace-key');
+if (pinBackspaceKey) {
+  pinBackspaceKey.addEventListener('click', (e) => {
+    e.preventDefault();
+    haptic(10);
+    if (pinInput) pinInput.value = pinInput.value.slice(0, -1);
+    if (pinError) pinError.textContent = '';
+  });
+}
+
+// Physical keyboard listener
+window.addEventListener('keydown', e => {
+  if (!pinOverlay || pinOverlay.style.display !== 'flex') return;
+  if (e.key >= '0' && e.key <= '9') {
+    if (pinInput && pinInput.value.length < 8) {
+      pinInput.value += e.key;
+      if (pinError) pinError.textContent = '';
+    }
+  } else if (e.key === 'Backspace') {
+    if (pinInput) pinInput.value = pinInput.value.slice(0, -1);
+    if (pinError) pinError.textContent = '';
+  } else if (e.key === 'Enter') {
+    submitPin();
+  }
+});
 
 let _reloadingAuth = false;
 function checkAuth(r) {
   if (r && (r.status === 401 || r.status === 403)) {
-    if (!HAS_PIN) {
+    if (!hasPin) {
       if (TOKEN !== "TOKEN_PLACEHOLDER" && "TOKEN_PLACEHOLDER") {
         updateToken("TOKEN_PLACEHOLDER");
         return true;
@@ -3460,7 +3608,7 @@ function addMsg(role, text) {
 }
 
 async function loadHistory() {
-  if (HAS_PIN && !TOKEN) { showPinScreen(); return; }
+  if (hasPin && !TOKEN) { showPinScreen(); return; }
   try {
     const r = await fetch('/history', {headers});
     if (checkAuth(r)) return;
@@ -3512,13 +3660,29 @@ async function pollState() {
 }
 setInterval(pollState, 1000);
 
+let _lastHiddenAt = 0;
 document.addEventListener('visibilitychange', () => {
-  if (!document.hidden && TOKEN) {
-    pollState();
+  if (document.hidden) {
+    _lastHiddenAt = Date.now();
+  } else {
+    const autoLockEnabled = localStorage.getItem('oma_autolock_switch') !== '0';
+    if (hasPin && autoLockEnabled) {
+      if (_lastHiddenAt > 0 && (Date.now() - _lastHiddenAt > 500)) {
+        lockSession();
+        return;
+      }
+    }
+    if (TOKEN) {
+      pollState();
+    }
   }
 });
 
-if (HAS_PIN && !TOKEN) {
+window.addEventListener('pagehide', () => {
+  _lastHiddenAt = Date.now();
+});
+
+if (hasPin && !TOKEN) {
   showPinScreen();
 } else {
   loadHistory();
@@ -3546,23 +3710,139 @@ const groupSttKey = document.getElementById('group-stt-key');
 const toggleSttKeyVisibility = document.getElementById('toggle-stt-key-visibility');
 const tabKeys = document.getElementById('tab-keys');
 const tabTheme = document.getElementById('tab-theme');
+const tabSecurity = document.getElementById('tab-security');
 const panelKeys = document.getElementById('settings-panel-keys');
 const panelTheme = document.getElementById('settings-panel-theme');
+const panelSecurity = document.getElementById('settings-panel-security');
 const saveSettingsBtn = document.getElementById('save-settings-btn');
 const settingsStatus = document.getElementById('settings-status');
+
+// Security panel controls
+const securityPinBadge = document.getElementById('security-pin-badge');
+const settingNewPin = document.getElementById('setting-new-pin');
+const savePinBtn = document.getElementById('save-pin-btn');
+const disablePinBtn = document.getElementById('disable-pin-btn');
+const lockDeckNowBtn = document.getElementById('lock-deck-now-btn');
+const appLockBtn = document.getElementById('app-lock-btn');
+const autolockToggle = document.getElementById('setting-autolock-app-switch');
+const securityStatus = document.getElementById('security-status');
+
+function showSecurityStatus(msg, type = 'info') {
+  if (!securityStatus) return;
+  securityStatus.className = 'status-box ' + type;
+  securityStatus.textContent = msg;
+  securityStatus.style.display = 'block';
+  setTimeout(() => {
+    if (securityStatus) securityStatus.style.display = 'none';
+  }, 4000);
+}
+
+function updateSecurityUi(pinSet) {
+  hasPin = Boolean(pinSet);
+  if (securityPinBadge) {
+    if (hasPin) {
+      securityPinBadge.textContent = 'ACTIVE';
+      securityPinBadge.style.background = 'var(--status-ready)';
+      securityPinBadge.style.color = '#000';
+    } else {
+      securityPinBadge.textContent = 'DISABLED';
+      securityPinBadge.style.background = 'var(--surface-raised)';
+      securityPinBadge.style.color = 'var(--text-muted)';
+    }
+  }
+  if (disablePinBtn) disablePinBtn.style.display = hasPin ? 'inline-block' : 'none';
+  if (lockDeckNowBtn) lockDeckNowBtn.style.display = hasPin ? 'inline-block' : 'none';
+  if (appLockBtn) appLockBtn.style.display = hasPin ? 'inline-flex' : 'none';
+}
+
+if (autolockToggle) {
+  autolockToggle.checked = localStorage.getItem('oma_autolock_switch') !== '0';
+  autolockToggle.addEventListener('change', () => {
+    localStorage.setItem('oma_autolock_switch', autolockToggle.checked ? '1' : '0');
+  });
+}
+
+if (savePinBtn) {
+  savePinBtn.onclick = async () => {
+    const pin = (settingNewPin?.value || '').trim();
+    if (!pin || !/^\d{4,8}$/.test(pin)) {
+      showSecurityStatus('PIN must be 4 to 8 numeric digits.', 'error');
+      return;
+    }
+    haptic(10);
+    savePinBtn.disabled = true;
+    savePinBtn.textContent = 'Saving…';
+    try {
+      const res = await fetch('/pin', {
+        method: 'POST',
+        headers,
+        body: JSON.stringify({ action: 'set', pin })
+      });
+      const data = await res.json();
+      if (data.ok) {
+        if (settingNewPin) settingNewPin.value = '';
+        showSecurityStatus(data.message || 'PIN updated! Session lock active.', 'success');
+        updateSecurityUi(true);
+      } else {
+        showSecurityStatus(data.error || 'Failed to update PIN', 'error');
+      }
+    } catch (e) {
+      showSecurityStatus('Error updating PIN: ' + e, 'error');
+    } finally {
+      savePinBtn.disabled = false;
+      savePinBtn.textContent = 'Save PIN';
+    }
+  };
+}
+
+if (disablePinBtn) {
+  disablePinBtn.onclick = async () => {
+    if (!confirm('Disable PIN lock? Anyone on your network with the OmaDeck URL will be able to access the desktop.')) return;
+    haptic(10);
+    disablePinBtn.disabled = true;
+    try {
+      const res = await fetch('/pin', {
+        method: 'POST',
+        headers,
+        body: JSON.stringify({ action: 'disable' })
+      });
+      const data = await res.json();
+      if (data.ok) {
+        showSecurityStatus('PIN lock disabled.', 'info');
+        updateSecurityUi(false);
+      } else {
+        showSecurityStatus(data.error || 'Failed to disable PIN', 'error');
+      }
+    } catch (e) {
+      showSecurityStatus('Error disabling PIN: ' + e, 'error');
+    } finally {
+      disablePinBtn.disabled = false;
+    }
+  };
+}
+
+if (lockDeckNowBtn) lockDeckNowBtn.onclick = lockSession;
+if (appLockBtn) appLockBtn.onclick = lockSession;
 
 let settingsCatalog = {};
 
 // --- settings tabs ---------------------------------------------------------
 function showSettingsTab(name) {
-  const keys = name !== 'theme';
-  if (tabKeys) { tabKeys.classList.toggle('active', keys); tabKeys.setAttribute('aria-selected', keys ? 'true' : 'false'); }
-  if (tabTheme) { tabTheme.classList.toggle('active', !keys); tabTheme.setAttribute('aria-selected', keys ? 'false' : 'true'); }
-  if (panelKeys) panelKeys.style.display = keys ? 'flex' : 'none';
-  if (panelTheme) panelTheme.style.display = keys ? 'none' : 'flex';
+  const isKeys = name === 'keys';
+  const isTheme = name === 'theme';
+  const isSecurity = name === 'security';
+
+  if (tabKeys) { tabKeys.classList.toggle('active', isKeys); tabKeys.setAttribute('aria-selected', isKeys ? 'true' : 'false'); }
+  if (tabTheme) { tabTheme.classList.toggle('active', isTheme); tabTheme.setAttribute('aria-selected', isTheme ? 'true' : 'false'); }
+  if (tabSecurity) { tabSecurity.classList.toggle('active', isSecurity); tabSecurity.setAttribute('aria-selected', isSecurity ? 'true' : 'false'); }
+
+  if (panelKeys) panelKeys.style.display = isKeys ? 'flex' : 'none';
+  if (panelTheme) panelTheme.style.display = isTheme ? 'flex' : 'none';
+  if (panelSecurity) panelSecurity.style.display = isSecurity ? 'flex' : 'none';
 }
 if (tabKeys) tabKeys.onclick = () => { haptic(6); showSettingsTab('keys'); };
 if (tabTheme) tabTheme.onclick = () => { haptic(6); showSettingsTab('theme'); };
+if (tabSecurity) tabSecurity.onclick = () => { haptic(6); showSettingsTab('security'); };
 
 // --- theme picker ----------------------------------------------------------
 const THEME_META = {
@@ -3712,13 +3992,16 @@ if (settingProvider) {
 }
 
 async function loadSettings() {
-  if (HAS_PIN && !TOKEN) return;
+  if (hasPin && !TOKEN) return;
   try {
     const r = await fetch('/settings', {headers});
     if (checkAuth(r)) return;
     if (!r.ok) return;
     const data = await r.json();
     settingsCatalog = data.presets || {};
+    if (data.pin_set !== undefined) {
+      updateSecurityUi(data.pin_set);
+    }
     if (settingProvider && data.provider) {
       settingProvider.value = data.provider;
     }
@@ -3823,7 +4106,7 @@ if (window.location.hash === '#settings') {
 // --- send command ---
 async function sendCmd(text, fromVoice, logYou) {
   if (!text || !text.trim()) return;
-  if (HAS_PIN && !TOKEN) { showPinScreen(); return; }
+  if (hasPin && !TOKEN) { showPinScreen(); return; }
   haptic(8);
   if (logYou === undefined) logYou = true;
   if (latestReply) latestReply.textContent = '▶ ' + text;
@@ -3873,7 +4156,7 @@ if (modeTypeBtn) modeTypeBtn.onclick = () => setMode('type');
 
 async function directType(text, enter) {
   if (!text) return;
-  if (HAS_PIN && !TOKEN) { showPinScreen(); return; }
+  if (hasPin && !TOKEN) { showPinScreen(); return; }
   haptic(8);
   if (latestReply) latestReply.textContent = '⌨ ' + text + (enter ? ' ↵' : '');
   try {
@@ -3896,7 +4179,7 @@ async function directType(text, enter) {
 
 async function sendKey(key) {
   if (!key) return;
-  if (HAS_PIN && !TOKEN) { showPinScreen(); return; }
+  if (hasPin && !TOKEN) { showPinScreen(); return; }
   haptic(10);
   if (latestReply) latestReply.textContent = 'Key: ' + key;
   try {
@@ -4126,7 +4409,7 @@ function toBase64(u8) {
 }
 
 async function sendAudio(blob) {
-  if (HAS_PIN && !TOKEN) { showPinScreen(); return; }
+  if (hasPin && !TOKEN) { showPinScreen(); return; }
   const buf = await blob.arrayBuffer();
   const b64 = toBase64(new Uint8Array(buf));
   try {
@@ -4404,6 +4687,30 @@ class BridgeHandler(http.server.BaseHTTPRequestHandler):
             return
 
         if not self._check_token():
+            return
+
+        if path == "/pin":
+            action = str(payload.get("action") or "").strip().lower()
+            new_pin = str(payload.get("pin") or "").strip()
+
+            from .local_engine import save_local_config
+
+            if action == "disable":
+                self.__class__.pin = ""
+                save_local_config({"pin": ""})
+                self._json({"ok": True, "pin_set": False, "message": "PIN lock disabled."})
+                return
+
+            if action == "set":
+                if not (new_pin.isdigit() and 4 <= len(new_pin) <= 8):
+                    self._json({"ok": False, "error": "PIN must be 4 to 8 digits."}, 400)
+                    return
+                self.__class__.pin = new_pin
+                save_local_config({"pin": new_pin})
+                self._json({"ok": True, "pin_set": True, "message": "PIN lock updated successfully."})
+                return
+
+            self._json({"ok": False, "error": "Invalid action"}, 400)
             return
 
         if path == "/settings":
