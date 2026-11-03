@@ -45,6 +45,9 @@ import sys
 import tempfile
 import threading
 import time
+import urllib.error
+import urllib.parse
+import urllib.request
 import wave
 from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass, field
@@ -410,8 +413,11 @@ def polish_dictation(text: str, app_class: str = "", app_title: str = "") -> str
         return raw
 
     def _rule_based_fallback(s: str) -> str:
-        cleaned = re.sub(r'(?i)\b(um|uh|erm|ah|like|you know)\b\s*', '', s).strip()
-        cleaned = re.sub(r'\s{2,}', ' ', cleaned)
+        cleaned = re.sub(r'(?i)\b(um|uh|erm|ah|you know)\b\s*', '', s)
+        cleaned = re.sub(r'(?i)^\s*like\s+', '', cleaned)
+        cleaned = re.sub(r'(?i),\s*like\s*,?', '', cleaned)
+        cleaned = re.sub(r'(?i)\blike\s+(?=(?:um|uh|erm|ah|you know)\b)', '', cleaned)
+        cleaned = re.sub(r'\s{2,}', ' ', cleaned).strip()
         if not cleaned:
             cleaned = s.strip()
         if cleaned and cleaned[0].islower() and not cleaned.startswith((".", "/", "-", "~")):
@@ -476,12 +482,13 @@ def polish_dictation(text: str, app_class: str = "", app_title: str = "") -> str
                         polished = polished[1:-1].strip()
                     return polished
         elif api_key:
+            max_toks = max(512, min(2048, len(raw.split()) * 4))
             req_data = json.dumps({
                 "model": model,
                 "messages": messages,
                 "stream": False,
                 "temperature": 0.1,
-                "max_tokens": 150
+                "max_tokens": max_toks
             }).encode("utf-8")
             url = f"{base_url.rstrip('/')}/chat/completions"
             headers = {
@@ -489,11 +496,14 @@ def polish_dictation(text: str, app_class: str = "", app_title: str = "") -> str
                 "Authorization": f"Bearer {api_key}"
             }
             req = urllib.request.Request(url, data=req_data, headers=headers)
-            with urllib.request.urlopen(req, timeout=2.5) as r:
+            with urllib.request.urlopen(req, timeout=3.5) as r:
                 res = json.loads(r.read().decode("utf-8"))
                 choices = res.get("choices") or []
                 if choices:
-                    polished = (choices[0].get("message", {}).get("content") or "").strip()
+                    first_choice = choices[0]
+                    if first_choice.get("finish_reason") == "length":
+                        return _rule_based_fallback(raw)
+                    polished = (first_choice.get("message", {}).get("content") or "").strip()
                     if (polished.startswith('"') and polished.endswith('"')) or (polished.startswith("'") and polished.endswith("'")):
                         polished = polished[1:-1].strip()
                     if polished:
@@ -733,7 +743,11 @@ def _resolve_provider(local_cfg: dict) -> dict[str, Any]:
     prov_name = _detect_provider(local_cfg)
     preset = PROVIDER_PRESETS.get(prov_name, {})
     backend = preset.get("backend", "openai")
-    base_url = str(local_cfg.get("base_url") or preset.get("base_url") or "").rstrip("/")
+    # Only "custom" and "ollama" may use custom base_url from config; standard presets must not be overridden
+    if prov_name in ("custom", "ollama"):
+        base_url = str(local_cfg.get("base_url") or preset.get("base_url") or "").rstrip("/")
+    else:
+        base_url = str(preset.get("base_url") or "").rstrip("/")
     api_key_env = str(local_cfg.get("api_key_env") or preset.get("api_key_env") or "")
     default_model = preset.get("default_model", "gpt-4o-mini")
     fallbacks = preset.get("fallbacks", [])
@@ -761,8 +775,14 @@ def test_provider_connection(provider: str, api_key: str = "", model: str = "",
     url = (base_url or preset.get("base_url", "")).rstrip("/")
     key = api_key or os.environ.get(preset.get("api_key_env", ""), "")
 
+    try:
+        parsed_url = urllib.parse.urlparse(url)
+        if parsed_url.scheme not in ("http", "https") or not parsed_url.netloc:
+            return False, f"Invalid provider URL: {url!r}. Scheme must be http or https."
+    except Exception as exc:
+        return False, f"Invalid provider URL: {exc}"
+
     if provider == "ollama":
-        import urllib.request
         try:
             with urllib.request.urlopen(f"{url}/api/tags", timeout=4) as resp:
                 data = json.load(resp)
@@ -791,7 +811,6 @@ def test_provider_connection(provider: str, api_key: str = "", model: str = "",
     if key:
         headers["Authorization"] = f"Bearer {key}"
 
-    import urllib.request, urllib.error
     req = urllib.request.Request(
         f"{url}/chat/completions",
         data=json.dumps(payload).encode(),
@@ -810,15 +829,16 @@ def test_provider_connection(provider: str, api_key: str = "", model: str = "",
             err_msg = err_json.get("error", {}).get("message") or err_json.get("message") or err_json.get("detail") or body
         except Exception:
             pass
-        return False, f"HTTP {exc.code}: {err_msg}"
+        return False, f"HTTP {exc.code}: {str(err_msg)[:300]}"
     except Exception as exc:
-        return False, f"Connection failed: {exc}"
+        return False, f"Connection failed: {str(exc)[:300]}"
 
 
 def save_env_var(var_name: str, value: str) -> None:
     """Save an environment variable to ~/.config/omarchy-voice/env securely."""
-    if not var_name:
+    if not var_name or not re.match(r"^[A-Z0-9_]+$", var_name):
         return
+    clean_value = re.sub(r"[\r\n\x00]+", "", str(value or "")).strip()
     CONFIG_DIR.mkdir(parents=True, exist_ok=True)
     lines: list[str] = []
     found = False
@@ -833,21 +853,21 @@ def save_env_var(var_name: str, value: str) -> None:
         if stripped and not stripped.startswith("#") and "=" in stripped:
             k, _, _ = stripped.partition("=")
             if k.strip() == var_name:
-                new_lines.append(f"{var_name}={value}")
+                new_lines.append(f"{var_name}={clean_value}")
                 found = True
                 continue
         new_lines.append(line)
     if not found:
         if new_lines and new_lines[-1].strip():
             new_lines.append("")
-        new_lines.append(f"{var_name}={value}")
+        new_lines.append(f"{var_name}={clean_value}")
 
     ENV_FILE.write_text("\n".join(new_lines) + "\n")
     try:
         ENV_FILE.chmod(0o600)
     except OSError:
         pass
-    os.environ[var_name] = value
+    os.environ[var_name] = clean_value
 
 
 def save_local_config(updates: dict[str, Any]) -> None:
@@ -908,6 +928,10 @@ def save_local_config(updates: dict[str, Any]) -> None:
 
     lines = lines[:sec_start + 1] + new_sec_lines + lines[sec_end:]
     CONFIG_FILE.write_text("\n".join(lines) + "\n")
+    try:
+        CONFIG_FILE.chmod(0o600)
+    except OSError:
+        pass
 
 
 def get_provider_status(config: Config | None = None) -> dict[str, Any]:

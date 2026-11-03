@@ -92,17 +92,17 @@ DEFAULT_CONFIRM = [
 # Never run, whatever the model decides. A voice channel is an open microphone;
 # anything on this list is not worth the tail risk of a misheard sentence.
 DEFAULT_DENY = [
-    r"\brm\s+-[a-zA-Z]*[rf]",
+    r"\brm\b.*?(?:-[a-zA-Z]*[rf]|--recursive|--force|-r\b|-f\b|-d\b)",
     r"\bmkfs\b",
     r"\bdd\s+if=",
     r"\b(shred|wipefs)\b",
     r">\s*/dev/[sn][dv]",
     r"\bpasswd\b",
-    r"\bsudo\b",
-    r"\bpkexec\b",
+    r"\b(sudo|pkexec|doas)\b",
     r"\bcryptsetup\b",
-    r"\bcurl\b.*\|\s*(ba)?sh",
-    r"\bgit\s+push\b",
+    r"\b(?:curl|wget|fetch)\b.*\|\s*(?:ba|z|da|k|c)?sh\b",
+    r"\bgit\b.*?\bpush\b",
+    r"\bfind\b.*?-delete\b",
     r"\bssh\b",
 ]
 

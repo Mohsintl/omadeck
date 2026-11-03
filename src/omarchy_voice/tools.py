@@ -43,9 +43,75 @@ SHELL_DISPATCHERS = {"exec_cmd", "exec_raw", "exec"}
 
 # A single hl.dsp.* call: namespace dots, then one argument list, nothing else.
 _DISPATCH_RE = re.compile(
-    r"^hl\.dsp(?:\.[A-Za-z_][\w]*)+\s*\(.*\)\s*;?\s*$",
+    r"^hl\.dsp(?:\.[A-Za-z_][\w]*)+\s*\((.*)\)\s*;?\s*$",
     re.DOTALL,
 )
+
+
+def _validate_dispatch_args(args_str: str) -> str | None:
+    """Validate that arguments to hl.dsp.* contain only safe literals and table constructors.
+
+    Nested function calls, execution of arbitrary Lua (e.g. os.execute), semicolons,
+    or unbalanced constructs are rejected.
+    """
+    s = args_str.strip()
+    if not s:
+        return None
+    if ";" in s or "--" in s:
+        return "semicolons and comments are not permitted in dispatcher arguments"
+
+    i = 0
+    n = len(s)
+    while i < n:
+        c = s[i]
+        if c.isspace():
+            i += 1
+            continue
+        if c in "()":
+            return f"nested parentheses {c!r} are not allowed in dispatcher arguments"
+        if c in ('"', "'"):
+            quote = c
+            i += 1
+            while i < n:
+                if s[i] == "\\":
+                    i += 2
+                    continue
+                if s[i] == quote:
+                    i += 1
+                    break
+                i += 1
+            else:
+                return "unterminated string literal in dispatcher arguments"
+            continue
+        if c in "{},:":
+            i += 1
+            continue
+        if c == "=":
+            i += 1
+            continue
+        if c.isdigit() or (c in "+-" and i + 1 < n and (s[i + 1].isdigit() or s[i + 1] == ".")):
+            i += 1
+            while i < n and (s[i].isalnum() or s[i] in "._+xX"):
+                i += 1
+            continue
+        if c.isalpha() or c == "_":
+            start = i
+            while i < n and (s[i].isalnum() or s[i] == "_"):
+                i += 1
+            ident = s[start:i]
+            j = i
+            while j < n and s[j].isspace():
+                j += 1
+            if ident in ("true", "false", "nil"):
+                continue
+            if j < n and s[j] == "=":
+                continue
+            return f"unexpected identifier {ident!r} in dispatcher arguments; function calls and variables are forbidden"
+        return f"disallowed character {c!r} in dispatcher arguments"
+
+    return None
+
+
 _DESKTOP_ID_RE = re.compile(r"^[A-Za-z0-9][A-Za-z0-9_.-]*$")
 
 
@@ -1314,6 +1380,13 @@ class Executor:
             except TypeError as exc:
                 return Result(False, f"bad arguments: {exc}")
 
+    def cancel_pending(self) -> Result:
+        """Drop the held action without running it."""
+        held = self.drop_pending()
+        if not held:
+            return Result(False, "nothing was waiting for confirmation")
+        return Result(True, f"cancelled: {held}")
+
     def drop_pending(self) -> str | None:
         with self._lock:
             if not self.pending:
@@ -1473,8 +1546,11 @@ class Executor:
 
     def _validate_hypr_dispatch(self, lua: str) -> str | None:
         expr = lua.strip()
-        if not _DISPATCH_RE.match(expr):
+        match = _DISPATCH_RE.match(expr)
+        if not match:
             return "expression must be a single hl.dsp.* call"
+        if arg_error := _validate_dispatch_args(match.group(1)):
+            return arg_error
         method = expr.split("(", 1)[0].split(".")[-1]
         if method in SHELL_DISPATCHERS and not self.config.allow_shell:
             return (f"hl.dsp.{method} is process execution; enable allow_shell "

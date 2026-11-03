@@ -95,7 +95,7 @@ class ControlServer:
             with contextlib.suppress(OSError):
                 SOCKET_PATH.unlink()
             raise
-        server.listen(4)
+        server.listen(16)
         server.settimeout(0.5)
         while not self._stop.is_set():
             try:
@@ -126,9 +126,11 @@ def daemon_running() -> bool:
     try:
         probe.connect(str(SOCKET_PATH))
         return True
-    except OSError:
+    except ConnectionRefusedError:
         with contextlib.suppress(OSError):
             SOCKET_PATH.unlink()
+        return False
+    except OSError:
         return False
     finally:
         probe.close()

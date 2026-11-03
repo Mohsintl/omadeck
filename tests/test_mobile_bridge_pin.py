@@ -24,7 +24,9 @@ class MobileBridgePinTests(unittest.TestCase):
         BridgeHandler.pin = self.orig_pin
         BridgeHandler.token = self.orig_token
 
-    def _call_post(self, path: str, payload: dict, token: str = "test-token-123"):
+    def _call_post(self, path: str, payload: dict, token: str | None = None):
+        if token is None:
+            token = BridgeHandler.token
         body = json.dumps(payload).encode("utf-8")
 
         rfile = io.BytesIO(body)
@@ -117,6 +119,8 @@ class MobileBridgePinTests(unittest.TestCase):
             self.assertIn("200", status_line)
             self.assertTrue(data.get("ok"))
             self.assertTrue(data.get("pin_set"))
+            self.assertIn("token", data)
+            self.assertEqual(BridgeHandler.token, data["token"])
             self.assertEqual(BridgeHandler.pin, "8765")
             self.assertEqual(saved.get("pin"), "8765")
 
@@ -125,6 +129,8 @@ class MobileBridgePinTests(unittest.TestCase):
             self.assertIn("200", status_line)
             self.assertTrue(data.get("ok"))
             self.assertFalse(data.get("pin_set"))
+            self.assertIn("token", data)
+            self.assertEqual(BridgeHandler.token, data["token"])
             self.assertEqual(BridgeHandler.pin, "")
             self.assertEqual(saved.get("pin"), "")
 

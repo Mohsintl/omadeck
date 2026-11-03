@@ -25,7 +25,11 @@ rm -rf "$HOME/.cache/omarchy-voice" "$HOME/.local/state/omarchy-voice"
 
 if [[ "${1:-}" == "--purge" ]]; then
   rm -rf "$HOME/.config/omarchy-voice"
-  echo "removed config too"
+  echo "removed config, credentials, and local certificates"
+  echo "Note: If you installed Oma Remote's CA cert on your phone, remember to remove it in your phone's certificate settings."
+else
+  echo "Left configuration and certificates in $HOME/.config/omarchy-voice."
+  echo "To remove all API keys, tokens, and certificates, re-run with: ./uninstall.sh --purge"
 fi
 
 # --- keybindings -----------------------------------------------------------

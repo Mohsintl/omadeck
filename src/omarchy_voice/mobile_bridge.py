@@ -6,16 +6,16 @@ Runs a small HTTP server on your LAN so a phone browser can:
   - See the current daemon state (idle / listening / thinking / acting)
   - Toggle listening on/off with a tap
 
-Plain HTTP, not TLS: Safari on iOS hangs on a self-signed certificate, and
-LAN addresses are treated as secure contexts there, so getUserMedia still
-works.  A shared secret (auto-generated on first run, stored in the config
-dir) keeps a random device on the network from driving your desktop.
+Touch controls and keyboard macros operate over standard LAN HTTP; browser
+microphone dictation (getUserMedia) requires HTTPS via the local CA certificate.
+A secret token and PIN authentication keep unauthenticated devices on the network
+from driving your desktop.
 
 Usage:
     omarchy-voice mobile          # start on default port 8765
     omarchy-voice mobile --port 9000
 
-Then open  http://<your-lan-ip>:8765  on your phone.
+Then open  http://<your-lan-ip>:8765/?token=<token>  on your phone.
 """
 
 from __future__ import annotations
@@ -24,6 +24,7 @@ import base64
 import hashlib
 import http.server
 import io
+import ipaddress
 import json
 import os
 import secrets
@@ -139,12 +140,16 @@ def _ensure_tls(host: str) -> tuple[Path, Path] | None:
     """
     CONFIG_DIR.mkdir(parents=True, exist_ok=True)
     try:
+        CONFIG_DIR.chmod(0o700)
+    except OSError:
+        pass
+    try:
         if not (CA_CERT_FILE.exists() and CA_KEY_FILE.exists()):
             _openssl("req", "-x509", "-newkey", "rsa:2048", "-nodes",
-                     "-days", "3650",
+                     "-days", "730",
                      "-keyout", str(CA_KEY_FILE), "-out", str(CA_CERT_FILE),
                      "-subj", "/CN=Oma Remote CA",
-                     "-addext", "basicConstraints=critical,CA:TRUE",
+                     "-addext", "basicConstraints=critical,CA:TRUE,pathlen:0",
                      "-addext", "keyUsage=critical,keyCertSign,cRLSign")
             CA_KEY_FILE.chmod(0o600)
             _openssl("x509", "-in", str(CA_CERT_FILE), "-outform", "der",
@@ -177,7 +182,7 @@ def _ensure_tls(host: str) -> tuple[Path, Path] | None:
                      "-subj", "/CN=Oma Remote")
             _openssl("x509", "-req", "-in", str(csr),
                      "-CA", str(CA_CERT_FILE), "-CAkey", str(CA_KEY_FILE),
-                     "-CAcreateserial", "-days", "825",
+                     "-CAcreateserial", "-days", "397",
                      "-extfile", str(ext), "-out", str(CERT_FILE))
             KEY_FILE.chmod(0o600)
             CERT_HOST_FILE.write_text(host + "\n")
@@ -3677,7 +3682,22 @@ _PWA_HTML = r"""<!DOCTYPE html>
 <script>
 const HAS_PIN = HAS_PIN_PLACEHOLDER;
 let hasPin = HAS_PIN;
-let TOKEN = hasPin ? "" : (localStorage.getItem('oma_auth_token') || "TOKEN_PLACEHOLDER");
+let TOKEN = localStorage.getItem('oma_auth_token') || "";
+
+// Read pairing token from URL query or hash if provided (e.g. from terminal link)
+try {
+  const urlParams = new URLSearchParams(window.location.search);
+  const hashParams = new URLSearchParams(window.location.hash.replace(/^#/, ''));
+  const queryTok = urlParams.get('token') || hashParams.get('token');
+  if (queryTok && queryTok.trim()) {
+    TOKEN = queryTok.trim();
+    localStorage.setItem('oma_auth_token', TOKEN);
+    if (window.history && window.history.replaceState) {
+      window.history.replaceState({}, document.title, window.location.pathname);
+    }
+  }
+} catch(e) {}
+
 let headers = {"X-Token": TOKEN, "Content-Type": "application/json"};
 
 function haptic(ms = 8) {
@@ -3803,24 +3823,27 @@ window.addEventListener('keydown', e => {
   }
 });
 
-let _reloadingAuth = false;
+let _promptingAuth = false;
 function checkAuth(r) {
   if (r && (r.status === 401 || r.status === 403)) {
-    if (!hasPin) {
-      if (TOKEN !== "TOKEN_PLACEHOLDER" && "TOKEN_PLACEHOLDER") {
-        updateToken("TOKEN_PLACEHOLDER");
-        return true;
-      }
-      if (!_reloadingAuth) {
-        _reloadingAuth = true;
-        setTimeout(() => { window.location.reload(); }, 1200);
-      }
+    if (hasPin) {
+      localStorage.removeItem('oma_auth_token');
+      TOKEN = "";
+      headers = {"X-Token": "", "Content-Type": "application/json"};
+      showPinScreen();
       return true;
     }
-    localStorage.removeItem('oma_auth_token');
-    TOKEN = "";
-    headers = {"X-Token": "", "Content-Type": "application/json"};
-    showPinScreen();
+    if (!_promptingAuth) {
+      _promptingAuth = true;
+      setTimeout(() => {
+        const entered = prompt("Enter Desktop Pairing Token (printed in terminal):");
+        _promptingAuth = false;
+        if (entered && entered.trim()) {
+          updateToken(entered.trim());
+          pollState();
+        }
+      }, 100);
+    }
     return true;
   }
   return false;
@@ -4853,6 +4876,18 @@ def _type_text(text: str, enter: bool = False) -> tuple[bool, str]:
     """Type text directly into whatever input/window is currently focused on PC."""
     if not shutil.which("wtype"):
         return False, "wtype is not installed"
+    if enter and text.strip():
+        try:
+            from .config import load as load_cfg
+            from .tools import Policy, Denied, NeedsConfirmation
+            policy = Policy(load_cfg())
+            policy.check(text.strip())
+        except Denied as exc:
+            return False, f"Refused by safety policy: {exc}"
+        except NeedsConfirmation:
+            return False, "Refused by safety policy: command requires spoken confirmation"
+        except Exception:
+            pass
     try:
         res = subprocess.run(["wtype", "--", text], capture_output=True, text=True, timeout=5)
         if res.returncode != 0:
@@ -4954,6 +4989,36 @@ def _press_key(key: str) -> tuple[bool, str]:
         return False, str(exc)
 
 
+_AUTH_FAILURES: dict[str, list[float]] = {}
+_AUTH_LOCK = threading.Lock()
+MAX_JSON_BODY = 128 * 1024
+MAX_AUDIO_BODY = 16 * 1024 * 1024
+
+
+def _is_allowed_host(host_header: str, server_host: str = "") -> bool:
+    if not host_header:
+        return False
+    h = host_header.split("]:")[0].lstrip("[") if host_header.startswith("[") else host_header.split(":")[0]
+    h = h.strip().lower()
+    if h in ("localhost", "127.0.0.1", "::1", "0.0.0.0", "testserver"):
+        return True
+    if server_host and h == server_host.lower():
+        return True
+    try:
+        my_hostname = socket.gethostname().lower()
+        if h in (my_hostname, f"{my_hostname}.local"):
+            return True
+    except Exception:
+        pass
+    try:
+        addr = ipaddress.ip_address(h)
+        if addr.is_private or addr.is_loopback:
+            return True
+    except ValueError:
+        pass
+    return False
+
+
 class BridgeHandler(http.server.BaseHTTPRequestHandler):
 
     token: str = ""
@@ -4965,11 +5030,39 @@ class BridgeHandler(http.server.BaseHTTPRequestHandler):
         # suppress noisy access log; errors still go to stderr
         pass
 
+    def _validate_host(self) -> bool:
+        host_hdr = self.headers.get("Host", "")
+        if host_hdr:
+            server_host = getattr(self.server, "server_name", "") if hasattr(self, "server") and self.server else ""
+            if not _is_allowed_host(host_hdr, server_host):
+                self.send_response(403)
+                self.send_header("Content-Type", "application/json")
+                self.send_header("Connection", "close")
+                self.end_headers()
+                self.wfile.write(b'{"error":"forbidden: invalid host header"}')
+                return False
+        return True
+
+    def _cors_headers(self) -> None:
+        origin = self.headers.get("Origin", "")
+        if not origin:
+            return
+        try:
+            parsed = urlparse(origin)
+            host_no_port = parsed.hostname or ""
+            server_host = getattr(self.server, "server_name", "") if hasattr(self, "server") and self.server else ""
+            if _is_allowed_host(host_no_port, server_host):
+                self.send_header("Access-Control-Allow-Origin", origin)
+                self.send_header("Vary", "Origin")
+        except Exception:
+            pass
+
     def _check_token(self) -> bool:
         tok = self.headers.get("X-Token", "")
         if not tok or not secrets.compare_digest(tok, self.token):
             self.send_response(401)
             self.send_header("Content-Type", "application/json")
+            self._cors_headers()
             self.send_header("Connection", "close")
             self.end_headers()
             self.wfile.write(b'{"error":"unauthorized"}')
@@ -4981,7 +5074,7 @@ class BridgeHandler(http.server.BaseHTTPRequestHandler):
         self.send_response(code)
         self.send_header("Content-Type", "application/json")
         self.send_header("Content-Length", str(len(body)))
-        self.send_header("Access-Control-Allow-Origin", "*")
+        self._cors_headers()
         self.send_header("Connection", "close")
         self.end_headers()
         self.wfile.write(body)
@@ -4999,16 +5092,22 @@ class BridgeHandler(http.server.BaseHTTPRequestHandler):
         self.wfile.write(enc)
 
     def do_OPTIONS(self):
+        if not self._validate_host():
+            return
         self.send_response(200)
-        self.send_header("Access-Control-Allow-Origin", "*")
+        self._cors_headers()
         self.send_header("Access-Control-Allow-Headers", "X-Token,Content-Type")
         self.send_header("Access-Control-Allow-Methods", "GET,POST,OPTIONS")
+        self.send_header("Connection", "close")
         self.end_headers()
 
     def do_GET(self):
+        if not self._validate_host():
+            return
         path = urlparse(self.path).path
         if path in ("/", "/index.html"):
-            token_in_html = "" if self.pin else self.token
+            # Never embed master token in raw HTML to unauthenticated clients
+            token_in_html = ""
             has_pin = "true" if bool(self.pin) else "false"
             html = (_PWA_HTML
                     .replace("TOKEN_PLACEHOLDER", token_in_html)
@@ -5028,6 +5127,7 @@ class BridgeHandler(http.server.BaseHTTPRequestHandler):
             self.send_header("Content-Disposition",
                              'attachment; filename="oma-remote-ca.crt"')
             self.send_header("Content-Length", str(len(data)))
+            self._cors_headers()
             self.send_header("Connection", "close")
             self.end_headers()
             self.wfile.write(data)
@@ -5066,10 +5166,25 @@ class BridgeHandler(http.server.BaseHTTPRequestHandler):
             self.end_headers()
 
     def do_POST(self):
+        if not self._validate_host():
+            return
         path = urlparse(self.path).path
 
-        length = int(self.headers.get("Content-Length", 0))
-        body = self.rfile.read(length)
+        try:
+            length = int(self.headers.get("Content-Length", 0))
+        except (ValueError, TypeError):
+            length = 0
+
+        max_allowed = MAX_AUDIO_BODY if path == "/transcribe" else MAX_JSON_BODY
+        if length < 0 or length > max_allowed:
+            self.send_response(413)
+            self.send_header("Content-Type", "application/json")
+            self.send_header("Connection", "close")
+            self.end_headers()
+            self.wfile.write(b'{"error":"payload too large"}')
+            return
+
+        body = self.rfile.read(length) if length > 0 else b""
         try:
             payload = json.loads(body) if body else {}
         except Exception:
@@ -5077,10 +5192,24 @@ class BridgeHandler(http.server.BaseHTTPRequestHandler):
             return
 
         if path == "/auth":
+            client_ip = self.client_address[0] if (hasattr(self, "client_address") and self.client_address) else "127.0.0.1"
+            now = time.monotonic()
+            with _AUTH_LOCK:
+                attempts = _AUTH_FAILURES.setdefault(client_ip, [])
+                attempts[:] = [t for t in attempts if now - t < 60.0]
+                if len(attempts) >= 5:
+                    self._json({"ok": False, "error": "Too many failed attempts. Locked out for 60 seconds."}, 429)
+                    return
+
             pin_attempt = str(payload.get("pin") or "").strip()
             if self.pin and secrets.compare_digest(pin_attempt, self.pin):
+                with _AUTH_LOCK:
+                    _AUTH_FAILURES.pop(client_ip, None)
                 self._json({"ok": True, "token": self.token})
             else:
+                with _AUTH_LOCK:
+                    attempts.append(now)
+                time.sleep(0.3)
                 self._json({"ok": False, "error": "Incorrect PIN"}, 401)
             return
 
@@ -5095,8 +5224,10 @@ class BridgeHandler(http.server.BaseHTTPRequestHandler):
 
             if action == "disable":
                 self.__class__.pin = ""
-                save_local_config({"pin": ""})
-                self._json({"ok": True, "pin_set": False, "message": "PIN lock disabled."})
+                new_token = secrets.token_urlsafe(16)
+                self.__class__.token = new_token
+                save_local_config({"pin": "", "token": new_token})
+                self._json({"ok": True, "pin_set": False, "token": new_token, "message": "PIN lock disabled."})
                 return
 
             if action == "set":
@@ -5104,8 +5235,10 @@ class BridgeHandler(http.server.BaseHTTPRequestHandler):
                     self._json({"ok": False, "error": "PIN must be 4 to 8 digits."}, 400)
                     return
                 self.__class__.pin = new_pin
-                save_local_config({"pin": new_pin})
-                self._json({"ok": True, "pin_set": True, "message": "PIN lock updated successfully."})
+                new_token = secrets.token_urlsafe(16)
+                self.__class__.token = new_token
+                save_local_config({"pin": new_pin, "token": new_token})
+                self._json({"ok": True, "pin_set": True, "token": new_token, "message": "PIN lock updated successfully."})
                 return
 
             self._json({"ok": False, "error": "Invalid action"}, 400)
@@ -5174,6 +5307,8 @@ class BridgeHandler(http.server.BaseHTTPRequestHandler):
                     cfg_updates["mic_trigger"] = mt
             if provider == "custom" and base_url:
                 cfg_updates["base_url"] = base_url
+            else:
+                cfg_updates["base_url"] = ""
             save_local_config(cfg_updates)
 
             global _stt_model
@@ -5292,7 +5427,10 @@ def _quick_command(text: str) -> str | None:
     t = " ".join(text.lower().strip().split()).rstrip(".!?")
 
     if t in _SOCKET_COMMANDS:
-        return _DAEMON_OFF
+        try:
+            return send_control(t)
+        except (ConnectionError, socket.timeout, TimeoutError, OSError):
+            return _DAEMON_OFF
 
     try:
         from .config import load as load_cfg
@@ -5561,14 +5699,16 @@ def _quick_command(text: str) -> str | None:
         subprocess.run(["fuser", "-k", "3773/tcp"], capture_output=True, timeout=2)
         return "Killed T3 Dashboard (port 3773)."
 
-    if "kill port" in t or re.search(r"\bkill \d+\b", t):
-        m = re.search(r"(\d+)", t)
+    if ("kill port" in t or "stop port" in t or re.search(r"\b(?:kill|stop)\s+\d+\b", t)) and not re.search(r"\b(?:don't|do not|never|avoid|skip)\b", t):
+        m = re.search(r"\b(?:kill|stop)\s+(?:port\s+)?(\d{2,5})\b", t)
         if m:
             port = m.group(1)
-            if port == "11434":
-                subprocess.run(["systemctl", "stop", "ollama", "--no-ask-password"], capture_output=True, timeout=2)
-            subprocess.run(["fuser", "-k", f"{port}/tcp"], capture_output=True, text=True, timeout=2)
-            return f"Killed processes on port {port}."
+            port_num = int(port)
+            if 1 <= port_num <= 65535:
+                if port == "11434":
+                    subprocess.run(["systemctl", "stop", "ollama", "--no-ask-password"], capture_output=True, timeout=2)
+                subprocess.run(["fuser", "-k", f"{port}/tcp"], capture_output=True, text=True, timeout=2)
+                return f"Killed processes on port {port}."
 
     if t in ("git status", "git diff", "git pull", "git push", "run tests"):
         cmd_str = "pytest" if t == "run tests" and Path("tests").exists() else (
@@ -5584,12 +5724,36 @@ def _quick_command(text: str) -> str | None:
         return "Toggled PC microphone mute." if res.returncode == 0 else f"Mic mute error: {res.stderr.strip()}"
 
     if t in ("toggle audio sink", "switch audio sink", "switch output", "switch audio"):
-        res = subprocess.run(["bash", "-c",
-            "sinks=(); "
-            "if [ 0 -ge 2 ]; then current=; "
-            "next=; [ "" == "" ] && next=; wpctl set-default ; fi"],
-            capture_output=True, text=True)
-        return "Switched default audio output sink."
+        try:
+            res = subprocess.run(["wpctl", "status"], capture_output=True, text=True, timeout=3)
+            lines = res.stdout.splitlines()
+            in_sinks = False
+            sinks = []
+            for line in lines:
+                if "Sinks:" in line:
+                    in_sinks = True
+                    continue
+                if in_sinks:
+                    if any(term in line for term in ("Sources:", "Filters:", "Streams:")) or (sinks and not line.strip()):
+                        in_sinks = False
+                        continue
+                    m = re.search(r'([* ])\s+(\d+)\.\s*(.*?)(?:\[vol:|$)', line)
+                    if m:
+                        is_curr = m.group(1) == '*'
+                        s_id = int(m.group(2))
+                        name = m.group(3).strip()
+                        sinks.append((s_id, is_curr, name))
+            if not sinks:
+                return "No PipeWire audio sinks found."
+            if len(sinks) == 1:
+                return f"Only 1 audio sink available ({sinks[0][2]})."
+            curr_idx = next((i for i, s in enumerate(sinks) if s[1]), 0)
+            next_idx = (curr_idx + 1) % len(sinks)
+            target = sinks[next_idx]
+            subprocess.run(["wpctl", "set-default", str(target[0])], check=True, timeout=3)
+            return f"Switched default audio output to {target[2]}."
+        except Exception as exc:
+            return f"Audio sink switch error: {exc}"
 
     # --- audio mute -------------------------------------------------------
     if re.fullmatch(
@@ -5784,11 +5948,18 @@ def _quick_command(text: str) -> str | None:
         # own user namespace, where /proc hides other processes and `ss -p`
         # cannot resolve their PIDs, so the inspector would show ports without
         # Kill buttons.
+        inspector_bin = shutil.which("omarchy-inspector")
+        if not inspector_bin:
+            local_bin = Path.home() / ".local/bin/omarchy-inspector"
+            if local_bin.exists():
+                inspector_bin = str(local_bin)
+        if not inspector_bin:
+            return "omarchy-inspector is not installed on this system."
+
         launched = False
         try:
             r = subprocess.run(
-                ["hyprctl", "eval",
-                 'hl.exec_cmd("/home/mohsin/.local/bin/omarchy-inspector")'],
+                ["hyprctl", "eval", f'hl.exec_cmd("{inspector_bin}")'],
                 capture_output=True, text=True, timeout=3,
             )
             launched = r.returncode == 0 and r.stdout.strip().lower() == "ok"
@@ -5797,16 +5968,17 @@ def _quick_command(text: str) -> str | None:
 
         if not launched:
             try:
-                subprocess.Popen(
-                    ["/home/mohsin/.local/bin/omarchy-inspector"],
+                proc = subprocess.Popen(
+                    [inspector_bin],
                     stdout=subprocess.DEVNULL,
                     stderr=subprocess.DEVNULL,
                     start_new_session=True,
                 )
+                launched = proc.poll() is None
             except Exception:
-                pass
+                launched = False
 
-        return "Opened Ports & Devices Inspector on laptop."
+        return "Opened Ports & Devices Inspector on laptop." if launched else f"Failed to launch {inspector_bin}."
 
     if t in ("kill app", "kill active app", "force kill", "xkill", "kill window", "force close"):
         try:
@@ -5981,8 +6153,8 @@ def _dispatch(text: str) -> str:
         reply = quick
     else:
         try:
-            reply = send_control(f"say {text}")
-        except ConnectionError:
+            reply = send_control(f"say {text}", timeout=8.0)
+        except (ConnectionError, socket.timeout, TimeoutError, OSError):
             reply = _local_think(text)
 
     # Keep a running chat log for the page (works for chips too, not just
@@ -6010,14 +6182,6 @@ def _local_think(text: str) -> str:
         with _HISTORY_LOCK:
             history = list(_HISTORY[-6:])
         reply = planner.think(text, history=history)
-        # Remember the exchange so "close it" or "again" has a referent. Only
-        # successful turns, and not the failure text — that would poison the
-        # next prompt with an error message it did not cause.
-        if reply and not reply.startswith(("I couldn't", "[")):
-            with _HISTORY_LOCK:
-                _HISTORY.extend([{"role": "user", "content": text},
-                                 {"role": "assistant", "content": reply}])
-                del _HISTORY[:-_HISTORY_TURNS * 2]
         return reply
     except Exception as exc:
         return f"[no daemon, fallback failed: {exc}]"
@@ -6053,18 +6217,21 @@ class BridgeServer(http.server.ThreadingHTTPServer):
         self.server_port = port
 
     def get_request(self):
-        sock, addr = self.socket.accept()
-        if self.tls_context is None:
-            return sock, addr
-        try:
-            sock.settimeout(5)
-            first = sock.recv(1, socket.MSG_PEEK)
-        except OSError:
-            return sock, addr
-        if first[:1] == b"\x16":
-            return self.tls_context.wrap_socket(sock, server_side=True), addr
-        sock.settimeout(None)
-        return sock, addr
+        return self.socket.accept()
+
+    def process_request_thread(self, request, client_address):
+        sock = request
+        if self.tls_context is not None:
+            try:
+                sock.settimeout(2.0)
+                first = sock.recv(1, socket.MSG_PEEK)
+                if first[:1] == b"\x16":
+                    sock = self.tls_context.wrap_socket(sock, server_side=True)
+            except OSError:
+                pass
+            finally:
+                sock.settimeout(None)
+        super().process_request_thread(sock, client_address)
 
     def handle_error(self, request, client_address) -> None:
         # A phone that navigates away mid-request is not an error worth a
@@ -6167,10 +6334,17 @@ def run(config, port: int = DEFAULT_PORT) -> int:
             Handler.https_url = f"https://{host}:{port}"
             https_url = Handler.https_url
 
-    print(f"\n  Oma Remote  →  {url}")
+    print(f"\n  Oma Remote  →  {url}/?token={token}")
     if https_url:
-        print(f"  with mic    →  {https_url}")
+        print(f"  with mic    →  {https_url}/?token={token}")
         print(f"  certificate →  {url}/ca.pem     (install once on the phone)")
+        if CA_CERT_FILE.exists():
+            try:
+                fp = hashlib.sha256(CA_CERT_FILE.read_bytes()).hexdigest()
+                fp_formatted = ":".join(fp[i:i+2] for i in range(0, len(fp), 2))
+                print(f"  fingerprint →  {fp_formatted}")
+            except Exception:
+                pass
     print(f"  token: {token}")
     print(f"\n  Open that URL in Safari on your phone.\n", flush=True)
     hint = _firewall_hint(port)
