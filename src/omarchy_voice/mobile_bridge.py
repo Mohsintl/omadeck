@@ -5184,7 +5184,7 @@ class BridgeHandler(http.server.BaseHTTPRequestHandler):
         except (ValueError, TypeError):
             length = 0
 
-        max_allowed = MAX_AUDIO_BODY if path == "/transcribe" else MAX_JSON_BODY
+        max_allowed = MAX_AUDIO_BODY if path in ("/transcribe", "/voice") else MAX_JSON_BODY
         if length < 0 or length > max_allowed:
             self.send_response(413)
             self.send_header("Content-Type", "application/json")
@@ -5212,6 +5212,13 @@ class BridgeHandler(http.server.BaseHTTPRequestHandler):
 
             origin = self.headers.get("Origin", "")
             if origin:
+                if origin.lower() == "null":
+                    self.send_response(403)
+                    self.send_header("Content-Type", "application/json")
+                    self.send_header("Connection", "close")
+                    self.end_headers()
+                    self.wfile.write(b'{"error":"forbidden: null origin"}')
+                    return
                 host_hdr = self.headers.get("Host", "")
                 try:
                     origin_parsed = urlparse(origin)
@@ -5240,6 +5247,7 @@ class BridgeHandler(http.server.BaseHTTPRequestHandler):
                 if len(attempts) >= 5:
                     self._json({"ok": False, "error": "Too many failed attempts. Locked out for 60 seconds."}, 429)
                     return
+                attempts.append(now)
 
             pin_attempt = str(payload.get("pin") or "").strip()
             time.sleep(0.2)
@@ -5248,8 +5256,6 @@ class BridgeHandler(http.server.BaseHTTPRequestHandler):
                     _AUTH_FAILURES.pop(client_ip, None)
                 self._json({"ok": True, "token": self.token})
             else:
-                with _AUTH_LOCK:
-                    attempts.append(now)
                 self._json({"ok": False, "error": "Incorrect PIN"}, 401)
             return
 

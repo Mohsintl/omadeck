@@ -257,6 +257,13 @@ class MobileBridgePinTests(unittest.TestCase):
         )
         self.assertIn("403", status_line2)
 
+        # Origin: null is rejected with 403
+        status_line_null, _ = self._call_post(
+            "/auth", {"pin": "1234"}, token="",
+            extra_headers={"Origin": "null"}
+        )
+        self.assertIn("403", status_line_null)
+
         # Same origin / matching Host is permitted
         status_line3, data3 = self._call_post(
             "/auth", {"pin": "1234"}, token="",
@@ -265,6 +272,20 @@ class MobileBridgePinTests(unittest.TestCase):
         self.assertIn("200", status_line3)
         self.assertTrue(data3.get("ok"))
 
+    def test_auth_rate_limit_lockout_after_five_attempts(self):
+        from omarchy_voice.mobile_bridge import _AUTH_FAILURES, _AUTH_LOCK
+        with _AUTH_LOCK:
+            _AUTH_FAILURES.clear()
+        with mock.patch("time.sleep"):
+            # 5 incorrect attempts
+            for _ in range(5):
+                status_line, data = self._call_post("/auth", {"pin": "wrong"}, token="")
+                self.assertIn("401", status_line)
+            # 6th attempt locked out with 429
+            status_line6, data6 = self._call_post("/auth", {"pin": "wrong"}, token="")
+            self.assertIn("429", status_line6)
+            self.assertIn("Too many failed attempts", data6.get("error", ""))
+
     def test_voice_endpoint_passes_voice_guard(self):
         with mock.patch("omarchy_voice.mobile_bridge._transcribe_wav", return_value="git push"):
             status_line, data = self._call_post(
@@ -272,6 +293,15 @@ class MobileBridgePinTests(unittest.TestCase):
             )
             self.assertIn("200", status_line)
             self.assertIn("Refused by safety policy", data.get("reply", ""))
+
+    def test_voice_endpoint_allows_audio_larger_than_json_body_limit(self):
+        # 200 KB audio payload (> 128 KB JSON limit) should not return 413
+        large_audio = "A" * (200 * 1024)
+        with mock.patch("omarchy_voice.mobile_bridge._transcribe_wav", return_value="hello"):
+            with mock.patch("omarchy_voice.mobile_bridge._dispatch", return_value="hi"):
+                status_line, data = self._call_post("/voice", {"audio_b64": large_audio})
+                self.assertNotIn("413", status_line)
+                self.assertIn("200", status_line)
 
 
 if __name__ == "__main__":
