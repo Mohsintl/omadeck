@@ -44,7 +44,7 @@ class MobileBridgePinTests(unittest.TestCase):
         BridgeHandler.pin = self.orig_pin
         BridgeHandler.token = self.orig_token
 
-    def _call_post(self, path: str, payload: dict, token: str | None = None):
+    def _call_post(self, path: str, payload: dict, token: str | None = None, extra_headers: dict | None = None):
         if token is None:
             token = BridgeHandler.token
         body = json.dumps(payload).encode("utf-8")
@@ -55,11 +55,15 @@ class MobileBridgePinTests(unittest.TestCase):
         handler = BridgeHandler.__new__(BridgeHandler)
         handler.rfile = rfile
         handler.wfile = wfile
-        handler.headers = {
+        headers = {
             "Content-Type": "application/json",
             "Content-Length": str(len(body)),
             "X-Token": token,
+            "Host": "127.0.0.1:8765",
         }
+        if extra_headers:
+            headers.update(extra_headers)
+        handler.headers = headers
         handler.path = path
         handler.command = "POST"
         handler.requestline = f"POST {path} HTTP/1.1"
@@ -237,6 +241,37 @@ class MobileBridgePinTests(unittest.TestCase):
             res_button = _dispatch("git push", voice=False)
             self.assertIn("Ran `git push` in active terminal", res_button)
             mock_type.assert_called_with("git push", enter=True)
+
+    def test_auth_endpoint_rejects_cross_site_requests(self):
+        # Sec-Fetch-Site: cross-site is rejected with 403
+        status_line, _ = self._call_post(
+            "/auth", {"pin": "1234"}, token="",
+            extra_headers={"Sec-Fetch-Site": "cross-site"}
+        )
+        self.assertIn("403", status_line)
+
+        # Mismatching Origin is rejected with 403
+        status_line2, _ = self._call_post(
+            "/auth", {"pin": "1234"}, token="",
+            extra_headers={"Origin": "http://evil.com"}
+        )
+        self.assertIn("403", status_line2)
+
+        # Same origin / matching Host is permitted
+        status_line3, data3 = self._call_post(
+            "/auth", {"pin": "1234"}, token="",
+            extra_headers={"Origin": "http://127.0.0.1:8765"}
+        )
+        self.assertIn("200", status_line3)
+        self.assertTrue(data3.get("ok"))
+
+    def test_voice_endpoint_passes_voice_guard(self):
+        with mock.patch("omarchy_voice.mobile_bridge._transcribe_wav", return_value="git push"):
+            status_line, data = self._call_post(
+                "/voice", {"audio_b64": "UklGRg=="}
+            )
+            self.assertIn("200", status_line)
+            self.assertIn("Refused by safety policy", data.get("reply", ""))
 
 
 if __name__ == "__main__":

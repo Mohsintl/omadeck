@@ -5072,11 +5072,6 @@ class BridgeHandler(http.server.BaseHTTPRequestHandler):
                 return False
         return True
 
-    def _cors_headers(self) -> None:
-        # OmaDeck PWA is strictly same-origin. Never emit Access-Control-Allow-Origin
-        # to external origins to prevent cross-origin reading of responses or PIN guessing.
-        pass
-
     def _check_token(self) -> bool:
         tok = self.headers.get("X-Token", "")
         if not tok or not secrets.compare_digest(tok, self.token):
@@ -5206,6 +5201,37 @@ class BridgeHandler(http.server.BaseHTTPRequestHandler):
             return
 
         if path == "/auth":
+            sec_fetch_site = self.headers.get("Sec-Fetch-Site", "")
+            if sec_fetch_site == "cross-site":
+                self.send_response(403)
+                self.send_header("Content-Type", "application/json")
+                self.send_header("Connection", "close")
+                self.end_headers()
+                self.wfile.write(b'{"error":"forbidden: cross-site request"}')
+                return
+
+            origin = self.headers.get("Origin", "")
+            if origin:
+                host_hdr = self.headers.get("Host", "")
+                try:
+                    origin_parsed = urlparse(origin)
+                    origin_host = origin_parsed.netloc or origin_parsed.hostname or ""
+                    if host_hdr and origin_host:
+                        if origin_host.split(":")[0].lower() != host_hdr.split(":")[0].lower():
+                            self.send_response(403)
+                            self.send_header("Content-Type", "application/json")
+                            self.send_header("Connection", "close")
+                            self.end_headers()
+                            self.wfile.write(b'{"error":"forbidden: cross-site request"}')
+                            return
+                except Exception:
+                    self.send_response(403)
+                    self.send_header("Content-Type", "application/json")
+                    self.send_header("Connection", "close")
+                    self.end_headers()
+                    self.wfile.write(b'{"error":"forbidden: invalid origin"}')
+                    return
+
             client_ip = self.client_address[0] if (hasattr(self, "client_address") and self.client_address) else "127.0.0.1"
             now = time.monotonic()
             with _AUTH_LOCK:
@@ -5216,6 +5242,7 @@ class BridgeHandler(http.server.BaseHTTPRequestHandler):
                     return
 
             pin_attempt = str(payload.get("pin") or "").strip()
+            time.sleep(0.2)
             if self.pin and secrets.compare_digest(pin_attempt, self.pin):
                 with _AUTH_LOCK:
                     _AUTH_FAILURES.pop(client_ip, None)
@@ -5223,7 +5250,6 @@ class BridgeHandler(http.server.BaseHTTPRequestHandler):
             else:
                 with _AUTH_LOCK:
                     attempts.append(now)
-                time.sleep(0.3)
                 self._json({"ok": False, "error": "Incorrect PIN"}, 401)
             return
 
@@ -5251,6 +5277,7 @@ class BridgeHandler(http.server.BaseHTTPRequestHandler):
                 self.__class__.token = new_token
                 _save_token(new_token)
                 save_local_config({"pin": new_pin})
+                print(f"  [security] PIN updated — new pairing token: {new_token}", flush=True)
                 self._json({"ok": True, "pin_set": True, "token": new_token, "message": "PIN lock updated successfully."})
                 return
 
@@ -5403,7 +5430,7 @@ class BridgeHandler(http.server.BaseHTTPRequestHandler):
             heard = _transcribe_wav(audio_bytes, self.stt_model)
             reply = ""
             if heard and not heard.startswith("[stt error"):
-                reply = _dispatch(heard)
+                reply = _dispatch(heard, voice=True)
             self._json({"heard": heard, "reply": reply})
 
         else:
