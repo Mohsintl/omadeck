@@ -119,17 +119,11 @@ def _save_token(tok: str) -> None:
         pass
 
 
-def _load_or_create_token(config=None) -> str:
+def _load_or_create_token() -> str:
     TOKEN_FILE.parent.mkdir(parents=True, exist_ok=True)
     if TOKEN_FILE.exists():
         tok = TOKEN_FILE.read_text().strip()
         if tok:
-            return tok
-    if config:
-        from .local_engine import _local_config
-        tok = str(_local_config(config).get("token") or "").strip()
-        if tok:
-            _save_token(tok)
             return tok
     tok = secrets.token_urlsafe(16)
     _save_token(tok)
@@ -172,6 +166,7 @@ def _ensure_tls(host: str) -> tuple[Path, Path] | None:
         pass
     try:
         ca_valid = CA_CERT_FILE.exists() and CA_KEY_FILE.exists() and _cert_valid(CA_CERT_FILE, 86400)
+        ca_regenerated = False
         if not ca_valid:
             _openssl("req", "-x509", "-newkey", "rsa:2048", "-nodes",
                      "-days", "730",
@@ -183,16 +178,23 @@ def _ensure_tls(host: str) -> tuple[Path, Path] | None:
             _openssl("x509", "-in", str(CA_CERT_FILE), "-outform", "der",
                      "-out", str(CA_DER_FILE))
             print(f"  created a local CA: {CA_CERT_FILE}")
+            ca_regenerated = True
+            for old_f in (CERT_FILE, KEY_FILE, CERT_HOST_FILE):
+                try:
+                    old_f.unlink(missing_ok=True)
+                except OSError:
+                    pass
 
-        # Re-issue the leaf when the LAN address changes or when it nears expiration,
-        # otherwise the SAN no longer matches or expired cert silently refuses the page.
+        # Re-issue the leaf when the LAN address changes, when the CA was regenerated,
+        # or when the leaf nears expiration.
         current = ""
         try:
             current = CERT_HOST_FILE.read_text().strip()
         except OSError:
             pass
         leaf_valid = (
-            current == host
+            not ca_regenerated
+            and current == host
             and CERT_FILE.exists()
             and KEY_FILE.exists()
             and _cert_valid(CERT_FILE, 86400)
@@ -4455,7 +4457,7 @@ async function sendCmd(text, fromVoice, logYou) {
     const r = await fetch('/cmd', {
       method: 'POST',
       headers,
-      body: JSON.stringify({text}),
+      body: JSON.stringify({text, voice: Boolean(fromVoice)}),
     });
     if (checkAuth(r)) return;
     const d = await r.json();
@@ -5071,25 +5073,15 @@ class BridgeHandler(http.server.BaseHTTPRequestHandler):
         return True
 
     def _cors_headers(self) -> None:
-        origin = self.headers.get("Origin", "")
-        if not origin:
-            return
-        try:
-            parsed = urlparse(origin)
-            host_no_port = parsed.hostname or ""
-            server_host = getattr(self.server, "server_name", "") if hasattr(self, "server") and self.server else ""
-            if _is_allowed_host(host_no_port, server_host):
-                self.send_header("Access-Control-Allow-Origin", origin)
-                self.send_header("Vary", "Origin")
-        except Exception:
-            pass
+        # OmaDeck PWA is strictly same-origin. Never emit Access-Control-Allow-Origin
+        # to external origins to prevent cross-origin reading of responses or PIN guessing.
+        pass
 
     def _check_token(self) -> bool:
         tok = self.headers.get("X-Token", "")
         if not tok or not secrets.compare_digest(tok, self.token):
             self.send_response(401)
             self.send_header("Content-Type", "application/json")
-            self._cors_headers()
             self.send_header("Connection", "close")
             self.end_headers()
             self.wfile.write(b'{"error":"unauthorized"}')
@@ -5101,7 +5093,6 @@ class BridgeHandler(http.server.BaseHTTPRequestHandler):
         self.send_response(code)
         self.send_header("Content-Type", "application/json")
         self.send_header("Content-Length", str(len(body)))
-        self._cors_headers()
         self.send_header("Connection", "close")
         self.end_headers()
         self.wfile.write(body)
@@ -5121,10 +5112,7 @@ class BridgeHandler(http.server.BaseHTTPRequestHandler):
     def do_OPTIONS(self):
         if not self._validate_host():
             return
-        self.send_response(200)
-        self._cors_headers()
-        self.send_header("Access-Control-Allow-Headers", "X-Token,Content-Type")
-        self.send_header("Access-Control-Allow-Methods", "GET,POST,OPTIONS")
+        self.send_response(204)
         self.send_header("Connection", "close")
         self.end_headers()
 
@@ -5154,7 +5142,6 @@ class BridgeHandler(http.server.BaseHTTPRequestHandler):
             self.send_header("Content-Disposition",
                              'attachment; filename="oma-remote-ca.crt"')
             self.send_header("Content-Length", str(len(data)))
-            self._cors_headers()
             self.send_header("Connection", "close")
             self.end_headers()
             self.wfile.write(data)
@@ -5251,11 +5238,8 @@ class BridgeHandler(http.server.BaseHTTPRequestHandler):
 
             if action == "disable":
                 self.__class__.pin = ""
-                new_token = secrets.token_urlsafe(16)
-                self.__class__.token = new_token
-                _save_token(new_token)
-                save_local_config({"pin": "", "token": new_token})
-                self._json({"ok": True, "pin_set": False, "token": new_token, "message": "PIN lock disabled."})
+                save_local_config({"pin": ""})
+                self._json({"ok": True, "pin_set": False, "token": self.token, "message": "PIN lock disabled."})
                 return
 
             if action == "set":
@@ -5266,7 +5250,7 @@ class BridgeHandler(http.server.BaseHTTPRequestHandler):
                 new_token = secrets.token_urlsafe(16)
                 self.__class__.token = new_token
                 _save_token(new_token)
-                save_local_config({"pin": new_pin, "token": new_token})
+                save_local_config({"pin": new_pin})
                 self._json({"ok": True, "pin_set": True, "token": new_token, "message": "PIN lock updated successfully."})
                 return
 
@@ -5376,10 +5360,11 @@ class BridgeHandler(http.server.BaseHTTPRequestHandler):
 
         elif path == "/cmd":
             text = payload.get("text", "").strip()
+            voice = bool(payload.get("voice", False))
             if not text:
                 self._json({"error": "empty"}, 400)
                 return
-            reply = _dispatch(text)
+            reply = _dispatch(text, voice=voice)
             self._json({"ok": True, "reply": reply})
 
         elif path == "/transcribe":
@@ -5441,7 +5426,7 @@ _DAEMON_OFF = ("The desktop mic daemon is not running — use the mic button "
                "on this page, or type a command.")
 
 
-def _quick_command(text: str) -> str | None:
+def _quick_command(text: str, voice: bool = False) -> str | None:
     """Resolve the page's own buttons and the obvious phrasings locally.
 
     Every chip used to be a full model round-trip, and the planner still got
@@ -5740,6 +5725,8 @@ def _quick_command(text: str) -> str | None:
                 return f"Killed processes on port {port}."
 
     if t in ("git status", "git diff", "git pull", "git push", "run tests"):
+        if voice and t == "git push":
+            return "Refused by safety policy: spoken 'git push' requires manual confirmation."
         cmd_str = "pytest" if t == "run tests" and Path("tests").exists() else (
                   "cargo test" if t == "run tests" and Path("Cargo.toml").exists() else (
                   "npm test" if t == "run tests" else t))
@@ -6175,9 +6162,9 @@ def _quick_command(text: str) -> str | None:
     return None
 
 
-def _dispatch(text: str) -> str:
+def _dispatch(text: str, voice: bool = False) -> str:
     """Route the text to the daemon's control socket or the planner."""
-    quick = _quick_command(text)
+    quick = _quick_command(text, voice=voice)
     if quick is not None:
         reply = quick
     else:
@@ -6319,7 +6306,7 @@ def _firewall_hint(port: int) -> str:
 
 
 def run(config, port: int = DEFAULT_PORT) -> int:
-    token = _load_or_create_token(config)
+    token = _load_or_create_token()
 
     # find LAN IP
     try:

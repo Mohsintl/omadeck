@@ -31,7 +31,16 @@ class MobileBridgePinTests(unittest.TestCase):
         BridgeHandler.pin = "1234"
         BridgeHandler.token = "test-token-123"
 
+        # Strictly isolate test suite from touching real host configuration files
+        self.save_local_config_patch = mock.patch("omarchy_voice.local_engine.save_local_config")
+        self.mock_save_local_config = self.save_local_config_patch.start()
+
+        self.save_token_patch = mock.patch("omarchy_voice.mobile_bridge._save_token")
+        self.mock_save_token = self.save_token_patch.start()
+
     def tearDown(self):
+        self.save_local_config_patch.stop()
+        self.save_token_patch.stop()
         BridgeHandler.pin = self.orig_pin
         BridgeHandler.token = self.orig_token
 
@@ -124,26 +133,29 @@ class MobileBridgePinTests(unittest.TestCase):
         def fake_save(d):
             saved.update(d)
 
-        with mock.patch("omarchy_voice.local_engine.save_local_config", side_effect=fake_save):
-            # Set new PIN
-            status_line, data = self._call_post("/pin", {"action": "set", "pin": "8765"})
-            self.assertIn("200", status_line)
-            self.assertTrue(data.get("ok"))
-            self.assertTrue(data.get("pin_set"))
-            self.assertIn("token", data)
-            self.assertEqual(BridgeHandler.token, data["token"])
-            self.assertEqual(BridgeHandler.pin, "8765")
-            self.assertEqual(saved.get("pin"), "8765")
+        self.mock_save_local_config.side_effect = fake_save
 
-            # Disable PIN
-            status_line, data = self._call_post("/pin", {"action": "disable"})
-            self.assertIn("200", status_line)
-            self.assertTrue(data.get("ok"))
-            self.assertFalse(data.get("pin_set"))
-            self.assertIn("token", data)
-            self.assertEqual(BridgeHandler.token, data["token"])
-            self.assertEqual(BridgeHandler.pin, "")
-            self.assertEqual(saved.get("pin"), "")
+        # Set new PIN rotates token and updates pin
+        status_line, data = self._call_post("/pin", {"action": "set", "pin": "8765"})
+        self.assertIn("200", status_line)
+        self.assertTrue(data.get("ok"))
+        self.assertTrue(data.get("pin_set"))
+        self.assertIn("token", data)
+        self.assertEqual(BridgeHandler.token, data["token"])
+        self.assertEqual(BridgeHandler.pin, "8765")
+        self.assertEqual(saved.get("pin"), "8765")
+        self.mock_save_token.assert_called_with(data["token"])
+
+        # Disable PIN clears pin but keeps existing token so paired devices are not stranded
+        curr_token = BridgeHandler.token
+        status_line, data = self._call_post("/pin", {"action": "disable"})
+        self.assertIn("200", status_line)
+        self.assertTrue(data.get("ok"))
+        self.assertFalse(data.get("pin_set"))
+        self.assertEqual(data.get("token"), curr_token)
+        self.assertEqual(BridgeHandler.token, curr_token)
+        self.assertEqual(BridgeHandler.pin, "")
+        self.assertEqual(saved.get("pin"), "")
 
     def test_pwa_html_contains_security_elements(self):
         self.assertIn("settings-panel-security", _PWA_HTML)
@@ -156,12 +168,19 @@ class MobileBridgePinTests(unittest.TestCase):
         self.assertIn("if (data.token) updateToken(data.token);", _PWA_HTML)
 
     def test_pin_rotation_persists_to_token_file(self):
-        with mock.patch("omarchy_voice.mobile_bridge._save_token") as mock_save:
-            status_line, data = self._call_post("/pin", {"action": "set", "pin": "9999"})
-            self.assertIn("200", status_line)
-            new_tok = data.get("token")
-            self.assertTrue(new_tok)
-            mock_save.assert_called_with(new_tok)
+        status_line, data = self._call_post("/pin", {"action": "set", "pin": "9999"})
+        self.assertIn("200", status_line)
+        new_tok = data.get("token")
+        self.assertTrue(new_tok)
+        self.mock_save_token.assert_called_with(new_tok)
+        self.mock_save_local_config.assert_called_with({"pin": "9999"})
+
+    def test_delete_mobile_token_generates_fresh_token(self):
+        with mock.patch("omarchy_voice.mobile_bridge.TOKEN_FILE") as mock_token_file:
+            mock_token_file.exists.return_value = False
+            tok = _load_or_create_token()
+            self.assertTrue(tok)
+            self.mock_save_token.assert_called_with(tok)
 
     def test_is_allowed_host_validation(self):
         # Localhost and private LAN
@@ -206,6 +225,18 @@ class MobileBridgePinTests(unittest.TestCase):
                 ok2, err2 = _type_text("git push", enter=True)
                 self.assertTrue(ok2)
                 self.assertEqual(err2, "")
+
+    def test_spoken_git_push_refused_while_button_push_allowed(self):
+        with mock.patch("omarchy_voice.mobile_bridge._type_text", return_value=(True, "")) as mock_type:
+            # Voice command "git push" is refused
+            res_voice = _dispatch("git push", voice=True)
+            self.assertIn("Refused by safety policy", res_voice)
+            mock_type.assert_not_called()
+
+            # Deck button click "git push" is permitted
+            res_button = _dispatch("git push", voice=False)
+            self.assertIn("Ran `git push` in active terminal", res_button)
+            mock_type.assert_called_with("git push", enter=True)
 
 
 if __name__ == "__main__":
