@@ -15,7 +15,6 @@ ExecStart=%h/.local/share/omarchy-voice/bin/omarchy-voice mobile
 EnvironmentFile=-%h/.config/omarchy-voice/env
 Restart=on-failure
 RestartSec=3
-PrivateTmp=true
 ProtectSystem=strict
 ReadWritePaths=-%h/.config/omarchy-voice -%h/.local/share/omarchy-voice -%h/.local/state/omarchy-voice -%h/.cache/omarchy-voice
 ProtectKernelTunables=true
