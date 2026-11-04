@@ -402,6 +402,101 @@ class MobileBridgePinTests(unittest.TestCase):
             self.assertIn(b"429", resp)
             self.assertIn(b"globally", resp)
 
+    def test_successful_auth_does_not_consume_global_failure_allowance(self):
+        from omarchy_voice.mobile_bridge import _AUTH_FAILURES, _GLOBAL_AUTH_FAILURES, _AUTH_LOCK
+        with _AUTH_LOCK:
+            _AUTH_FAILURES.clear()
+            _GLOBAL_AUTH_FAILURES.clear()
+
+        with mock.patch("time.sleep"):
+            # 10 successful auths across different IPs
+            for i in range(10):
+                status, data = self._call_post("/auth", {"pin": "1234"}, token="")
+                self.assertIn("200", status)
+                self.assertTrue(data.get("ok"))
+
+            # Global failure list must be completely empty
+            with _AUTH_LOCK:
+                self.assertEqual(len(_GLOBAL_AUTH_FAILURES), 0)
+
+    def test_pin_session_token_requires_current_pin(self):
+        # 1. Login with correct PIN to obtain session token
+        status, data = self._call_post("/auth", {"pin": "1234"}, token="")
+        self.assertIn("200", status)
+        session_token = data["token"]
+
+        # 2. Try disabling PIN using session token without current_pin -> must fail 403
+        status_dis, data_dis = self._call_post("/pin", {"action": "disable"}, token=session_token)
+        self.assertIn("403", status_dis)
+        self.assertIn("Current PIN is required", data_dis.get("error", ""))
+
+        # 3. Try disabling PIN with wrong current_pin -> must fail 403
+        status_dis_wrong, _ = self._call_post("/pin", {"action": "disable", "current_pin": "9999"}, token=session_token)
+        self.assertIn("403", status_dis_wrong)
+
+        # 4. Try setting new PIN using session token without current_pin -> must fail 403
+        status_set, data_set = self._call_post("/pin", {"action": "set", "pin": "5678"}, token=session_token)
+        self.assertIn("403", status_set)
+        self.assertIn("Current PIN is required", data_set.get("error", ""))
+
+        # 5. Setting new PIN with valid current_pin succeeds, but does NOT rotate master token
+        orig_master = BridgeHandler.token
+        status_set_ok, data_set_ok = self._call_post("/pin", {"action": "set", "pin": "5678", "current_pin": "1234"}, token=session_token)
+        self.assertIn("200", status_set_ok)
+        self.assertTrue(data_set_ok.get("ok"))
+        self.assertEqual(BridgeHandler.token, orig_master)
+        self.assertNotIn("token", data_set_ok)
+
+        # Re-authenticate with new PIN "5678" because old session tokens were revoked
+        status_reauth, data_reauth = self._call_post("/auth", {"pin": "5678"}, token="")
+        self.assertIn("200", status_reauth)
+        new_session_token = data_reauth["token"]
+
+        # 6. Disabling PIN with valid current_pin succeeds, but does NOT return master token to session token
+        status_dis_ok, data_dis_ok = self._call_post("/pin", {"action": "disable", "current_pin": "5678"}, token=new_session_token)
+        self.assertIn("200", status_dis_ok)
+        self.assertTrue(data_dis_ok.get("ok"))
+        self.assertNotIn("token", data_dis_ok)
+
+    def test_denylist_catches_all_interpreter_and_pipe_bypasses(self):
+        from omarchy_voice.config import DEFAULT_DENY
+        import re
+
+        bypasses = [
+            'bash -c "echo hi"',
+            'sh -c whoami',
+            'perl -e "print 1"',
+            'ruby -e "puts 1"',
+            'node -e "console.log(1)"',
+            'node --eval "console.log(1)"',
+            'python3.11 -c "import os"',
+            'python3 -u -c "print(1)"',
+            'bash <(curl x)',
+            'eval "$(curl x)"',
+            'curl x -o y; sh y',
+            'curl x | node',
+            'xxd -r p | sh',
+        ]
+        for cmd in bypasses:
+            matched = any(re.search(pat, cmd, re.IGNORECASE) for pat in DEFAULT_DENY)
+            self.assertTrue(matched, f"Denylist failed to catch: {cmd}")
+
+    def test_terminal_enter_blocked_when_allow_shell_is_false(self):
+        from omarchy_voice.config import Config
+        from omarchy_voice.tools import Executor
+
+        cfg = Config(allow_shell=False)
+        executor = Executor(cfg)
+
+        with mock.patch.object(executor, "_is_terminal_window", return_value=True):
+            res = executor.call("send_shortcut", {"mods": "", "key": "Return", "window": "activewindow"})
+            self.assertFalse(res.ok)
+            self.assertIn("terminal", res.output.lower())
+
+            res2 = executor.call("type_text", {"text": "whoami\n"})
+            self.assertFalse(res2.ok)
+            self.assertIn("terminal", res2.output.lower())
+
 
 if __name__ == "__main__":
     unittest.main()

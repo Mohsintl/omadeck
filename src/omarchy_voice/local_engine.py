@@ -475,7 +475,8 @@ def polish_dictation(text: str, app_class: str = "", app_title: str = "") -> str
             }).encode("utf-8")
             url = f"{base_url.rstrip('/')}/api/chat"
             req = urllib.request.Request(url, data=req_data, headers={"Content-Type": "application/json"})
-            with urllib.request.urlopen(req, timeout=5.0) as r:
+            ollama_timeout = max(15.0, min(60.0, max_toks * 0.05))
+            with urllib.request.urlopen(req, timeout=ollama_timeout) as r:
                 res = json.loads(r.read().decode("utf-8"))
                 polished = (res.get("message", {}).get("content") or "").strip()
                 if polished:
@@ -496,7 +497,7 @@ def polish_dictation(text: str, app_class: str = "", app_title: str = "") -> str
                 "Authorization": f"Bearer {api_key}"
             }
             req = urllib.request.Request(url, data=req_data, headers=headers)
-            with urllib.request.urlopen(req, timeout=3.5) as r:
+            with urllib.request.urlopen(req, timeout=15.0) as r:
                 res = json.loads(r.read().decode("utf-8"))
                 choices = res.get("choices") or []
                 if choices:

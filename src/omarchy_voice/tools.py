@@ -1589,6 +1589,21 @@ class Executor:
                                 window: str = "activewindow") -> str | None:
         return normalise_mods(mods)[1] or normalise_key(key)[1]
 
+    def _is_terminal_window(self, target: str = "activewindow") -> bool:
+        try:
+            window, _ = self._window_geometry(target)
+            if not window:
+                return False
+            w_class = str(window.get("class") or window.get("initialClass") or "").lower()
+            terminal_names = (
+                "kitty", "alacritty", "foot", "wezterm", "ghostty", "xterm",
+                "gnome-terminal", "konsole", "urxvt", "st", "terminator",
+                "xfce4-terminal", "terminal"
+            )
+            return any(t in w_class for t in terminal_names)
+        except Exception:
+            return False
+
     def _tool_send_shortcut(self, mods: str, key: str, window: str = "activewindow") -> Result:
         """Press a chord, having first checked the keys exist.
 
@@ -1603,6 +1618,9 @@ class Executor:
         keysym, error = normalise_key(key)
         if error:
             return Result(False, error)
+        if not self.config.allow_shell and keysym in ("Return", "KP_Enter", "Linefeed"):
+            if self._is_terminal_window(window):
+                return Result(False, "pressing Enter in a terminal window is disabled when allow_shell = false")
         lua = (
             f'hl.dsp.send_shortcut({{ mods = {json.dumps(clean_mods)}, '
             f'key = {json.dumps(keysym)}, window = {json.dumps(window)} }})'
@@ -2261,6 +2279,9 @@ class Executor:
     def _tool_type_text(self, text: str) -> Result:
         if not shutil.which("wtype"):
             return Result(False, "wtype is not installed")
+        if not self.config.allow_shell and ("\n" in text or "\r" in text):
+            if self._is_terminal_window("activewindow"):
+                return Result(False, "typing newlines into a terminal window is disabled when allow_shell = false")
         return self._shell(["wtype", "--", text])
 
     def _tool_run_shell(self, command: str) -> Result:

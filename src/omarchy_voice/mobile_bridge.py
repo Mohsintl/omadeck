@@ -160,7 +160,7 @@ def _ca_valid(ca_path: Path, min_seconds: int = 86400) -> bool:
             capture_output=True,
             text=True,
         )
-        return "Name Constraints" in res.stdout and "pathlen:0" in res.stdout
+        return "Name Constraints" in res.stdout and "pathlen:0" in res.stdout and "DNS:localhost" in res.stdout
     except Exception:
         return False
 
@@ -188,7 +188,7 @@ def _ensure_tls(host: str) -> tuple[Path, Path] | None:
                      "-subj", "/CN=Oma Remote CA",
                      "-addext", "basicConstraints=critical,CA:TRUE,pathlen:0",
                      "-addext", "keyUsage=critical,keyCertSign,cRLSign",
-                     "-addext", "nameConstraints=critical,permitted;DNS:.local,permitted;DNS:.ts.net,permitted;IP:192.168.0.0/255.255.0.0,permitted;IP:10.0.0.0/255.0.0.0,permitted;IP:172.16.0.0/255.240.0.0,permitted;IP:100.64.0.0/255.192.0.0,permitted;IP:127.0.0.0/255.0.0.0")
+                     "-addext", "nameConstraints=critical,permitted;DNS:localhost,permitted;DNS:.local,permitted;DNS:.ts.net,permitted;IP:192.168.0.0/255.255.0.0,permitted;IP:10.0.0.0/255.0.0.0,permitted;IP:172.16.0.0/255.240.0.0,permitted;IP:100.64.0.0/255.192.0.0,permitted;IP:127.0.0.0/255.0.0.0,permitted;IP:::1/ffff:ffff:ffff:ffff:ffff:ffff:ffff:ffff,permitted;IP:fe80::/ffff:c000::,permitted;IP:fc00::/fe00::")
             CA_KEY_FILE.chmod(0o600)
             _openssl("x509", "-in", str(CA_CERT_FILE), "-outform", "der",
                      "-out", str(CA_DER_FILE))
@@ -221,9 +221,14 @@ def _ensure_tls(host: str) -> tuple[Path, Path] | None:
                 name = socket.gethostname()
             except Exception:
                 name = "omarchy"
+            san_items = ["IP:127.0.0.1", "DNS:localhost", f"DNS:{name}.local"]
+            try:
+                ipaddress.ip_address(host)
+                san_items.insert(0, f"IP:{host}")
+            except ValueError:
+                san_items.insert(0, f"DNS:{host}")
             ext.write_text(
-                f"subjectAltName=IP:{host},IP:127.0.0.1,DNS:localhost,"
-                f"DNS:{name}.local\n"
+                f"subjectAltName={','.join(san_items)}\n"
                 "basicConstraints=CA:FALSE\n"
                 "keyUsage=digitalSignature,keyEncipherment\n"
                 "extendedKeyUsage=serverAuth\n"
@@ -3226,6 +3231,7 @@ _PWA_HTML = r"""<!DOCTYPE html>
         <!-- PIN Configuration -->
         <div class="setting-group" style="background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-md); padding: 12px; display: flex; flex-direction: column; gap: 8px;">
           <label class="setting-label" for="setting-new-pin">Set / Change PIN (4–8 digits)</label>
+          <input type="password" id="setting-current-pin" class="setting-input" pattern="[0-9]*" inputmode="numeric" maxlength="8" placeholder="Current PIN" autocomplete="off" style="letter-spacing: 0.25em; font-size: 1.1rem; text-align: center; display: none;">
           <div style="display: flex; gap: 8px;">
             <input type="password" id="setting-new-pin" class="setting-input" pattern="[0-9]*" inputmode="numeric" maxlength="8" placeholder="Enter new PIN" autocomplete="off" style="flex: 1; letter-spacing: 0.25em; font-size: 1.1rem; text-align: center;">
             <button type="button" class="chat-btn" id="save-pin-btn" style="white-space: nowrap; padding: 0 14px; font-weight: 600;">Save PIN</button>
@@ -4055,6 +4061,7 @@ const settingsStatus = document.getElementById('settings-status');
 
 // Security panel controls
 const securityPinBadge = document.getElementById('security-pin-badge');
+const settingCurrentPin = document.getElementById('setting-current-pin');
 const settingNewPin = document.getElementById('setting-new-pin');
 const savePinBtn = document.getElementById('save-pin-btn');
 const disablePinBtn = document.getElementById('disable-pin-btn');
@@ -4086,6 +4093,10 @@ function updateSecurityUi(pinSet) {
       securityPinBadge.style.color = 'var(--text-muted)';
     }
   }
+  if (settingCurrentPin) {
+    settingCurrentPin.style.display = hasPin ? 'block' : 'none';
+    if (!hasPin) settingCurrentPin.value = '';
+  }
   if (disablePinBtn) disablePinBtn.style.display = hasPin ? 'inline-block' : 'none';
   if (lockDeckNowBtn) lockDeckNowBtn.style.display = hasPin ? 'inline-block' : 'none';
   if (appLockBtn) appLockBtn.style.display = hasPin ? 'inline-flex' : 'none';
@@ -4101,8 +4112,13 @@ if (autolockToggle) {
 if (savePinBtn) {
   savePinBtn.onclick = async () => {
     const pin = (settingNewPin?.value || '').trim();
+    const current_pin = (settingCurrentPin?.value || '').trim();
+    if (hasPin && !current_pin) {
+      showSecurityStatus('Current PIN is required to change PIN.', 'error');
+      return;
+    }
     if (!pin || !/^\d{4,8}$/.test(pin)) {
-      showSecurityStatus('PIN must be 4 to 8 numeric digits.', 'error');
+      showSecurityStatus('New PIN must be 4 to 8 numeric digits.', 'error');
       return;
     }
     haptic(10);
@@ -4112,11 +4128,12 @@ if (savePinBtn) {
       const res = await fetch('/pin', {
         method: 'POST',
         headers,
-        body: JSON.stringify({ action: 'set', pin })
+        body: JSON.stringify({ action: 'set', pin, current_pin })
       });
       const data = await res.json();
       if (data.ok) {
         if (settingNewPin) settingNewPin.value = '';
+        if (settingCurrentPin) settingCurrentPin.value = '';
         showSecurityStatus(data.message || 'PIN updated! Session lock active.', 'success');
         updateSecurityUi(true);
         if (data.token) updateToken(data.token);
@@ -4134,6 +4151,11 @@ if (savePinBtn) {
 
 if (disablePinBtn) {
   disablePinBtn.onclick = async () => {
+    let current_pin = (settingCurrentPin?.value || '').trim();
+    if (hasPin && !current_pin) {
+      current_pin = prompt('Enter your current PIN to disable lock:') || '';
+      if (!current_pin) return;
+    }
     if (!confirm('Disable PIN lock? Anyone on your network with the OmaDeck URL will be able to access the desktop.')) return;
     haptic(10);
     disablePinBtn.disabled = true;
@@ -4141,10 +4163,11 @@ if (disablePinBtn) {
       const res = await fetch('/pin', {
         method: 'POST',
         headers,
-        body: JSON.stringify({ action: 'disable' })
+        body: JSON.stringify({ action: 'disable', current_pin })
       });
       const data = await res.json();
       if (data.ok) {
+        if (settingCurrentPin) settingCurrentPin.value = '';
         showSecurityStatus('PIN lock disabled.', 'info');
         updateSecurityUi(false);
         if (data.token) updateToken(data.token);
@@ -5234,7 +5257,31 @@ class BridgeHandler(http.server.BaseHTTPRequestHandler):
             self.wfile.write(b'{"error":"payload too large"}')
             return
 
-        body = self.rfile.read(length) if length > 0 else b""
+        def _read_body(expected_len: int, max_sec: float = 30.0) -> bytes:
+            if expected_len <= 0:
+                return b""
+            deadline = time.monotonic() + max_sec
+            chunks = []
+            rem = expected_len
+            while rem > 0:
+                if time.monotonic() > deadline:
+                    raise TimeoutError("body read timeout")
+                chunk = self.rfile.read(min(rem, 65536))
+                if not chunk:
+                    break
+                chunks.append(chunk)
+                rem -= len(chunk)
+            return b"".join(chunks)
+
+        try:
+            body = _read_body(length)
+        except (TimeoutError, OSError):
+            self.send_response(408)
+            self.send_header("Content-Type", "application/json")
+            self.send_header("Connection", "close")
+            self.end_headers()
+            self.wfile.write(b'{"error":"request timeout"}')
+            return
         try:
             payload = json.loads(body) if body else {}
         except Exception:
@@ -5301,6 +5348,10 @@ class BridgeHandler(http.server.BaseHTTPRequestHandler):
             if self.pin and secrets.compare_digest(pin_attempt, self.pin):
                 with _AUTH_LOCK:
                     _AUTH_FAILURES.pop(client_ip, None)
+                    try:
+                        _GLOBAL_AUTH_FAILURES.remove(now)
+                    except ValueError:
+                        pass
                 session_tok = secrets.token_urlsafe(24)
                 with _SESSION_LOCK:
                     _SESSION_TOKENS[session_tok] = time.monotonic() + (86400 * 30)
@@ -5310,17 +5361,28 @@ class BridgeHandler(http.server.BaseHTTPRequestHandler):
             return
 
         if path == "/pin":
+            tok = self.headers.get("X-Token", "")
+            is_master = bool(self.token and secrets.compare_digest(tok, self.token))
             action = str(payload.get("action") or "").strip().lower()
             new_pin = str(payload.get("pin") or "").strip()
+            current_pin = str(payload.get("current_pin") or "").strip()
 
             from .local_engine import save_local_config
+
+            if self.pin and not is_master:
+                if not current_pin or not secrets.compare_digest(current_pin, self.pin):
+                    self._json({"ok": False, "error": "Current PIN is required to modify PIN settings."}, 403)
+                    return
 
             if action == "disable":
                 self.__class__.pin = ""
                 with _SESSION_LOCK:
                     _SESSION_TOKENS.clear()
                 save_local_config({"pin": ""})
-                self._json({"ok": True, "pin_set": False, "token": self.token, "message": "PIN lock disabled."})
+                resp = {"ok": True, "pin_set": False, "message": "PIN lock disabled."}
+                if is_master:
+                    resp["token"] = self.token
+                self._json(resp)
                 return
 
             if action == "set":
@@ -5328,14 +5390,18 @@ class BridgeHandler(http.server.BaseHTTPRequestHandler):
                     self._json({"ok": False, "error": "PIN must be 4 to 8 digits."}, 400)
                     return
                 self.__class__.pin = new_pin
-                new_token = secrets.token_urlsafe(16)
-                self.__class__.token = new_token
-                _save_token(new_token)
                 with _SESSION_LOCK:
                     _SESSION_TOKENS.clear()
                 save_local_config({"pin": new_pin})
-                print(f"  [security] PIN updated — new pairing token: {new_token}", flush=True)
-                self._json({"ok": True, "pin_set": True, "token": new_token, "message": "PIN lock updated successfully."})
+                resp = {"ok": True, "pin_set": True, "message": "PIN lock updated successfully."}
+                if is_master:
+                    new_token = secrets.token_urlsafe(16)
+                    self.__class__.token = new_token
+                    _save_token(new_token)
+                    resp["token"] = new_token
+                    if sys.stdout.isatty():
+                        print(f"  [security] PIN updated — new pairing token: {new_token}", flush=True)
+                self._json(resp)
                 return
 
             self._json({"ok": False, "error": "Invalid action"}, 400)
@@ -6292,6 +6358,10 @@ def _local_think(text: str) -> str:
 # server
 # ---------------------------------------------------------------------------
 
+MAX_CONCURRENT_CONNECTIONS = 32
+_CONNECTION_SEMAPHORE = threading.Semaphore(MAX_CONCURRENT_CONNECTIONS)
+
+
 class BridgeServer(http.server.ThreadingHTTPServer):
     """Threaded HTTP server that does not do a reverse-DNS lookup on bind.
 
@@ -6320,35 +6390,49 @@ class BridgeServer(http.server.ThreadingHTTPServer):
     def get_request(self):
         return self.socket.accept()
 
-    def process_request_thread(self, request, client_address):
-        sock = request
-        try:
-            sock.settimeout(30.0)
-        except OSError:
-            self.shutdown_request(sock)
-            return
-
-        if self.tls_context is not None:
-            is_tls = False
+    def process_request(self, request, client_address):
+        if not _CONNECTION_SEMAPHORE.acquire(blocking=False):
             try:
-                sock.settimeout(2.0)
-                first = sock.recv(1, socket.MSG_PEEK)
-                is_tls = first[:1] == b"\x16"
+                request.settimeout(2.0)
+                request.sendall(b"HTTP/1.1 503 Service Unavailable\r\nContent-Type: text/plain\r\nConnection: close\r\n\r\nServer busy\r\n")
             except OSError:
-                self.shutdown_request(sock)
-                return
-            if is_tls:
-                try:
-                    sock = self.tls_context.wrap_socket(sock, server_side=True)
-                except (OSError, ssl.SSLError):
-                    self.shutdown_request(sock)
-                    return
+                pass
+            self.shutdown_request(request)
+            return
+        super().process_request(request, client_address)
+
+    def process_request_thread(self, request, client_address):
+        try:
+            sock = request
             try:
                 sock.settimeout(30.0)
             except OSError:
                 self.shutdown_request(sock)
                 return
-        super().process_request_thread(sock, client_address)
+
+            if self.tls_context is not None:
+                is_tls = False
+                try:
+                    sock.settimeout(2.0)
+                    first = sock.recv(1, socket.MSG_PEEK)
+                    is_tls = first[:1] == b"\x16"
+                except OSError:
+                    self.shutdown_request(sock)
+                    return
+                if is_tls:
+                    try:
+                        sock = self.tls_context.wrap_socket(sock, server_side=True)
+                    except (OSError, ssl.SSLError):
+                        self.shutdown_request(sock)
+                        return
+                try:
+                    sock.settimeout(30.0)
+                except OSError:
+                    self.shutdown_request(sock)
+                    return
+            super().process_request_thread(sock, client_address)
+        finally:
+            _CONNECTION_SEMAPHORE.release()
 
     def handle_error(self, request, client_address) -> None:
         # A phone that navigates away mid-request is not an error worth a
@@ -6451,20 +6535,28 @@ def run(config, port: int = DEFAULT_PORT) -> int:
             Handler.https_url = f"https://{host}:{port}"
             https_url = Handler.https_url
 
-    print(f"\n  Oma Remote  →  {url}/?token={token}")
-    if https_url:
-        print(f"  with mic    →  {https_url}/?token={token}")
-        print(f"  certificate →  {url}/ca.pem     (install once on the phone)")
-        if CA_CERT_FILE.exists():
-            try:
-                der = ssl.PEM_cert_to_DER_cert(CA_CERT_FILE.read_text())
-                fp = hashlib.sha256(der).hexdigest().upper()
-                fp_formatted = ":".join(fp[i:i+2] for i in range(0, len(fp), 2))
-                print(f"  fingerprint →  {fp_formatted}")
-            except Exception:
-                pass
-    print(f"  token: {token}")
-    print(f"\n  Open that URL in Safari on your phone.\n", flush=True)
+    is_journal = bool(os.environ.get("JOURNAL_STREAM") or os.environ.get("INVOCATION_ID"))
+    if is_journal or not sys.stdout.isatty():
+        print(f"\n  Oma Remote is running on port {port}")
+        if https_url:
+            print(f"  HTTPS endpoint: {https_url}")
+        print(f"  Security: Master pairing token stored at {TOKEN_FILE} (mode 600)")
+        print("  To view the pairing URL and QR code, run 'omarchy-voice mobile' in your terminal.\n", flush=True)
+    else:
+        print(f"\n  Oma Remote  →  {url}/?token={token}")
+        if https_url:
+            print(f"  with mic    →  {https_url}/?token={token}")
+            print(f"  certificate →  {url}/ca.pem     (install once on the phone)")
+            if CA_CERT_FILE.exists():
+                try:
+                    der = ssl.PEM_cert_to_DER_cert(CA_CERT_FILE.read_text())
+                    fp = hashlib.sha256(der).hexdigest().upper()
+                    fp_formatted = ":".join(fp[i:i+2] for i in range(0, len(fp), 2))
+                    print(f"  fingerprint →  {fp_formatted}")
+                except Exception:
+                    pass
+        print(f"  token: {token}")
+        print(f"\n  Open that URL in Safari on your phone.\n", flush=True)
     hint = _firewall_hint(port)
     if hint:
         print(hint, flush=True)

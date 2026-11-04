@@ -125,15 +125,15 @@ You will see output similar to:
 ```
 
 #### Step-by-Step Connection Guide:
-1. **Connect & Pair Securely (HTTPS Recommended)**:
-   - On your phone or tablet (connected to the same Wi-Fi), open the paired address shown in your service log: `https://<your-laptop-lan-ip>:8765/?token=<token>`.
-   - Using HTTPS ensures your authentication token, PIN, dictation audio, and commands are fully encrypted across your local network.
-   - If connecting via plain HTTP (`http://<your-laptop-lan-ip>:8765/?token=<token>`), touch macro buttons and window controls will function immediately, but mobile browsers will disable the microphone.
-2. **Enabling Microphone & Voice Dictation (HTTPS)**:
-   - Modern mobile browsers (iOS Safari & Android Chrome) **strictly block microphone access** (`getUserMedia`) on unencrypted non-localhost HTTP connections.
-   - To use voice commands and the inline dictation mic:
-     - On iOS: Tap the top banner or open `/ca.crt` to download the scoped root certificate, open **iOS Settings ➔ Profile Downloaded ➔ Install**, then enable **Settings ➔ General ➔ About ➔ Certificate Trust Settings ➔ Enable Full Trust**.
-     - Navigate to `https://<your-laptop-lan-ip>:8765/?token=<token>`.
+1. **Install CA Certificate for Encrypted HTTPS & Microphone**:
+   - Modern mobile browsers (iOS Safari & Android Chrome) **strictly require HTTPS** for microphone access (`getUserMedia`).
+   - On your phone connected to the same Wi-Fi, open `http://<your-laptop-lan-ip>:8765/ca.crt` (or tap the setup banner) to download OmaDeck's scoped root CA.
+   - **iOS**: Open **Settings ➔ Profile Downloaded ➔ Install**, then enable **Settings ➔ General ➔ About ➔ Certificate Trust Settings ➔ Enable Full Trust for "Oma Remote CA"**.
+   - **Android**: Open **Settings ➔ Security ➔ Encryption & Credentials ➔ Install a Certificate ➔ CA Certificate**.
+   - *Upgrade Note*: If you are upgrading from an earlier OmaDeck version, install the new certificate profile as the CA is now restricted with strict name constraints (`.local`, `.ts.net`, and private subnets).
+2. **Connect & Pair Securely (HTTPS)**:
+   - Open `https://<your-laptop-lan-ip>:8765/?token=<token>` (or scan the terminal pairing QR code).
+   - HTTPS ensures your pairing token, PIN, dictation audio, and window commands are fully encrypted across your local network.
 3. **PWA Standalone App**:
    - In Safari, tap **Share ➔ Add to Home Screen** (or in Chrome, tap **⋮ ➔ Install App / Add to Home Screen**).
    - This launches OmaDeck in fullscreen mode without URL address bars, providing an authentic hardware Stream Deck experience with haptic vibrations.
