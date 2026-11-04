@@ -817,6 +817,13 @@ _PWA_HTML = r"""<!DOCTYPE html>
     gap: 4px;
     flex: 1;
   }
+  .btn-grid-5 {
+    display: grid;
+    grid-template-columns: repeat(5, 1fr);
+    gap: 4px;
+    flex: 1;
+    min-height: 0;
+  }
 
   /* Tactile Deck Key Button */
   .chip {
@@ -3481,7 +3488,7 @@ _PWA_HTML = r"""<!DOCTYPE html>
           <span class="section-title">Process &amp; Terminal</span>
           <span class="section-badge">KILL &amp; RUN</span>
         </div>
-        <div class="btn-grid-4">
+        <div class="btn-grid-5">
           <button class="chip chip-danger" data-cmd="kill port 3000" title="Kill process on port 3000">
             <svg class="icon icon-svg" viewBox="0 0 24 24"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"></polygon></svg>
             <span class="label">:3000</span>
@@ -3493,6 +3500,10 @@ _PWA_HTML = r"""<!DOCTYPE html>
           <button class="chip chip-danger" data-key="ctrl+c" title="Interrupt Process (Ctrl+C)">
             <svg class="icon icon-svg" viewBox="0 0 24 24"><rect x="6" y="6" width="12" height="12" rx="1"></rect></svg>
             <span class="label">Ctrl+C</span>
+          </button>
+          <button class="chip" data-key="ctrl+z" title="Suspend Process (Ctrl+Z). It stays in memory and keeps its port.">
+            <svg class="icon icon-svg" viewBox="0 0 24 24"><rect x="6" y="5" width="4" height="14" rx="1"></rect><rect x="14" y="5" width="4" height="14" rx="1"></rect></svg>
+            <span class="label">Ctrl+Z</span>
           </button>
           <button class="chip" data-key="ctrl+l" title="Clear Terminal (Ctrl+L)">
             <svg class="icon icon-svg" viewBox="0 0 24 24"><polyline points="23 4 23 10 17 10"></polyline><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"></path></svg>

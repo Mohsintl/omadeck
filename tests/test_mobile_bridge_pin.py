@@ -17,6 +17,7 @@ from omarchy_voice.local_engine import get_provider_status
 from omarchy_voice.mobile_bridge import (
     BridgeHandler,
     _PWA_HTML,
+    _press_key,
     _is_allowed_host,
     _dispatch,
     _type_text,
@@ -612,6 +613,16 @@ class MobileBridgePinTests(unittest.TestCase):
             self.assertTrue(_can_show_pairing_link())
             stdout.isatty.return_value = False
             self.assertFalse(_can_show_pairing_link())
+
+    def test_code_profile_has_a_ctrl_z_key(self):
+        self.assertIn('data-key="ctrl+z"', _PWA_HTML)
+        with mock.patch("omarchy_voice.mobile_bridge.shutil.which", return_value="/usr/bin/wtype"), \
+             mock.patch("omarchy_voice.mobile_bridge.subprocess.run",
+                        return_value=SimpleNamespace(returncode=0, stderr="", stdout="")) as run:
+            ok, _ = _press_key("ctrl+z")
+        self.assertTrue(ok)
+        sent = run.call_args.args[0]
+        self.assertEqual(sent[:5], ["wtype", "-M", "ctrl", "-k", "z"])
 
     def _pairing_guide_output(self, https_url, qrencode=None):
         from omarchy_voice.mobile_bridge import _print_pairing_guide
