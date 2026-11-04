@@ -1,5 +1,6 @@
 """Tests for OmaDeck mobile remote PIN lock and session security."""
 
+import contextlib
 import io
 import json
 import ssl
@@ -611,6 +612,41 @@ class MobileBridgePinTests(unittest.TestCase):
             self.assertTrue(_can_show_pairing_link())
             stdout.isatty.return_value = False
             self.assertFalse(_can_show_pairing_link())
+
+    def _pairing_guide_output(self, https_url, qrencode=None):
+        from omarchy_voice.mobile_bridge import _print_pairing_guide
+        out = io.StringIO()
+        result = SimpleNamespace(returncode=0, stdout="[qr]")
+        with mock.patch("omarchy_voice.mobile_bridge.shutil.which", return_value=qrencode), \
+             mock.patch("omarchy_voice.mobile_bridge._ca_fingerprint", return_value="AA:BB"), \
+             mock.patch("omarchy_voice.mobile_bridge.subprocess.run", return_value=result) as run, \
+             contextlib.redirect_stdout(out):
+            _print_pairing_guide("http://10.0.0.5:8765", https_url, "secret-token")
+        return out.getvalue(), run
+
+    def test_pairing_guide_puts_the_certificate_before_the_https_link(self):
+        text, _ = self._pairing_guide_output("https://10.0.0.5:8765")
+        cert = text.index("http://10.0.0.5:8765/ca.crt")
+        link = text.index("https://10.0.0.5:8765/?token=secret-token")
+        home = text.index("Add to Home Screen")
+        self.assertLess(cert, link)
+        self.assertLess(link, home)
+        self.assertIn("Certificate Trust Settings", text)
+        self.assertIn("AA:BB", text)
+        self.assertIn("sudo pacman -S qrencode", text)
+
+    def test_only_the_second_qr_code_carries_the_token(self):
+        text, run = self._pairing_guide_output("https://10.0.0.5:8765", qrencode="/usr/bin/qrencode")
+        targets = [call.args[0][-1] for call in run.call_args_list]
+        self.assertEqual(targets, ["http://10.0.0.5:8765/ca.crt",
+                                   "https://10.0.0.5:8765/?token=secret-token"])
+        self.assertNotIn("Install qrencode", text)
+
+    def test_pairing_guide_without_https_says_the_mic_will_not_work(self):
+        text, _ = self._pairing_guide_output("")
+        self.assertIn("mic", text)
+        self.assertIn("http://10.0.0.5:8765/?token=secret-token", text)
+        self.assertNotIn("Step 1", text)
 
     def test_disabling_pin_keeps_only_the_callers_session(self):
         _, first = self._call_post("/auth", {"pin": "1234"}, token="")

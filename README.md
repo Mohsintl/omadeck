@@ -113,21 +113,32 @@ The installer sets up:
 
 ### 2. Connect from Your Phone
 
-Print your pairing link in a terminal. If the background service is running, this just shows the link. If it isn't, this also starts the server until you press Ctrl+C:
+Run this in a terminal, and it walks you through setting up your phone. If the background service is running, it just shows the steps. If it isn't, it also starts the server until you press Ctrl+C:
 ```bash
 omadeck mobile
 ```
 You will see output similar to:
 ```text
-  Oma Remote  →  http://192.168.1.50:8765/?token=<token>
-  with mic    →  https://192.168.1.50:8765/?token=<token>
-  certificate →  http://192.168.1.50:8765/ca.pem     (install once on the phone)
-  fingerprint →  8A:3F:B2:91:...
-  token: <token>
-```
-Treat the link like a password: anyone with it can control your desktop. The service log deliberately leaves the token out and shows only the certificate fingerprint.
+  Step 1: Install the certificate (once per phone; the mic needs it)
+    Open in Safari or Chrome: http://192.168.1.50:8765/ca.crt
+    [QR code]
+    Fingerprint: 8A:3F:B2:91:...
+    iPhone/iPad: Settings > Profile Downloaded > Install, then
+      Settings > General > About > Certificate Trust Settings,
+      and turn on "Oma Remote CA"
 
-To also get a QR code to scan, say yes when the installer offers `qrencode`, or install it later with `sudo pacman -S qrencode`.
+  Step 2: Open OmaDeck over HTTPS
+    https://192.168.1.50:8765/?token=<token>
+    [QR code]
+    Keep this link private: anyone with it can control your desktop.
+
+  Step 3: Add it to your Home Screen for everyday use
+    iPhone/iPad: in Safari, tap Share > Add to Home Screen
+    Optional: set a PIN in Settings > Security
+```
+Treat the second link and QR code like a password. The service log deliberately leaves the token out and shows only the certificate fingerprint.
+
+To get the QR codes, say yes when the installer offers `qrencode`, or install it later with `sudo pacman -S qrencode`. The links work without it.
 
 #### Step-by-Step Connection Guide:
 1. **Install CA Certificate for Encrypted HTTPS & Microphone**:
