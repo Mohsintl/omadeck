@@ -817,6 +817,13 @@ _PWA_HTML = r"""<!DOCTYPE html>
     gap: 4px;
     flex: 1;
   }
+  .btn-grid-5 {
+    display: grid;
+    grid-template-columns: repeat(5, 1fr);
+    gap: 4px;
+    flex: 1;
+    min-height: 0;
+  }
 
   /* Tactile Deck Key Button */
   .chip {
@@ -3481,7 +3488,7 @@ _PWA_HTML = r"""<!DOCTYPE html>
           <span class="section-title">Process &amp; Terminal</span>
           <span class="section-badge">KILL &amp; RUN</span>
         </div>
-        <div class="btn-grid-4">
+        <div class="btn-grid-5">
           <button class="chip chip-danger" data-cmd="kill port 3000" title="Kill process on port 3000">
             <svg class="icon icon-svg" viewBox="0 0 24 24"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"></polygon></svg>
             <span class="label">:3000</span>
@@ -3493,6 +3500,10 @@ _PWA_HTML = r"""<!DOCTYPE html>
           <button class="chip chip-danger" data-key="ctrl+c" title="Interrupt Process (Ctrl+C)">
             <svg class="icon icon-svg" viewBox="0 0 24 24"><rect x="6" y="6" width="12" height="12" rx="1"></rect></svg>
             <span class="label">Ctrl+C</span>
+          </button>
+          <button class="chip" data-key="ctrl+z" title="Suspend Process (Ctrl+Z). It stays in memory and keeps its port.">
+            <svg class="icon icon-svg" viewBox="0 0 24 24"><rect x="6" y="5" width="4" height="14" rx="1"></rect><rect x="14" y="5" width="4" height="14" rx="1"></rect></svg>
+            <span class="label">Ctrl+Z</span>
           </button>
           <button class="chip" data-key="ctrl+l" title="Clear Terminal (Ctrl+L)">
             <svg class="icon icon-svg" viewBox="0 0 24 24"><polyline points="23 4 23 10 17 10"></polyline><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"></path></svg>
@@ -6621,6 +6632,80 @@ def _can_show_pairing_link() -> bool:
     return sys.stdout.isatty()
 
 
+def _ca_fingerprint() -> str:
+    """SHA-256 of the local CA, so a phone can check the file it downloaded."""
+    if not CA_CERT_FILE.exists():
+        return ""
+    try:
+        der = ssl.PEM_cert_to_DER_cert(CA_CERT_FILE.read_text())
+    except Exception:
+        return ""
+    fp = hashlib.sha256(der).hexdigest().upper()
+    return ":".join(fp[i:i+2] for i in range(0, len(fp), 2))
+
+
+def _print_qr(target: str) -> None:
+    """Draw a QR code if qrencode is installed. The link is printed either way."""
+    if not shutil.which("qrencode"):
+        return
+    try:
+        res = subprocess.run(
+            ["qrencode", "-t", "ANSIUTF8", "-m", "1", "-o", "-", target],
+            check=False,
+            capture_output=True,
+            text=True,
+        )
+    except Exception:
+        return
+    if res.returncode == 0 and res.stdout:
+        print()
+        for line in res.stdout.splitlines():
+            print(f"    {line}")
+        print()
+
+
+def _print_pairing_guide(url: str, https_url: str, token: str) -> None:
+    """Walk a person through setting up a phone for everyday use.
+
+    The certificate comes first and gets its own QR code: a phone that opens
+    the HTTPS link before trusting the CA only gets a certificate warning. That
+    code carries no token, so only the second one needs keeping private.
+    """
+    if not https_url:
+        print("\n  Open this on your phone. It runs without encryption, and the mic")
+        print("  won't work, because HTTPS isn't available:")
+        print(f"    {url}/?token={token}")
+        _print_qr(f"{url}/?token={token}")
+        print("  Keep this link private: anyone with it can control your desktop.\n", flush=True)
+        return
+
+    print("\n  Step 1: Install the certificate (once per phone; the mic needs it)")
+    print(f"    Open in Safari or Chrome: {url}/ca.crt")
+    _print_qr(f"{url}/ca.crt")
+    fingerprint = _ca_fingerprint()
+    if fingerprint:
+        print(f"    Fingerprint: {fingerprint}")
+    print("    iPhone/iPad: Settings > Profile Downloaded > Install, then")
+    print("      Settings > General > About > Certificate Trust Settings,")
+    print('      and turn on "Oma Remote CA"')
+    print("    Android: Settings > Security > Encryption & credentials >")
+    print("      Install a certificate > CA certificate")
+
+    print("\n  Step 2: Open OmaDeck over HTTPS")
+    print(f"    {https_url}/?token={token}")
+    _print_qr(f"{https_url}/?token={token}")
+    print("    Keep this link private: anyone with it can control your desktop.")
+
+    print("\n  Step 3: Add it to your Home Screen for everyday use")
+    print("    iPhone/iPad: in Safari, tap Share > Add to Home Screen")
+    print("    Android: in Chrome, tap the menu > Install app")
+    print("    Optional: set a PIN in Settings > Security")
+
+    if not shutil.which("qrencode"):
+        print("\n  Want QR codes here? Install qrencode: sudo pacman -S qrencode")
+    print(f"\n  No certificate? Touch controls work without it, but the mic won't: {url}/?token={token}\n", flush=True)
+
+
 def run(config, port: int = DEFAULT_PORT) -> int:
     token = _load_or_create_token()
 
@@ -6652,39 +6737,10 @@ def run(config, port: int = DEFAULT_PORT) -> int:
         server = BridgeServer(("0.0.0.0", port), Handler)
     except OSError as exc:
         if exc.errno == errno.EADDRINUSE:
-            print(f"\n  Oma Remote is already running on port {port}.")
-            url = f"http://{host}:{port}"
-            https_url = f"https://{host}:{port}"
-            print(f"  Oma Remote  →  {url}/?token={token}")
-            if CERT_FILE.exists() and KEY_FILE.exists():
-                print(f"  with mic    →  {https_url}/?token={token}")
-                print(f"  certificate →  {url}/ca.pem     (install once on the phone)")
-                if CA_CERT_FILE.exists():
-                    try:
-                        der = ssl.PEM_cert_to_DER_cert(CA_CERT_FILE.read_text())
-                        fp = hashlib.sha256(der).hexdigest().upper()
-                        fp_formatted = ":".join(fp[i:i+2] for i in range(0, len(fp), 2))
-                        print(f"  fingerprint →  {fp_formatted}")
-                    except Exception:
-                        pass
-            print(f"  token: {token}")
-            target_qr = f"{https_url}/?token={token}" if (CERT_FILE.exists() and KEY_FILE.exists()) else f"{url}/?token={token}"
-            if sys.stdout.isatty() and shutil.which("qrencode"):
-                try:
-                    print("\n  Scan with your phone to pair:\n")
-                    res = subprocess.run(
-                        ["qrencode", "-t", "ANSIUTF8", "-o", "-", target_qr],
-                        check=False,
-                        capture_output=True,
-                        text=True,
-                    )
-                    if res.returncode == 0 and res.stdout:
-                        for line in res.stdout.splitlines():
-                            print(f"  {line}")
-                        print()
-                except Exception:
-                    pass
-            print(f"  (service log: systemctl --user status omadeck)\n", flush=True)
+            print(f"\n  OmaDeck is already running on port {port}.")
+            has_tls = CERT_FILE.exists() and KEY_FILE.exists()
+            _print_pairing_guide(f"http://{host}:{port}",
+                                 f"https://{host}:{port}" if has_tls else "", token)
             return 0
         print(f"\n  could not listen on port {port}: {exc}")
         print(f"  try: omadeck mobile --port {port + 1}\n")
@@ -6714,15 +6770,6 @@ def run(config, port: int = DEFAULT_PORT) -> int:
             Handler.https_url = f"https://{host}:{port}"
             https_url = Handler.https_url
 
-    fingerprint = ""
-    if https_url and CA_CERT_FILE.exists():
-        try:
-            der = ssl.PEM_cert_to_DER_cert(CA_CERT_FILE.read_text())
-            fp = hashlib.sha256(der).hexdigest().upper()
-            fingerprint = ":".join(fp[i:i+2] for i in range(0, len(fp), 2))
-        except Exception:
-            pass
-
     # A service's stdout is the journal, which keeps it long after the token was
     # meant to be seen. The fingerprint is public, and lets the phone check a CA
     # fetched over plain HTTP.
@@ -6730,34 +6777,13 @@ def run(config, port: int = DEFAULT_PORT) -> int:
         print(f"\n  Oma Remote is running on port {port}")
         if https_url:
             print(f"  certificate →  {url}/ca.pem     (install once on the phone)")
+            fingerprint = _ca_fingerprint()
             if fingerprint:
                 print(f"  fingerprint →  {fingerprint}")
         print("  To see the pairing link, run in a terminal: omadeck mobile\n", flush=True)
     else:
-        print(f"\n  Oma Remote  →  {url}/?token={token}")
-        if https_url:
-            print(f"  with mic    →  {https_url}/?token={token}")
-            print(f"  certificate →  {url}/ca.pem     (install once on the phone)")
-            if fingerprint:
-                print(f"  fingerprint →  {fingerprint}")
-        print(f"  token: {token}")
-        if shutil.which("qrencode"):
-            target_qr = f"{https_url}/?token={token}" if https_url else f"{url}/?token={token}"
-            try:
-                print("\n  Scan with your phone to pair:\n")
-                res = subprocess.run(
-                    ["qrencode", "-t", "ANSIUTF8", "-o", "-", target_qr],
-                    check=False,
-                    capture_output=True,
-                    text=True,
-                )
-                if res.returncode == 0 and res.stdout:
-                    for line in res.stdout.splitlines():
-                        print(f"  {line}")
-                    print()
-            except Exception:
-                pass
-        print(f"\n  Open that URL in Safari on your phone.\n", flush=True)
+        print(f"\n  OmaDeck is running here on port {port}. Press Ctrl+C to stop it.")
+        _print_pairing_guide(url, https_url, token)
     hint = _firewall_hint(port)
     if hint:
         print(hint, flush=True)
