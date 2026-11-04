@@ -108,14 +108,14 @@ cd omadeck
 ```
 
 The installer sets up:
-1. The `omarchy-voice` CLI and engine.
-2. The `omarchy-voice-mobile.service` systemd user service (auto-starts on boot).
+1. The `omadeck` command and engine (`omarchy-voice` still works too).
+2. The `omadeck.service` systemd user service (auto-starts on boot).
 
 ### 2. Connect from Your Phone
 
 Print your pairing link in a terminal. This works while the background service is running:
 ```bash
-omarchy-voice mobile
+omadeck mobile
 ```
 You will see output similar to:
 ```text
@@ -201,7 +201,7 @@ Configure your AI provider, mic triggers, and OLED themes from either your PC or
 
 </div>
 
-* **On PC**: Run `omarchy-voice settings` in terminal to launch the settings panel.
+* **On PC**: Run `omadeck settings` in terminal to launch the settings panel.
 * **On Phone**: Tap the **⚙️** gear icon in the top navigation bar.
 
 In the **API Keys** pane:
@@ -219,16 +219,16 @@ The deck runs as a background user service:
 
 ```bash
 # Restart the remote service
-systemctl --user restart omarchy-voice-mobile.service
+systemctl --user restart omadeck.service
 
 # Show your pairing link
-omarchy-voice mobile
+omadeck mobile
 
 # View live logs
-journalctl --user -u omarchy-voice-mobile -f
+journalctl --user -u omadeck -f
 
 # Stop the service
-systemctl --user stop omarchy-voice-mobile.service
+systemctl --user stop omadeck.service
 ```
 
 ---

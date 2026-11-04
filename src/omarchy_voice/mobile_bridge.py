@@ -12,8 +12,8 @@ A secret token and PIN authentication keep unauthenticated devices on the networ
 from driving your desktop.
 
 Usage:
-    omarchy-voice mobile          # start on default port 8765
-    omarchy-voice mobile --port 9000
+    omadeck mobile                # start on default port 8765
+    omadeck mobile --port 9000
 
 Then open  http://<your-lan-ip>:8765/?token=<token>  on your phone.
 """
@@ -6611,6 +6611,16 @@ def _firewall_hint(port: int) -> str:
     )
 
 
+def _can_show_pairing_link() -> bool:
+    """Whether a person is reading this output, rather than a log.
+
+    Asks about the terminal, not the environment: JOURNAL_STREAM and
+    INVOCATION_ID can be inherited by terminals started from a systemd session,
+    as under uwsm, which would hide the link from the person who asked for it.
+    """
+    return sys.stdout.isatty()
+
+
 def run(config, port: int = DEFAULT_PORT) -> int:
     token = _load_or_create_token()
 
@@ -6634,9 +6644,6 @@ def run(config, port: int = DEFAULT_PORT) -> int:
     Handler.token = token
     Handler.pin = pin
     Handler.stt_model = stt_model
-
-    # Pay the model load now instead of on the first thing the user says.
-    threading.Thread(target=_warm_stt, args=(stt_model,), daemon=True).start()
 
     # Plain HTTP — Safari on iOS hangs indefinitely on self-signed TLS certs.
     # LAN IPs (192.168.x.x, 10.x.x.x) are treated as secure contexts by
@@ -6677,11 +6684,15 @@ def run(config, port: int = DEFAULT_PORT) -> int:
                         print()
                 except Exception:
                     pass
-            print(f"  (service log: systemctl --user status omarchy-voice-mobile)\n", flush=True)
+            print(f"  (service log: systemctl --user status omadeck)\n", flush=True)
             return 0
         print(f"\n  could not listen on port {port}: {exc}")
-        print(f"  try: omarchy-voice mobile --port {port + 1}\n")
+        print(f"  try: omadeck mobile --port {port + 1}\n")
         return 1
+
+    # Pay the model load now instead of on the first thing the user says. After
+    # binding, so a run that only prints the pairing link doesn't load a model.
+    threading.Thread(target=_warm_stt, args=(stt_model,), daemon=True).start()
 
     url = f"http://{host}:{port}"
 
@@ -6715,13 +6726,13 @@ def run(config, port: int = DEFAULT_PORT) -> int:
     # A service's stdout is the journal, which keeps it long after the token was
     # meant to be seen. The fingerprint is public, and lets the phone check a CA
     # fetched over plain HTTP.
-    if os.environ.get("JOURNAL_STREAM") or os.environ.get("INVOCATION_ID") or not sys.stdout.isatty():
+    if not _can_show_pairing_link():
         print(f"\n  Oma Remote is running on port {port}")
         if https_url:
             print(f"  certificate →  {url}/ca.pem     (install once on the phone)")
             if fingerprint:
                 print(f"  fingerprint →  {fingerprint}")
-        print("  To see the pairing link, run in a terminal: omarchy-voice mobile\n", flush=True)
+        print("  To see the pairing link, run in a terminal: omadeck mobile\n", flush=True)
     else:
         print(f"\n  Oma Remote  →  {url}/?token={token}")
         if https_url:
