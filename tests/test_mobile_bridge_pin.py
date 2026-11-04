@@ -2,10 +2,12 @@
 
 import io
 import json
+import ssl
 import sys
 import time
 import unittest
 from pathlib import Path
+from types import SimpleNamespace
 from unittest import mock
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "src"))
@@ -561,6 +563,45 @@ class MobileBridgePinTests(unittest.TestCase):
             )
             self.assertIn("429", status)
             self.assertIn("Too many failed attempts", data.get("error", ""))
+
+    def _plain_http_status(self, path, client_ip, tls_context=object(), connection=None):
+        handler = BridgeHandler.__new__(BridgeHandler)
+        handler.server = SimpleNamespace(tls_context=tls_context, server_name="")
+        handler.connection = connection if connection is not None else object()
+        handler.client_address = (client_ip, 12345)
+        handler.https_url = "https://192.168.1.50:8765"
+        body = b'{"pin":"1234"}'
+        handler.rfile = io.BytesIO(body)
+        handler.wfile = io.BytesIO()
+        handler.headers = {"Content-Type": "application/json",
+                           "Content-Length": str(len(body)),
+                           "X-Token": BridgeHandler.token,
+                           "Host": "127.0.0.1:8765"}
+        handler.path = path
+        handler.command = "POST"
+        handler.requestline = f"POST {path} HTTP/1.1"
+        handler.request_version = "HTTP/1.1"
+        handler.log_message = lambda *args: None
+        with mock.patch("time.sleep"):
+            handler.do_POST()
+        return handler.wfile.getvalue().split(b"\r\n", 1)[0].decode()
+
+    def test_secrets_are_refused_over_plain_http_when_https_is_available(self):
+        for path in ("/auth", "/pin", "/settings"):
+            with self.subTest(path=path):
+                self.assertIn("426", self._plain_http_status(path, "192.168.1.20"))
+
+    def test_plain_http_refusal_has_the_right_exceptions(self):
+        # Ordinary touch control keeps working, for phones without the CA.
+        self.assertIn("200", self._plain_http_status("/clear", "192.168.1.20"))
+        # Already private transports.
+        self.assertIn("200", self._plain_http_status("/auth", "127.0.0.1"))
+        self.assertIn("200", self._plain_http_status("/auth", "100.100.1.1"))
+        # Nothing better to offer when HTTPS could not start.
+        self.assertIn("200", self._plain_http_status("/auth", "192.168.1.20", tls_context=None))
+        # Already encrypted.
+        tls = mock.MagicMock(spec=ssl.SSLSocket)
+        self.assertIn("200", self._plain_http_status("/auth", "192.168.1.20", connection=tls))
 
     def test_disabling_pin_keeps_only_the_callers_session(self):
         _, first = self._call_post("/auth", {"pin": "1234"}, token="")

@@ -30,7 +30,7 @@
 | **Who is it for?** | Omarchy, Arch Linux, and Hyprland users who want tactile desk control or couch remote power. |
 | **Why not a physical deck?** | Physical decks cost $150+, have fixed buttons, and lack Wayland awareness. OmaDeck uses your existing phone, has 5 context profiles, OLED themes, and direct PC voice typing. |
 | **Supported Devices** | Any phone or tablet with iOS Safari (iOS 16.4+) or Android Chrome. Zero app store installs. |
-| **Privacy & Connection** | 100% Local LAN HTTPS with token/PIN authentication. Fully functional offline with Ollama. |
+| **Privacy & Connection** | Runs on your own network, with HTTPS once the local CA is installed, and token/PIN authentication. Works offline with Ollama. |
 
 ---
 
@@ -72,7 +72,7 @@ Most Linux remote tools are either clunky VNC viewers that eat battery, or singl
 - **🎙️ Independent Speech-to-Text (`STT_API_KEY`)**: Decoupled voice transcription so you can run a local LLM (Ollama) while taking advantage of blazing-fast cloud Whisper (Groq/OpenAI), or keep it 100% offline with local `faster-whisper`.
 - **🎨 24 Omarchy Color Themes & Auto-Sync**: Auto-matches your active Omarchy desktop theme live (Gruvbox, Catppuccin, Tokyo Night, Nord, Everforest, Kanagawa, Rose Pine, Hackerman, etc.) or manually select your favorite OLED theme!
 - **🛑 Dev Process & Port Management**: Kill stuck dev servers (`:3000`, `:8000`, Local LLM `:11434`, T3 Dash `:3773`) or use the Crosshair Window Terminator directly from your phone.
-- **🔒 Secure by Design**: Runs locally over LAN HTTPS with an auto-generated authentication token, self-signed CA certificates, and an optional 4-digit PIN lock.
+- **🔒 Local First**: Runs on your own network with an auto-generated token, a local CA limited to private addresses, and an optional PIN lock. See the [security guide](#-network-security--privacy-guide) for what it does and doesn't protect against.
 
 ---
 
@@ -154,6 +154,25 @@ To also get a QR code to scan, install `qrencode` (`sudo pacman -S qrencode`).
 - **PIN Session Lock**: If you share your Wi-Fi network (or use public/office networks), go to **Settings ➔ Security** and configure a 4-to-8 digit PIN lock. This prevents anyone on the subnet from controlling your desktop.
 - **Remote Access Outside Home**: To control your desktop securely while away from home, use a private encrypted mesh VPN such as **[Tailscale](https://tailscale.com)** or **WireGuard** instead of public port forwarding.
 
+### What OmaDeck does and doesn't protect against
+
+OmaDeck is built for a network you trust, such as your home Wi-Fi. Anyone holding your pairing link can control your desktop.
+
+**In place:**
+- **Shell access is off by default** (`allow_shell = false`). The assistant can't run commands or press Enter in a recognised terminal.
+- **Untrusted text is held back.** For 2 minutes after the assistant reads a screen, terminal, web page, or clipboard, commands and saved notes need your spoken confirmation.
+- **Secrets stay off plain HTTP.** PINs and API keys are refused over HTTP when HTTPS is available.
+- **Limits on abuse.** PIN guesses are rate limited, connections are capped per address, and slow clients are cut off.
+
+**Known limits:**
+- **Plain HTTP still works for touch controls**, so phones without the CA can use the deck. On that connection your token and commands aren't encrypted, so use HTTPS on any network you share.
+- **Prompt injection is reduced, not solved.** Text on a page could still steer ordinary clicks and typing. Be careful using the assistant on pages you don't trust.
+- **The command denylist isn't a sandbox.** With `allow_shell` on, a script already on disk can do anything your user can. Leave it off unless you need it.
+- **The terminal guard goes by window type.** It doesn't recognise terminals built into editors, such as VS Code's.
+- **Someone on your network can block PIN login** for up to 24 hours by failing it repeatedly. Your pairing link keeps working.
+
+Found a security problem? Please see [SECURITY.md](SECURITY.md).
+
 ---
 
 ## 🧪 Verified Compatibility Matrix
@@ -202,7 +221,10 @@ The deck runs as a background user service:
 # Restart the remote service
 systemctl --user restart omarchy-voice-mobile.service
 
-# View live connection logs & URLs
+# Show your pairing link
+omarchy-voice mobile
+
+# View live logs
 journalctl --user -u omarchy-voice-mobile -f
 
 # Stop the service

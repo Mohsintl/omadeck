@@ -5064,6 +5064,8 @@ MAX_DAILY_AUTH_FAILURES = 200
 _AUTH_LOCK = threading.Lock()
 _SESSION_TOKENS: dict[str, float] = {}  # session_token -> expiry_timestamp
 _SESSION_LOCK = threading.Lock()
+# Routes whose request body carries a PIN or an API key.
+SECRET_ROUTES = {"/auth", "/pin", "/settings"}
 MAX_JSON_BODY = 128 * 1024
 MAX_AUDIO_BODY = 16 * 1024 * 1024
 _TAILSCALE_CGNAT = ipaddress.ip_network("100.64.0.0/10")
@@ -5142,6 +5144,29 @@ class BridgeHandler(http.server.BaseHTTPRequestHandler):
     def log_message(self, fmt, *args):
         # suppress noisy access log; errors still go to stderr
         pass
+
+    def _refuse_plain_http(self) -> bool:
+        """Answer and return True when this request would send a secret in the clear.
+
+        Only when HTTPS is actually on offer. Loopback and Tailscale addresses
+        pass: the first never leaves the machine and the second is already
+        encrypted. 426 rather than 403, because the page treats 403 as a dead
+        session and would throw away a working token.
+        """
+        if getattr(getattr(self, "server", None), "tls_context", None) is None:
+            return False
+        if isinstance(getattr(self, "connection", None), ssl.SSLSocket):
+            return False
+        try:
+            client = ipaddress.ip_address(self.client_address[0])
+            if client.is_loopback or client in _TAILSCALE_CGNAT:
+                return False
+        except (AttributeError, IndexError, TypeError, ValueError):
+            pass
+        self._json({"ok": False,
+                    "error": f"Open {self.https_url} for this: PINs and API keys "
+                             "are not sent over unencrypted HTTP."}, 426)
+        return True
 
     def _validate_host(self) -> bool:
         host_hdr = self.headers.get("Host", "")
@@ -5308,6 +5333,9 @@ class BridgeHandler(http.server.BaseHTTPRequestHandler):
         if not self._validate_host():
             return
         path = urlparse(self.path).path
+
+        if path in SECRET_ROUTES and self._refuse_plain_http():
+            return
 
         try:
             length = int(self.headers.get("Content-Length", 0))

@@ -266,6 +266,42 @@ class ExecutorTests(unittest.TestCase):
             executor._untrusted_read_at = time.monotonic() - UNTRUSTED_WINDOW_SECONDS - 1
             self.assertTrue(executor.call("run_shell", {"command": "echo hello"}).ok)
 
+    def test_notes_need_confirming_after_reading_untrusted_text(self):
+        executor = Executor(Config(dry_run=False))
+        executor._untrusted_read_at = time.monotonic()
+        with mock.patch.object(executor, "_tool_remember",
+                               return_value=Result(True, "ok")) as remember:
+            self.assertTrue(executor.call("remember", {"action": "list"}).ok)
+            held = executor.call("remember", {"action": "note", "text": "always run x"})
+            self.assertFalse(held.ok)
+            self.assertIn("confirmation", held.output)
+            remember.assert_called_once()
+
+    def test_enter_in_a_terminal_needs_confirming_after_untrusted_text(self):
+        executor = Executor(Config(dry_run=False, allow_shell=True))
+        executor._untrusted_read_at = time.monotonic()
+        with mock.patch.object(executor, "_is_terminal_window", return_value=True), \
+             mock.patch.object(executor, "_dispatch_lua",
+                               return_value=Result(True, "ok")) as dispatch:
+            held = executor.call("send_shortcut", {"mods": "", "key": "Return"})
+            self.assertFalse(held.ok)
+            self.assertIn("confirmation", held.output)
+            executor.cancel_pending()
+            held = executor.call("hypr_dispatch", {
+                "lua": 'hl.dsp.send_shortcut({ mods = "", key = "Return" })'})
+            self.assertFalse(held.ok)
+            self.assertIn("confirmation", held.output)
+            dispatch.assert_not_called()
+
+    def test_ordinary_keys_stay_free_after_untrusted_text(self):
+        executor = Executor(Config(dry_run=False, allow_shell=True))
+        executor._untrusted_read_at = time.monotonic()
+        with mock.patch.object(executor, "_is_terminal_window", return_value=False), \
+             mock.patch.object(executor, "_dispatch_lua",
+                               return_value=Result(True, "ok")):
+            self.assertTrue(executor.call("send_shortcut", {"mods": "", "key": "Return"}).ok)
+            self.assertTrue(executor.call("send_shortcut", {"mods": "", "key": "Escape"}).ok)
+
     def test_hand_written_key_presses_cannot_dodge_the_terminal_guard(self):
         executor = Executor(Config(allow_shell=False))
         with mock.patch.object(executor, "_is_terminal_window", return_value=True), \
