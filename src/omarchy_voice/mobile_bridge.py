@@ -42,7 +42,7 @@ import time
 import wave
 import zlib
 from pathlib import Path
-from urllib.parse import parse_qs, urlparse
+from urllib.parse import parse_qs, quote, urlparse
 
 from .config import CONFIG_DIR, STATE_FILE, load_env_file
 from .session import send_control, daemon_running
@@ -90,22 +90,23 @@ def _get_icon_png() -> bytes:
         _ICON_PNG = _generate_icon_png()
     return _ICON_PNG
 
-_MANIFEST_JSON = json.dumps({
-    "name": "Oma Remote",
-    "short_name": "Oma",
-    "start_url": "/",
-    "display": "standalone",
-    "background_color": "#0f0f13",
-    "theme_color": "#0f0f13",
-    "icons": [
-        {
-            "src": "/icon.png",
-            "sizes": "192x192",
-            "type": "image/png",
-            "purpose": "any maskable"
-        }
-    ]
-}).encode("utf-8")
+def _manifest_json(start_url: str = "/") -> bytes:
+    return json.dumps({
+        "name": "Oma Remote",
+        "short_name": "Oma",
+        "start_url": start_url,
+        "display": "standalone",
+        "background_color": "#0f0f13",
+        "theme_color": "#0f0f13",
+        "icons": [
+            {
+                "src": "/icon.png",
+                "sizes": "192x192",
+                "type": "image/png",
+                "purpose": "any maskable"
+            }
+        ]
+    }).encode("utf-8")
 
 # ---------------------------------------------------------------------------
 # token
@@ -5270,6 +5271,16 @@ class BridgeHandler(http.server.BaseHTTPRequestHandler):
         self.end_headers()
         self.wfile.write(enc)
 
+    def _pairs_home_screen_app(self) -> bool:
+        """True when this request carries the pairing token and no PIN is set.
+
+        iOS gives a Home Screen app its own storage, so the token Safari saved
+        doesn't reach it. A request that already holds the token gets a manifest
+        that hands it to the app. With a PIN set, the app uses the PIN screen.
+        """
+        tok = parse_qs(urlparse(self.path).query).get("token", [""])[0]
+        return not self.pin and bool(tok) and secrets.compare_digest(tok.encode(), self.token.encode())
+
     def do_OPTIONS(self):
         if not self._validate_host():
             return
@@ -5289,6 +5300,9 @@ class BridgeHandler(http.server.BaseHTTPRequestHandler):
                     .replace("TOKEN_PLACEHOLDER", token_in_html)
                     .replace("HAS_PIN_PLACEHOLDER", has_pin)
                     .replace("HTTPS_PLACEHOLDER", self.https_url))
+            if self._pairs_home_screen_app():
+                html = html.replace('href="/manifest.webmanifest"',
+                                    f'href="/manifest.webmanifest?token={quote(self.token, safe="")}"')
             self._html(html)
         elif path in ("/ca.pem", "/ca.crt", "/oma-remote-ca.crt"):
             # Served without the token: the phone's browser has to fetch this
@@ -5307,12 +5321,17 @@ class BridgeHandler(http.server.BaseHTTPRequestHandler):
             self.end_headers()
             self.wfile.write(data)
         elif path in ("/manifest.json", "/manifest.webmanifest"):
+            # The token goes in the fragment, which the app's launch never sends
+            # to the server; the page already reads it from there.
+            start_url = f"/#token={quote(self.token, safe='')}" if self._pairs_home_screen_app() else "/"
+            manifest = _manifest_json(start_url)
             self.send_response(200)
             self.send_header("Content-Type", "application/manifest+json")
-            self.send_header("Content-Length", str(len(_MANIFEST_JSON)))
+            self.send_header("Content-Length", str(len(manifest)))
+            self.send_header("Cache-Control", "no-store")
             self.send_header("Connection", "close")
             self.end_headers()
-            self.wfile.write(_MANIFEST_JSON)
+            self.wfile.write(manifest)
         elif path in ("/icon.png", "/apple-touch-icon.png", "/favicon.ico"):
             icon = _get_icon_png()
             self.send_response(200)

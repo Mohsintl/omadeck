@@ -137,6 +137,37 @@ class MobileBridgePinTests(unittest.TestCase):
             parsed_json = {}
         return status_line, parsed_json
 
+    def _start_url(self, path: str) -> str:
+        return json.loads(self._page(path).partition("\r\n\r\n")[2])["start_url"]
+
+    def _page(self, path: str) -> str:
+        wfile = io.BytesIO()
+        handler = BridgeHandler.__new__(BridgeHandler)
+        handler.wfile = wfile
+        handler.headers = {"Host": "127.0.0.1:8765"}
+        handler.path = path
+        handler.command = "GET"
+        handler.requestline = f"GET {path} HTTP/1.1"
+        handler.request_version = "HTTP/1.1"
+        handler.do_GET()
+        return wfile.getvalue().decode("utf-8")
+
+    def test_manifest_hands_the_token_to_the_home_screen_app(self):
+        BridgeHandler.pin = ""
+        self.assertEqual(self._start_url("/manifest.webmanifest?token=test-token-123"), "/#token=test-token-123")
+        self.assertIn('href="/manifest.webmanifest?token=test-token-123"', self._page("/?token=test-token-123"))
+
+    def test_manifest_keeps_the_token_without_a_valid_request(self):
+        BridgeHandler.pin = ""
+        for path in ("/manifest.webmanifest", "/manifest.webmanifest?token=wrong", "/manifest.webmanifest?token=%C3%A9"):
+            self.assertEqual(self._start_url(path), "/")
+        for path in ("/", "/?token=wrong"):
+            self.assertNotIn("test-token-123", self._page(path))
+
+    def test_manifest_keeps_the_token_when_a_pin_is_set(self):
+        self.assertEqual(self._start_url("/manifest.webmanifest?token=test-token-123"), "/")
+        self.assertNotIn("test-token-123", self._page("/?token=test-token-123"))
+
     def test_provider_status_reports_pin_set(self):
         with mock.patch("omarchy_voice.local_engine._local_config", return_value={"pin": "5678"}):
             status = get_provider_status()
