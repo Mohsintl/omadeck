@@ -29,8 +29,8 @@
 | **What is it?** | A self-hosted Web App (PWA) that acts like a physical Stream Deck + AI voice remote for Linux. |
 | **Who is it for?** | Omarchy, Arch Linux, and Hyprland users who want tactile desk control or couch remote power. |
 | **Why not a physical deck?** | Physical decks cost $150+, have fixed buttons, and lack Wayland awareness. OmaDeck uses your existing phone, has 5 context profiles, OLED themes, and direct PC voice typing. |
-| **Supported Devices** | Any phone or tablet with iOS Safari (iOS 16.4+) or Android Chrome. Zero app store installs. |
-| **Privacy & Connection** | Runs on your own network, with HTTPS once the local CA is installed, and token/PIN authentication. Works offline with Ollama. |
+| **Supported Devices** | Tested on iPhone and iPad. Android Chrome should work but hasn't been tested yet. Zero app store installs. |
+| **Privacy & Connection** | Runs on your own network, with HTTPS once the local CA is installed, and token/PIN authentication. Works offline, though cloud APIs are more accurate. |
 
 ---
 
@@ -113,7 +113,7 @@ The installer sets up:
 
 ### 2. Connect from Your Phone
 
-Print your pairing link in a terminal. This works while the background service is running:
+Print your pairing link in a terminal. If the background service is running, this just shows the link. If it isn't, this also starts the server until you press Ctrl+C:
 ```bash
 omadeck mobile
 ```
@@ -127,7 +127,7 @@ You will see output similar to:
 ```
 Treat the link like a password: anyone with it can control your desktop. The service log deliberately leaves the token out and shows only the certificate fingerprint.
 
-To also get a QR code to scan, install `qrencode` (`sudo pacman -S qrencode`).
+To also get a QR code to scan, say yes when the installer offers `qrencode`, or install it later with `sudo pacman -S qrencode`.
 
 #### Step-by-Step Connection Guide:
 1. **Install CA Certificate for Encrypted HTTPS & Microphone**:
@@ -175,17 +175,17 @@ Found a security problem? Please see [SECURITY.md](SECURITY.md).
 
 ---
 
-## 🧪 Verified Compatibility Matrix
+## 🧪 Tested Compatibility
 
-OmaDeck has been actively verified across the following platforms:
-
-| Component | Tested & Supported |
+| Component | Tested on |
 |:---|:---|
-| **Linux Distros** | Omarchy, Arch Linux, Fedora (Wayland), Ubuntu 24.04+ (Wayland) |
-| **Compositors** | Hyprland (v0.38+ through v0.45+). Requires `hyprctl` and `wtype`. |
-| **Mobile Browsers** | iOS Safari (iOS 16.4+, iOS 17, iOS 18), iPadOS Safari, Android Chrome (v115+) |
-| **Hardware** | iPhone (12–16 Pro/Max), iPad (Mini, Air, Pro), Android smartphones & tablets |
-| **LLM Inference** | Groq (Llama 3.3 70B), Ollama (Local/Offline), OpenAI (gpt-4o), DeepSeek, NVIDIA NIM |
+| **Linux** | Omarchy |
+| **Compositor** | Hyprland 0.56.2. Requires `hyprctl` and `wtype`. |
+| **Phone and tablet** | iPhone and iPad |
+
+Other Hyprland setups and Android Chrome may work but haven't been tested yet. Reports are welcome in the [issue tracker](https://github.com/Mohsintl/omadeck/issues).
+
+**Offline use:** everything works offline with local models, but voice and AI results are less accurate than with a cloud API.
 
 ---
 
