@@ -19,7 +19,6 @@ EnvironmentFile=-%h/.config/omarchy-voice/env
 # this restarts them. `listen quit` and SIGINT return 0 and stay down.
 Restart=on-failure
 RestartSec=3
-PrivateTmp=true
 ProtectSystem=strict
 ProtectKernelTunables=true
 ProtectKernelModules=true
