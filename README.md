@@ -113,7 +113,7 @@ The installer sets up:
 
 ### 2. Connect from Your Phone
 
-Check your service logs to view your local LAN connection URLs and authentication token:
+Check your service logs to view your local LAN connection URLs, CA fingerprint, and authentication token:
 ```bash
 systemctl --user status omarchy-voice-mobile
 ```
@@ -121,8 +121,11 @@ You will see output similar to:
 ```text
   Oma Remote  →  http://192.168.1.50:8765/?token=ZMxr4c9IA2q-0t4YlMe4cA
   with mic    →  https://192.168.1.50:8765/?token=ZMxr4c9IA2q-0t4YlMe4cA
-  token       →  ZMxr4c9IA2q-0t4YlMe4cA
+  certificate →  http://192.168.1.50:8765/ca.pem     (install once on the phone)
+  fingerprint →  8A:3F:B2:91:...
+  token: ZMxr4c9IA2q-0t4YlMe4cA
 ```
+*(Tip: You can also run `omarchy-voice mobile` directly in your terminal at any time — even while the background service is running — to view connection details and scan an instant pairing QR code).*
 
 #### Step-by-Step Connection Guide:
 1. **Install CA Certificate for Encrypted HTTPS & Microphone**:

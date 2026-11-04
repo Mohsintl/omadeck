@@ -21,6 +21,7 @@ Then open  http://<your-lan-ip>:8765/?token=<token>  on your phone.
 from __future__ import annotations
 
 import base64
+import errno
 import hashlib
 import http.server
 import io
@@ -5055,6 +5056,7 @@ def _press_key(key: str) -> tuple[bool, str]:
 
 _AUTH_FAILURES: dict[str, list[float]] = {}
 _GLOBAL_AUTH_FAILURES: list[float] = []
+MAX_GLOBAL_AUTH_FAILURES = 25
 _AUTH_LOCK = threading.Lock()
 _SESSION_TOKENS: dict[str, float] = {}  # session_token -> expiry_timestamp
 _SESSION_LOCK = threading.Lock()
@@ -5091,7 +5093,7 @@ def _is_allowed_host(host_header: str, server_host: str = "") -> bool:
 
 class BridgeHandler(http.server.BaseHTTPRequestHandler):
 
-    timeout = 30.0
+    timeout = 10.0
     token: str = ""
     pin: str = ""
     stt_model: str = "base.en"
@@ -5264,13 +5266,25 @@ class BridgeHandler(http.server.BaseHTTPRequestHandler):
             chunks = []
             rem = expected_len
             while rem > 0:
-                if time.monotonic() > deadline:
+                time_left = deadline - time.monotonic()
+                if time_left <= 0:
                     raise TimeoutError("body read timeout")
-                chunk = self.rfile.read(min(rem, 65536))
+                if hasattr(self, "connection") and self.connection:
+                    try:
+                        self.connection.settimeout(min(time_left, 10.0))
+                    except (OSError, AttributeError):
+                        pass
+                read_size = min(rem, 65536)
+                if hasattr(self.rfile, "read1"):
+                    chunk = self.rfile.read1(read_size)
+                else:
+                    chunk = self.rfile.read(read_size)
                 if not chunk:
                     break
                 chunks.append(chunk)
                 rem -= len(chunk)
+            if rem > 0 and time.monotonic() > deadline:
+                raise TimeoutError("body read timeout")
             return b"".join(chunks)
 
         try:
@@ -5331,7 +5345,7 @@ class BridgeHandler(http.server.BaseHTTPRequestHandler):
             now = time.monotonic()
             with _AUTH_LOCK:
                 _GLOBAL_AUTH_FAILURES[:] = [t for t in _GLOBAL_AUTH_FAILURES if now - t < 60.0]
-                if len(_GLOBAL_AUTH_FAILURES) >= 15:
+                if len(_GLOBAL_AUTH_FAILURES) >= MAX_GLOBAL_AUTH_FAILURES:
                     self._json({"ok": False, "error": "Too many failed attempts globally. Locked out for 60 seconds."}, 429)
                     return
 
@@ -5370,14 +5384,29 @@ class BridgeHandler(http.server.BaseHTTPRequestHandler):
             from .local_engine import save_local_config
 
             if self.pin and not is_master:
+                client_ip = self.client_address[0] if (hasattr(self, "client_address") and self.client_address) else "127.0.0.1"
+                now = time.monotonic()
+                with _AUTH_LOCK:
+                    attempts = _AUTH_FAILURES.setdefault(client_ip, [])
+                    attempts[:] = [t for t in attempts if now - t < 60.0]
+                    if len(attempts) >= 5:
+                        self._json({"ok": False, "error": "Too many failed attempts. Locked out for 60 seconds."}, 429)
+                        return
+                    attempts.append(now)
+                    _GLOBAL_AUTH_FAILURES.append(now)
+                time.sleep(0.2)
                 if not current_pin or not secrets.compare_digest(current_pin, self.pin):
                     self._json({"ok": False, "error": "Current PIN is required to modify PIN settings."}, 403)
                     return
+                with _AUTH_LOCK:
+                    _AUTH_FAILURES.pop(client_ip, None)
+                    try:
+                        _GLOBAL_AUTH_FAILURES.remove(now)
+                    except ValueError:
+                        pass
 
             if action == "disable":
                 self.__class__.pin = ""
-                with _SESSION_LOCK:
-                    _SESSION_TOKENS.clear()
                 save_local_config({"pin": ""})
                 resp = {"ok": True, "pin_set": False, "message": "PIN lock disabled."}
                 if is_master:
@@ -6359,7 +6388,10 @@ def _local_think(text: str) -> str:
 # ---------------------------------------------------------------------------
 
 MAX_CONCURRENT_CONNECTIONS = 32
+MAX_CONNECTIONS_PER_IP = 8
 _CONNECTION_SEMAPHORE = threading.Semaphore(MAX_CONCURRENT_CONNECTIONS)
+_IP_CONNECTIONS: dict[str, int] = {}
+_IP_LOCK = threading.Lock()
 
 
 class BridgeServer(http.server.ThreadingHTTPServer):
@@ -6391,21 +6423,34 @@ class BridgeServer(http.server.ThreadingHTTPServer):
         return self.socket.accept()
 
     def process_request(self, request, client_address):
-        if not _CONNECTION_SEMAPHORE.acquire(blocking=False):
-            try:
-                request.settimeout(2.0)
-                request.sendall(b"HTTP/1.1 503 Service Unavailable\r\nContent-Type: text/plain\r\nConnection: close\r\n\r\nServer busy\r\n")
-            except OSError:
-                pass
-            self.shutdown_request(request)
-            return
+        client_ip = client_address[0] if client_address else "127.0.0.1"
+        with _IP_LOCK:
+            active = _IP_CONNECTIONS.get(client_ip, 0)
+            if active >= MAX_CONNECTIONS_PER_IP:
+                try:
+                    request.settimeout(2.0)
+                    request.sendall(b"HTTP/1.1 429 Too Many Requests\r\nContent-Type: text/plain\r\nConnection: close\r\n\r\nToo many connections from your IP\r\n")
+                except OSError:
+                    pass
+                self.shutdown_request(request)
+                return
+            if not _CONNECTION_SEMAPHORE.acquire(blocking=False):
+                try:
+                    request.settimeout(2.0)
+                    request.sendall(b"HTTP/1.1 503 Service Unavailable\r\nContent-Type: text/plain\r\nConnection: close\r\n\r\nServer busy\r\n")
+                except OSError:
+                    pass
+                self.shutdown_request(request)
+                return
+            _IP_CONNECTIONS[client_ip] = active + 1
         super().process_request(request, client_address)
 
     def process_request_thread(self, request, client_address):
+        client_ip = client_address[0] if client_address else "127.0.0.1"
         try:
             sock = request
             try:
-                sock.settimeout(30.0)
+                sock.settimeout(10.0)
             except OSError:
                 self.shutdown_request(sock)
                 return
@@ -6426,12 +6471,18 @@ class BridgeServer(http.server.ThreadingHTTPServer):
                         self.shutdown_request(sock)
                         return
                 try:
-                    sock.settimeout(30.0)
+                    sock.settimeout(10.0)
                 except OSError:
                     self.shutdown_request(sock)
                     return
             super().process_request_thread(sock, client_address)
         finally:
+            with _IP_LOCK:
+                curr = _IP_CONNECTIONS.get(client_ip, 1)
+                if curr <= 1:
+                    _IP_CONNECTIONS.pop(client_ip, None)
+                else:
+                    _IP_CONNECTIONS[client_ip] = curr - 1
             _CONNECTION_SEMAPHORE.release()
 
     def handle_error(self, request, client_address) -> None:
@@ -6511,6 +6562,41 @@ def run(config, port: int = DEFAULT_PORT) -> int:
     try:
         server = BridgeServer(("0.0.0.0", port), Handler)
     except OSError as exc:
+        if exc.errno == errno.EADDRINUSE:
+            print(f"\n  Oma Remote is already running on port {port}.")
+            url = f"http://{host}:{port}"
+            https_url = f"https://{host}:{port}"
+            print(f"  Oma Remote  →  {url}/?token={token}")
+            if CERT_FILE.exists() and KEY_FILE.exists():
+                print(f"  with mic    →  {https_url}/?token={token}")
+                print(f"  certificate →  {url}/ca.pem     (install once on the phone)")
+                if CA_CERT_FILE.exists():
+                    try:
+                        der = ssl.PEM_cert_to_DER_cert(CA_CERT_FILE.read_text())
+                        fp = hashlib.sha256(der).hexdigest().upper()
+                        fp_formatted = ":".join(fp[i:i+2] for i in range(0, len(fp), 2))
+                        print(f"  fingerprint →  {fp_formatted}")
+                    except Exception:
+                        pass
+            print(f"  token: {token}")
+            target_qr = f"{https_url}/?token={token}" if (CERT_FILE.exists() and KEY_FILE.exists()) else f"{url}/?token={token}"
+            if sys.stdout.isatty() and shutil.which("qrencode"):
+                try:
+                    print("\n  Scan with your phone to pair:\n")
+                    res = subprocess.run(
+                        ["qrencode", "-t", "ANSIUTF8", "-o", "-", target_qr],
+                        check=False,
+                        capture_output=True,
+                        text=True,
+                    )
+                    if res.returncode == 0 and res.stdout:
+                        for line in res.stdout.splitlines():
+                            print(f"  {line}")
+                        print()
+                except Exception:
+                    pass
+            print(f"  (service log: systemctl --user status omarchy-voice-mobile)\n", flush=True)
+            return 0
         print(f"\n  could not listen on port {port}: {exc}")
         print(f"  try: omarchy-voice mobile --port {port + 1}\n")
         return 1
@@ -6535,28 +6621,36 @@ def run(config, port: int = DEFAULT_PORT) -> int:
             Handler.https_url = f"https://{host}:{port}"
             https_url = Handler.https_url
 
-    is_journal = bool(os.environ.get("JOURNAL_STREAM") or os.environ.get("INVOCATION_ID"))
-    if is_journal or not sys.stdout.isatty():
-        print(f"\n  Oma Remote is running on port {port}")
-        if https_url:
-            print(f"  HTTPS endpoint: {https_url}")
-        print(f"  Security: Master pairing token stored at {TOKEN_FILE} (mode 600)")
-        print("  To view the pairing URL and QR code, run 'omarchy-voice mobile' in your terminal.\n", flush=True)
-    else:
-        print(f"\n  Oma Remote  →  {url}/?token={token}")
-        if https_url:
-            print(f"  with mic    →  {https_url}/?token={token}")
-            print(f"  certificate →  {url}/ca.pem     (install once on the phone)")
-            if CA_CERT_FILE.exists():
-                try:
-                    der = ssl.PEM_cert_to_DER_cert(CA_CERT_FILE.read_text())
-                    fp = hashlib.sha256(der).hexdigest().upper()
-                    fp_formatted = ":".join(fp[i:i+2] for i in range(0, len(fp), 2))
-                    print(f"  fingerprint →  {fp_formatted}")
-                except Exception:
-                    pass
-        print(f"  token: {token}")
-        print(f"\n  Open that URL in Safari on your phone.\n", flush=True)
+    print(f"\n  Oma Remote  →  {url}/?token={token}")
+    if https_url:
+        print(f"  with mic    →  {https_url}/?token={token}")
+        print(f"  certificate →  {url}/ca.pem     (install once on the phone)")
+        if CA_CERT_FILE.exists():
+            try:
+                der = ssl.PEM_cert_to_DER_cert(CA_CERT_FILE.read_text())
+                fp = hashlib.sha256(der).hexdigest().upper()
+                fp_formatted = ":".join(fp[i:i+2] for i in range(0, len(fp), 2))
+                print(f"  fingerprint →  {fp_formatted}")
+            except Exception:
+                pass
+    print(f"  token: {token}")
+    if sys.stdout.isatty() and shutil.which("qrencode"):
+        target_qr = f"{https_url}/?token={token}" if https_url else f"{url}/?token={token}"
+        try:
+            print("\n  Scan with your phone to pair:\n")
+            res = subprocess.run(
+                ["qrencode", "-t", "ANSIUTF8", "-o", "-", target_qr],
+                check=False,
+                capture_output=True,
+                text=True,
+            )
+            if res.returncode == 0 and res.stdout:
+                for line in res.stdout.splitlines():
+                    print(f"  {line}")
+                print()
+        except Exception:
+            pass
+    print(f"\n  Open that URL in Safari on your phone.\n", flush=True)
     hint = _firewall_hint(port)
     if hint:
         print(hint, flush=True)

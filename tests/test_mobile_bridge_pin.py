@@ -100,6 +100,38 @@ class MobileBridgePinTests(unittest.TestCase):
             parsed_json = {}
         return status_line, parsed_json
 
+    def _call_get(self, path: str, token: str | None = None, extra_headers: dict | None = None):
+        if token is None:
+            token = BridgeHandler.token
+        wfile = io.BytesIO()
+        handler = BridgeHandler.__new__(BridgeHandler)
+        handler.rfile = io.BytesIO()
+        handler.wfile = wfile
+        headers = {
+            "X-Token": token,
+            "Host": "127.0.0.1:8765",
+        }
+        if extra_headers:
+            headers.update(extra_headers)
+        handler.headers = headers
+        handler.path = path
+        handler.command = "GET"
+        handler.requestline = f"GET {path} HTTP/1.1"
+        handler.request_version = "HTTP/1.1"
+        handler.log_message = lambda *args: None
+
+        handler.do_GET()
+
+        wfile.seek(0)
+        response_data = wfile.read()
+        header_part, _, body_part = response_data.partition(b"\r\n\r\n")
+        status_line = header_part.split(b"\r\n")[0].decode("utf-8", errors="ignore")
+        try:
+            parsed_json = json.loads(body_part.decode("utf-8")) if body_part else {}
+        except Exception:
+            parsed_json = {}
+        return status_line, parsed_json
+
     def test_provider_status_reports_pin_set(self):
         with mock.patch("omarchy_voice.local_engine._local_config", return_value={"pin": "5678"}):
             status = get_provider_status()
@@ -364,14 +396,14 @@ class MobileBridgePinTests(unittest.TestCase):
             self.assertIn("Killed processes on port 3000", res2)
 
     def test_global_auth_rate_limit_lockout(self):
-        from omarchy_voice.mobile_bridge import _AUTH_FAILURES, _GLOBAL_AUTH_FAILURES, _AUTH_LOCK
+        from omarchy_voice.mobile_bridge import _AUTH_FAILURES, _GLOBAL_AUTH_FAILURES, _AUTH_LOCK, MAX_GLOBAL_AUTH_FAILURES
         with _AUTH_LOCK:
             _AUTH_FAILURES.clear()
             _GLOBAL_AUTH_FAILURES.clear()
 
-        # Simulate 15 failed attempts across different IP addresses
+        # Simulate MAX_GLOBAL_AUTH_FAILURES failed attempts across different IP addresses
         with mock.patch("time.sleep"):
-            for i in range(15):
+            for i in range(MAX_GLOBAL_AUTH_FAILURES):
                 handler = BridgeHandler.__new__(BridgeHandler)
                 handler.client_address = (f"10.0.0.{i+1}", 12345)
                 handler.rfile = io.BytesIO(b'{"pin":"wrong"}')
@@ -384,7 +416,7 @@ class MobileBridgePinTests(unittest.TestCase):
                 handler.log_message = lambda *args: None
                 handler.do_POST()
 
-            # 16th attempt from a brand-new IP address should be blocked by global limit (429)
+            # Next attempt from a brand-new IP address should be blocked by global limit (429)
             handler = BridgeHandler.__new__(BridgeHandler)
             handler.client_address = ("10.0.1.99", 12345)
             handler.rfile = io.BytesIO(b'{"pin":"wrong"}')
@@ -458,6 +490,10 @@ class MobileBridgePinTests(unittest.TestCase):
         self.assertTrue(data_dis_ok.get("ok"))
         self.assertNotIn("token", data_dis_ok)
 
+        # 7. Crucial check: phone session is NOT cut off after disabling PIN!
+        status_state, data_state = self._call_get("/state", token=new_session_token)
+        self.assertIn("200", status_state)
+
     def test_denylist_catches_all_interpreter_and_pipe_bypasses(self):
         from omarchy_voice.config import DEFAULT_DENY
         import re
@@ -497,6 +533,52 @@ class MobileBridgePinTests(unittest.TestCase):
             res2 = executor.call("type_text", {"text": "whoami\n"})
             self.assertFalse(res2.ok)
             self.assertIn("terminal", res2.output.lower())
+
+    def test_current_pin_on_pin_endpoint_is_rate_limited(self):
+        # Set a PIN
+        BridgeHandler.pin = "1234"
+        # Authenticate with session token
+        status_auth, data_auth = self._call_post("/auth", {"pin": "1234"}, token="")
+        session_token = data_auth["token"]
+
+        with mock.patch("time.sleep"):
+            # 5 failed attempts with wrong current_pin
+            for _ in range(5):
+                status, data = self._call_post(
+                    "/pin",
+                    {"action": "set", "pin": "9999", "current_pin": "0000"},
+                    token=session_token,
+                )
+                self.assertIn("403", status)
+
+            # 6th attempt should be rate-limited with 429
+            status, data = self._call_post(
+                "/pin",
+                {"action": "set", "pin": "9999", "current_pin": "0000"},
+                token=session_token,
+            )
+            self.assertIn("429", status)
+            self.assertIn("Too many failed attempts", data.get("error", ""))
+
+    def test_per_ip_connection_limit_blocks_excessive_connections(self):
+        from omarchy_voice.mobile_bridge import (
+            BridgeServer,
+            MAX_CONNECTIONS_PER_IP,
+            _IP_CONNECTIONS,
+            _IP_LOCK,
+        )
+        server = BridgeServer.__new__(BridgeServer)
+        mock_req = mock.MagicMock()
+        with _IP_LOCK:
+            _IP_CONNECTIONS["192.168.1.100"] = MAX_CONNECTIONS_PER_IP
+
+        server.shutdown_request = mock.MagicMock()
+        server.process_request(mock_req, ("192.168.1.100", 54321))
+        server.shutdown_request.assert_called_once_with(mock_req)
+        mock_req.sendall.assert_called_once()
+        self.assertIn(b"429 Too Many Requests", mock_req.sendall.call_args[0][0])
+        with _IP_LOCK:
+            _IP_CONNECTIONS.clear()
 
 
 if __name__ == "__main__":

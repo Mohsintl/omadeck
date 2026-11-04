@@ -1569,6 +1569,19 @@ class Executor:
         expr, error = _normalise_shortcut_lua(_normalise_window_addresses(lua.strip()))
         if error:
             return Result(False, error)
+        if not self.config.allow_shell and "send_shortcut" in expr:
+            key_m = _LUA_KEY_RE.search(expr)
+            mods_m = _LUA_MODS_RE.search(expr)
+            keysym = key_m.group(2) if key_m else ""
+            clean_mods = mods_m.group(2) if mods_m else ""
+            mods_set = set(clean_mods.upper().split("+"))
+            is_enter = keysym in ("Return", "KP_Enter", "Linefeed")
+            is_ctrl_newline = ("CTRL" in mods_set or "CONTROL" in mods_set) and keysym.lower() in ("j", "m")
+            if is_enter or is_ctrl_newline:
+                win_m = re.search(r'\bwindow\s*=\s*"([^"]*)"', expr)
+                target_win = win_m.group(1) if win_m else "activewindow"
+                if self._is_terminal_window(target_win):
+                    return Result(False, "pressing Enter or newline shortcuts (Ctrl+J/Ctrl+M) in a terminal window is disabled when allow_shell = false")
         return self._dispatch_lua(expr)
 
     def _dispatch_lua(self, lua: str) -> Result:
@@ -1593,16 +1606,17 @@ class Executor:
         try:
             window, _ = self._window_geometry(target)
             if not window:
-                return False
+                return not self.config.allow_shell
             w_class = str(window.get("class") or window.get("initialClass") or "").lower()
-            terminal_names = (
-                "kitty", "alacritty", "foot", "wezterm", "ghostty", "xterm",
-                "gnome-terminal", "konsole", "urxvt", "st", "terminator",
-                "xfce4-terminal", "terminal"
-            )
-            return any(t in w_class for t in terminal_names)
+            terminal_names = {
+                "kitty", "alacritty", "foot", "footclient", "wezterm", "ghostty", "xterm",
+                "gnome-terminal", "konsole", "urxvt", "rxvt", "st", "terminator",
+                "xfce4-terminal", "terminal", "tilix", "contour", "ptyxis"
+            }
+            tokens = set(re.split(r"[-_.\s/]+", w_class))
+            return bool(tokens & terminal_names) or any("terminal" in t for t in tokens)
         except Exception:
-            return False
+            return not self.config.allow_shell
 
     def _tool_send_shortcut(self, mods: str, key: str, window: str = "activewindow") -> Result:
         """Press a chord, having first checked the keys exist.
@@ -1618,9 +1632,13 @@ class Executor:
         keysym, error = normalise_key(key)
         if error:
             return Result(False, error)
-        if not self.config.allow_shell and keysym in ("Return", "KP_Enter", "Linefeed"):
-            if self._is_terminal_window(window):
-                return Result(False, "pressing Enter in a terminal window is disabled when allow_shell = false")
+        if not self.config.allow_shell:
+            mods_set = set(clean_mods.upper().split("+"))
+            is_enter = keysym in ("Return", "KP_Enter", "Linefeed")
+            is_ctrl_newline = ("CTRL" in mods_set or "CONTROL" in mods_set) and keysym.lower() in ("j", "m")
+            if is_enter or is_ctrl_newline:
+                if self._is_terminal_window(window):
+                    return Result(False, "pressing Enter or newline shortcuts (Ctrl+J/Ctrl+M) in a terminal window is disabled when allow_shell = false")
         lua = (
             f'hl.dsp.send_shortcut({{ mods = {json.dumps(clean_mods)}, '
             f'key = {json.dumps(keysym)}, window = {json.dumps(window)} }})'
