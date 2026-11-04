@@ -85,6 +85,12 @@ class MultiProviderTests(unittest.TestCase):
         self.assertIn("stt_api_key_set", status)
         self.assertEqual(status["stt_api_key_env"], "STT_API_KEY")
 
+    def test_get_provider_status_resolves_clean_base_url_on_switch(self):
+        from omarchy_voice.local_engine import get_provider_status
+        with patch("omarchy_voice.local_engine._local_config", return_value={"provider": "groq", "base_url": "http://localhost:1234/v1"}):
+            status = get_provider_status()
+            self.assertEqual(status["base_url"], "https://api.groq.com/openai/v1")
+
     def test_stt_settings_provider_mapping(self):
         from omarchy_voice.local_engine import stt_settings
         with patch.dict(os.environ, {"STT_API_KEY": "gsk_voice"}, clear=True):

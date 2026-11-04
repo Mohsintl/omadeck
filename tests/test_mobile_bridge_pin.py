@@ -26,9 +26,15 @@ from omarchy_voice.mobile_bridge import (
 
 class MobileBridgePinTests(unittest.TestCase):
     def setUp(self):
-        from omarchy_voice.mobile_bridge import _AUTH_FAILURES, _AUTH_LOCK
+        from omarchy_voice.mobile_bridge import (
+            _AUTH_FAILURES, _GLOBAL_AUTH_FAILURES, _AUTH_LOCK,
+            _SESSION_TOKENS, _SESSION_LOCK,
+        )
         with _AUTH_LOCK:
             _AUTH_FAILURES.clear()
+            _GLOBAL_AUTH_FAILURES.clear()
+        with _SESSION_LOCK:
+            _SESSION_TOKENS.clear()
         self.orig_pin = BridgeHandler.pin
         self.orig_token = BridgeHandler.token
         BridgeHandler.pin = "1234"
@@ -42,9 +48,15 @@ class MobileBridgePinTests(unittest.TestCase):
         self.mock_save_token = self.save_token_patch.start()
 
     def tearDown(self):
-        from omarchy_voice.mobile_bridge import _AUTH_FAILURES, _AUTH_LOCK
+        from omarchy_voice.mobile_bridge import (
+            _AUTH_FAILURES, _GLOBAL_AUTH_FAILURES, _AUTH_LOCK,
+            _SESSION_TOKENS, _SESSION_LOCK,
+        )
         with _AUTH_LOCK:
             _AUTH_FAILURES.clear()
+            _GLOBAL_AUTH_FAILURES.clear()
+        with _SESSION_LOCK:
+            _SESSION_TOKENS.clear()
         self.save_local_config_patch.stop()
         self.save_token_patch.stop()
         BridgeHandler.pin = self.orig_pin
@@ -104,13 +116,18 @@ class MobileBridgePinTests(unittest.TestCase):
         status_line, data = self._call_post("/auth", {"pin": "1234"}, token="")
         self.assertIn("200", status_line)
         self.assertTrue(data.get("ok"))
-        self.assertEqual(data.get("token"), "test-token-123")
+        session_tok = data.get("token")
+        self.assertTrue(session_tok)
+        # Verify the issued session token works for subsequent calls
+        status_line2, data2 = self._call_post("/clear", {}, token=session_tok)
+        self.assertIn("200", status_line2)
+        self.assertTrue(data2.get("ok"))
 
         # Incorrect PIN
-        status_line, data = self._call_post("/auth", {"pin": "9999"}, token="")
-        self.assertIn("401", status_line)
-        self.assertFalse(data.get("ok"))
-        self.assertEqual(data.get("error"), "Incorrect PIN")
+        status_line3, data3 = self._call_post("/auth", {"pin": "9999"}, token="")
+        self.assertIn("401", status_line3)
+        self.assertFalse(data3.get("ok"))
+        self.assertEqual(data3.get("error"), "Incorrect PIN")
 
     def test_pin_endpoint_requires_auth(self):
         # Without valid token, /pin is rejected with 401
@@ -330,6 +347,60 @@ class MobileBridgePinTests(unittest.TestCase):
                 status_line, data = self._call_post("/voice", {"audio_b64": large_audio})
                 self.assertNotIn("413", status_line)
                 self.assertIn("200", status_line)
+
+    def test_unauthenticated_audio_rejected_before_processing(self):
+        status_line, data = self._call_post("/voice", {"audio_b64": "AAAA"}, token="wrong-token")
+        self.assertIn("401", status_line)
+        self.assertEqual(data.get("error"), "unauthorized")
+
+    def test_why_did_you_kill_port_does_not_kill_port(self):
+        with mock.patch("subprocess.run") as mock_sub:
+            res = _dispatch("why did you kill 3000")
+            # Should not call fuser on 3000/tcp
+            called_cmds = [call.args[0] for call in mock_sub.call_args_list if call.args]
+            self.assertFalse(any("3000/tcp" in cmd for cmd in called_cmds))
+
+            res2 = _dispatch("kill port 3000")
+            self.assertIn("Killed processes on port 3000", res2)
+
+    def test_global_auth_rate_limit_lockout(self):
+        from omarchy_voice.mobile_bridge import _AUTH_FAILURES, _GLOBAL_AUTH_FAILURES, _AUTH_LOCK
+        with _AUTH_LOCK:
+            _AUTH_FAILURES.clear()
+            _GLOBAL_AUTH_FAILURES.clear()
+
+        # Simulate 15 failed attempts across different IP addresses
+        with mock.patch("time.sleep"):
+            for i in range(15):
+                handler = BridgeHandler.__new__(BridgeHandler)
+                handler.client_address = (f"10.0.0.{i+1}", 12345)
+                handler.rfile = io.BytesIO(b'{"pin":"wrong"}')
+                handler.wfile = io.BytesIO()
+                handler.headers = {"Content-Type": "application/json", "Content-Length": "15", "Host": "127.0.0.1:8765"}
+                handler.path = "/auth"
+                handler.command = "POST"
+                handler.requestline = "POST /auth HTTP/1.1"
+                handler.request_version = "HTTP/1.1"
+                handler.log_message = lambda *args: None
+                handler.do_POST()
+
+            # 16th attempt from a brand-new IP address should be blocked by global limit (429)
+            handler = BridgeHandler.__new__(BridgeHandler)
+            handler.client_address = ("10.0.1.99", 12345)
+            handler.rfile = io.BytesIO(b'{"pin":"wrong"}')
+            handler.wfile = io.BytesIO()
+            handler.headers = {"Content-Type": "application/json", "Content-Length": "15", "Host": "127.0.0.1:8765"}
+            handler.path = "/auth"
+            handler.command = "POST"
+            handler.requestline = "POST /auth HTTP/1.1"
+            handler.request_version = "HTTP/1.1"
+            handler.log_message = lambda *args: None
+            handler.do_POST()
+
+            handler.wfile.seek(0)
+            resp = handler.wfile.read()
+            self.assertIn(b"429", resp)
+            self.assertIn(b"globally", resp)
 
 
 if __name__ == "__main__":

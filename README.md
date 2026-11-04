@@ -119,20 +119,21 @@ systemctl --user status omarchy-voice-mobile
 ```
 You will see output similar to:
 ```text
-  Oma Remote  →  http://192.168.1.50:8765
-  with mic    →  https://192.168.1.50:8765
+  Oma Remote  →  http://192.168.1.50:8765/?token=ZMxr4c9IA2q-0t4YlMe4cA
+  with mic    →  https://192.168.1.50:8765/?token=ZMxr4c9IA2q-0t4YlMe4cA
   token       →  ZMxr4c9IA2q-0t4YlMe4cA
 ```
 
 #### Step-by-Step Connection Guide:
-1. **Initial Setup & Touch Control (HTTP)**:
-   - On your phone or tablet (connected to the same Wi-Fi), open the plain HTTP address: `http://<your-laptop-lan-ip>:8765`.
-   - All physical touch macro buttons, workspace switches, window controls, and keyboard typing will work immediately.
+1. **Connect & Pair Securely (HTTPS Recommended)**:
+   - On your phone or tablet (connected to the same Wi-Fi), open the paired address shown in your service log: `https://<your-laptop-lan-ip>:8765/?token=<token>`.
+   - Using HTTPS ensures your authentication token, PIN, dictation audio, and commands are fully encrypted across your local network.
+   - If connecting via plain HTTP (`http://<your-laptop-lan-ip>:8765/?token=<token>`), touch macro buttons and window controls will function immediately, but mobile browsers will disable the microphone.
 2. **Enabling Microphone & Voice Dictation (HTTPS)**:
    - Modern mobile browsers (iOS Safari & Android Chrome) **strictly block microphone access** (`getUserMedia`) on unencrypted non-localhost HTTP connections.
    - To use voice commands and the inline dictation mic:
-     - On iOS: Tap the banner to download the local root certificate (`ca.crt`), open **iOS Settings ➔ Profile Downloaded ➔ Install**, then enable **Settings ➔ General ➔ About ➔ Certificate Trust Settings ➔ Enable Full Trust**.
-     - Navigate to `https://<your-laptop-lan-ip>:8765`.
+     - On iOS: Tap the top banner or open `/ca.crt` to download the scoped root certificate, open **iOS Settings ➔ Profile Downloaded ➔ Install**, then enable **Settings ➔ General ➔ About ➔ Certificate Trust Settings ➔ Enable Full Trust**.
+     - Navigate to `https://<your-laptop-lan-ip>:8765/?token=<token>`.
 3. **PWA Standalone App**:
    - In Safari, tap **Share ➔ Add to Home Screen** (or in Chrome, tap **⋮ ➔ Install App / Add to Home Screen**).
    - This launches OmaDeck in fullscreen mode without URL address bars, providing an authentic hardware Stream Deck experience with haptic vibrations.

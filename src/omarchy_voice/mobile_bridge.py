@@ -151,6 +151,20 @@ def _cert_valid(cert_path: Path, min_seconds: int = 86400) -> bool:
         return False
 
 
+def _ca_valid(ca_path: Path, min_seconds: int = 86400) -> bool:
+    if not _cert_valid(ca_path, min_seconds):
+        return False
+    try:
+        res = subprocess.run(
+            ["openssl", "x509", "-text", "-noout", "-in", str(ca_path)],
+            capture_output=True,
+            text=True,
+        )
+        return "Name Constraints" in res.stdout and "pathlen:0" in res.stdout
+    except Exception:
+        return False
+
+
 def _ensure_tls(host: str) -> tuple[Path, Path] | None:
     """Create (or reuse) a leaf cert for `host`, signed by a local CA.
 
@@ -165,7 +179,7 @@ def _ensure_tls(host: str) -> tuple[Path, Path] | None:
     except OSError:
         pass
     try:
-        ca_valid = CA_CERT_FILE.exists() and CA_KEY_FILE.exists() and _cert_valid(CA_CERT_FILE, 86400)
+        ca_valid = CA_CERT_FILE.exists() and CA_KEY_FILE.exists() and _ca_valid(CA_CERT_FILE, 86400)
         ca_regenerated = False
         if not ca_valid:
             _openssl("req", "-x509", "-newkey", "rsa:2048", "-nodes",
@@ -173,7 +187,8 @@ def _ensure_tls(host: str) -> tuple[Path, Path] | None:
                      "-keyout", str(CA_KEY_FILE), "-out", str(CA_CERT_FILE),
                      "-subj", "/CN=Oma Remote CA",
                      "-addext", "basicConstraints=critical,CA:TRUE,pathlen:0",
-                     "-addext", "keyUsage=critical,keyCertSign,cRLSign")
+                     "-addext", "keyUsage=critical,keyCertSign,cRLSign",
+                     "-addext", "nameConstraints=critical,permitted;DNS:.local,permitted;DNS:.ts.net,permitted;IP:192.168.0.0/255.255.0.0,permitted;IP:10.0.0.0/255.0.0.0,permitted;IP:172.16.0.0/255.240.0.0,permitted;IP:100.64.0.0/255.192.0.0,permitted;IP:127.0.0.0/255.0.0.0")
             CA_KEY_FILE.chmod(0o600)
             _openssl("x509", "-in", str(CA_CERT_FILE), "-outform", "der",
                      "-out", str(CA_DER_FILE))
@@ -5016,7 +5031,10 @@ def _press_key(key: str) -> tuple[bool, str]:
 
 
 _AUTH_FAILURES: dict[str, list[float]] = {}
+_GLOBAL_AUTH_FAILURES: list[float] = []
 _AUTH_LOCK = threading.Lock()
+_SESSION_TOKENS: dict[str, float] = {}  # session_token -> expiry_timestamp
+_SESSION_LOCK = threading.Lock()
 MAX_JSON_BODY = 128 * 1024
 MAX_AUDIO_BODY = 16 * 1024 * 1024
 _TAILSCALE_CGNAT = ipaddress.ip_network("100.64.0.0/10")
@@ -5050,6 +5068,7 @@ def _is_allowed_host(host_header: str, server_host: str = "") -> bool:
 
 class BridgeHandler(http.server.BaseHTTPRequestHandler):
 
+    timeout = 30.0
     token: str = ""
     pin: str = ""
     stt_model: str = "base.en"
@@ -5074,14 +5093,31 @@ class BridgeHandler(http.server.BaseHTTPRequestHandler):
 
     def _check_token(self) -> bool:
         tok = self.headers.get("X-Token", "")
-        if not tok or not secrets.compare_digest(tok, self.token):
+        if not tok:
             self.send_response(401)
             self.send_header("Content-Type", "application/json")
             self.send_header("Connection", "close")
             self.end_headers()
             self.wfile.write(b'{"error":"unauthorized"}')
             return False
-        return True
+
+        if secrets.compare_digest(tok, self.token):
+            return True
+
+        now = time.monotonic()
+        with _SESSION_LOCK:
+            expiry = _SESSION_TOKENS.get(tok)
+            if expiry and expiry > now:
+                return True
+            if expiry:
+                _SESSION_TOKENS.pop(tok, None)
+
+        self.send_response(401)
+        self.send_header("Content-Type", "application/json")
+        self.send_header("Connection", "close")
+        self.end_headers()
+        self.wfile.write(b'{"error":"unauthorized"}')
+        return False
 
     def _json(self, data: dict, code: int = 200) -> None:
         body = json.dumps(data).encode()
@@ -5184,6 +5220,11 @@ class BridgeHandler(http.server.BaseHTTPRequestHandler):
         except (ValueError, TypeError):
             length = 0
 
+        # Protect against unauthenticated DoS body buffering on audio/command routes
+        if path != "/auth":
+            if not self._check_token():
+                return
+
         max_allowed = MAX_AUDIO_BODY if path in ("/transcribe", "/voice") else MAX_JSON_BODY
         if length < 0 or length > max_allowed:
             self.send_response(413)
@@ -5242,24 +5283,30 @@ class BridgeHandler(http.server.BaseHTTPRequestHandler):
             client_ip = self.client_address[0] if (hasattr(self, "client_address") and self.client_address) else "127.0.0.1"
             now = time.monotonic()
             with _AUTH_LOCK:
+                _GLOBAL_AUTH_FAILURES[:] = [t for t in _GLOBAL_AUTH_FAILURES if now - t < 60.0]
+                if len(_GLOBAL_AUTH_FAILURES) >= 15:
+                    self._json({"ok": False, "error": "Too many failed attempts globally. Locked out for 60 seconds."}, 429)
+                    return
+
                 attempts = _AUTH_FAILURES.setdefault(client_ip, [])
                 attempts[:] = [t for t in attempts if now - t < 60.0]
                 if len(attempts) >= 5:
                     self._json({"ok": False, "error": "Too many failed attempts. Locked out for 60 seconds."}, 429)
                     return
                 attempts.append(now)
+                _GLOBAL_AUTH_FAILURES.append(now)
 
             pin_attempt = str(payload.get("pin") or "").strip()
             time.sleep(0.2)
             if self.pin and secrets.compare_digest(pin_attempt, self.pin):
                 with _AUTH_LOCK:
                     _AUTH_FAILURES.pop(client_ip, None)
-                self._json({"ok": True, "token": self.token})
+                session_tok = secrets.token_urlsafe(24)
+                with _SESSION_LOCK:
+                    _SESSION_TOKENS[session_tok] = time.monotonic() + (86400 * 30)
+                self._json({"ok": True, "token": session_tok})
             else:
                 self._json({"ok": False, "error": "Incorrect PIN"}, 401)
-            return
-
-        if not self._check_token():
             return
 
         if path == "/pin":
@@ -5270,6 +5317,8 @@ class BridgeHandler(http.server.BaseHTTPRequestHandler):
 
             if action == "disable":
                 self.__class__.pin = ""
+                with _SESSION_LOCK:
+                    _SESSION_TOKENS.clear()
                 save_local_config({"pin": ""})
                 self._json({"ok": True, "pin_set": False, "token": self.token, "message": "PIN lock disabled."})
                 return
@@ -5282,6 +5331,8 @@ class BridgeHandler(http.server.BaseHTTPRequestHandler):
                 new_token = secrets.token_urlsafe(16)
                 self.__class__.token = new_token
                 _save_token(new_token)
+                with _SESSION_LOCK:
+                    _SESSION_TOKENS.clear()
                 save_local_config({"pin": new_pin})
                 print(f"  [security] PIN updated — new pairing token: {new_token}", flush=True)
                 self._json({"ok": True, "pin_set": True, "token": new_token, "message": "PIN lock updated successfully."})
@@ -5746,16 +5797,15 @@ def _quick_command(text: str, voice: bool = False) -> str | None:
         subprocess.run(["fuser", "-k", "3773/tcp"], capture_output=True, timeout=2)
         return "Killed T3 Dashboard (port 3773)."
 
-    if ("kill port" in t or "stop port" in t or re.search(r"\b(?:kill|stop)\s+\d+\b", t)) and not re.search(r"\b(?:don't|do not|never|avoid|skip)\b", t):
-        m = re.search(r"\b(?:kill|stop)\s+(?:port\s+)?(\d{2,5})\b", t)
-        if m:
-            port = m.group(1)
-            port_num = int(port)
-            if 1 <= port_num <= 65535:
-                if port == "11434":
-                    subprocess.run(["systemctl", "stop", "ollama", "--no-ask-password"], capture_output=True, timeout=2)
-                subprocess.run(["fuser", "-k", f"{port}/tcp"], capture_output=True, text=True, timeout=2)
-                return f"Killed processes on port {port}."
+    kill_port_match = re.match(r"^(?:please\s+)?(?:kill|stop)\s+(?:port\s+)?(\d{2,5})\.?$", t)
+    if kill_port_match and not re.search(r"\b(?:don't|do not|never|avoid|skip)\b", t):
+        port = kill_port_match.group(1)
+        port_num = int(port)
+        if 1 <= port_num <= 65535:
+            if port == "11434":
+                subprocess.run(["systemctl", "stop", "ollama", "--no-ask-password"], capture_output=True, timeout=2)
+            subprocess.run(["fuser", "-k", f"{port}/tcp"], capture_output=True, text=True, timeout=2)
+            return f"Killed processes on port {port}."
 
     if t in ("git status", "git diff", "git pull", "git push", "run tests"):
         if voice and t == "git push":
@@ -6272,6 +6322,12 @@ class BridgeServer(http.server.ThreadingHTTPServer):
 
     def process_request_thread(self, request, client_address):
         sock = request
+        try:
+            sock.settimeout(30.0)
+        except OSError:
+            self.shutdown_request(sock)
+            return
+
         if self.tls_context is not None:
             is_tls = False
             try:
@@ -6288,7 +6344,7 @@ class BridgeServer(http.server.ThreadingHTTPServer):
                     self.shutdown_request(sock)
                     return
             try:
-                sock.settimeout(None)
+                sock.settimeout(30.0)
             except OSError:
                 self.shutdown_request(sock)
                 return

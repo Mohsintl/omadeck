@@ -464,17 +464,18 @@ def polish_dictation(text: str, app_class: str = "", app_title: str = "") -> str
             {"role": "user", "content": raw},
         ]
 
+        max_toks = max(512, min(2048, len(raw.split()) * 4))
         import urllib.request
         if backend == "ollama":
             req_data = json.dumps({
                 "model": model,
                 "messages": messages,
                 "stream": False,
-                "options": {"temperature": 0.1, "num_predict": 150}
+                "options": {"temperature": 0.1, "num_predict": max_toks}
             }).encode("utf-8")
             url = f"{base_url.rstrip('/')}/api/chat"
             req = urllib.request.Request(url, data=req_data, headers={"Content-Type": "application/json"})
-            with urllib.request.urlopen(req, timeout=2.5) as r:
+            with urllib.request.urlopen(req, timeout=5.0) as r:
                 res = json.loads(r.read().decode("utf-8"))
                 polished = (res.get("message", {}).get("content") or "").strip()
                 if polished:
@@ -482,7 +483,6 @@ def polish_dictation(text: str, app_class: str = "", app_title: str = "") -> str
                         polished = polished[1:-1].strip()
                     return polished
         elif api_key:
-            max_toks = max(512, min(2048, len(raw.split()) * 4))
             req_data = json.dumps({
                 "model": model,
                 "messages": messages,
@@ -909,6 +909,10 @@ def save_local_config(updates: dict[str, Any]) -> None:
         for k, val in formatted_updates.items():
             lines.append(f"{k} = {val}")
         CONFIG_FILE.write_text("\n".join(lines) + "\n")
+        try:
+            CONFIG_FILE.chmod(0o600)
+        except OSError:
+            pass
         return
 
     sec_lines = lines[sec_start + 1:sec_end]
@@ -982,7 +986,7 @@ def get_provider_status(config: Config | None = None) -> dict[str, Any]:
         "api_key_env": key_env,
         "api_key_set": bool(raw_key),
         "api_key_masked": masked_key,
-        "base_url": lcfg.get("base_url") or prov_info["base_url"],
+        "base_url": prov_info["base_url"],
         "stt": lcfg.get("stt", "auto"),
         "stt_api_key_set": bool(stt_raw),
         "stt_api_key_masked": stt_masked,
@@ -1036,7 +1040,7 @@ class LocalPlanner:
         prov_info = _resolve_provider(local_cfg)
         self.provider = prov_info["backend"]
         self.provider_name = prov_info["name"]
-        self.base_url = local_cfg.get("base_url") or prov_info["base_url"]
+        self.base_url = prov_info["base_url"]
         self.api_key_env = local_cfg.get("api_key_env") or prov_info["api_key_env"]
         self.model = local_cfg.get("llm_model") or prov_info["default_model"]
 

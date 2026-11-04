@@ -36,6 +36,22 @@ class DictationTests(unittest.TestCase):
         self.assertEqual(polish_dictation("a"), "a")
         self.assertEqual(polish_dictation("  "), "")
 
+    def test_polish_dictation_ollama_num_predict_scales(self):
+        long_text = "word " * 50
+        with mock.patch("omarchy_voice.local_engine._local_config", return_value={"provider": "ollama", "ai_dictate_polish": True}):
+            with mock.patch("urllib.request.urlopen") as mock_open:
+                mock_resp = mock.MagicMock()
+                mock_resp.read.return_value = json.dumps({"message": {"content": "polished words"}}).encode("utf-8")
+                mock_resp.__enter__.return_value = mock_resp
+                mock_open.return_value = mock_resp
+
+                res = polish_dictation(long_text)
+                self.assertEqual(res, "polished words")
+
+                sent_req = mock_open.call_args[0][0]
+                sent_body = json.loads(sent_req.data.decode("utf-8"))
+                self.assertGreater(sent_body["options"]["num_predict"], 150)
+
     def test_provider_status_includes_ai_dictate_polish(self):
         with mock.patch("omarchy_voice.local_engine._local_config", return_value={"ai_dictate_polish": True}):
             status = get_provider_status()
