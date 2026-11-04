@@ -488,7 +488,8 @@ class MobileBridgePinTests(unittest.TestCase):
         cfg = Config(allow_shell=False)
         executor = Executor(cfg)
 
-        with mock.patch.object(executor, "_is_terminal_window", return_value=True):
+        with mock.patch.object(executor, "_is_terminal_window", return_value=True), \
+             mock.patch("shutil.which", return_value="/usr/bin/wtype"):
             res = executor.call("send_shortcut", {"mods": "", "key": "Return", "window": "activewindow"})
             self.assertFalse(res.ok)
             self.assertIn("terminal", res.output.lower())

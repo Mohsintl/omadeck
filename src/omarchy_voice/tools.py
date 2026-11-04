@@ -2277,11 +2277,11 @@ class Executor:
         return Result(True, summary)
 
     def _tool_type_text(self, text: str) -> Result:
-        if not shutil.which("wtype"):
-            return Result(False, "wtype is not installed")
         if not self.config.allow_shell and ("\n" in text or "\r" in text):
             if self._is_terminal_window("activewindow"):
                 return Result(False, "typing newlines into a terminal window is disabled when allow_shell = false")
+        if not shutil.which("wtype"):
+            return Result(False, "wtype is not installed")
         return self._shell(["wtype", "--", text])
 
     def _tool_run_shell(self, command: str) -> Result:
