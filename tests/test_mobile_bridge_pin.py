@@ -3,6 +3,7 @@
 import io
 import json
 import sys
+import time
 import unittest
 from pathlib import Path
 from unittest import mock
@@ -495,7 +496,7 @@ class MobileBridgePinTests(unittest.TestCase):
         self.assertIn("200", status_state)
 
     def test_denylist_catches_all_interpreter_and_pipe_bypasses(self):
-        from omarchy_voice.config import DEFAULT_DENY
+        from omarchy_voice.config import DEFAULT_DENY, DEFAULT_SHELL_DENY
         import re
 
         bypasses = [
@@ -514,7 +515,8 @@ class MobileBridgePinTests(unittest.TestCase):
             'xxd -r p | sh',
         ]
         for cmd in bypasses:
-            matched = any(re.search(pat, cmd, re.IGNORECASE) for pat in DEFAULT_DENY)
+            matched = any(re.search(pat, cmd, re.IGNORECASE)
+                          for pat in [*DEFAULT_DENY, *DEFAULT_SHELL_DENY])
             self.assertTrue(matched, f"Denylist failed to catch: {cmd}")
 
     def test_terminal_enter_blocked_when_allow_shell_is_false(self):
@@ -559,6 +561,39 @@ class MobileBridgePinTests(unittest.TestCase):
             )
             self.assertIn("429", status)
             self.assertIn("Too many failed attempts", data.get("error", ""))
+
+    def test_disabling_pin_keeps_only_the_callers_session(self):
+        _, first = self._call_post("/auth", {"pin": "1234"}, token="")
+        _, second = self._call_post("/auth", {"pin": "1234"}, token="")
+        status, _ = self._call_post(
+            "/pin", {"action": "disable", "current_pin": "1234"}, token=first["token"])
+        self.assertIn("200", status)
+        self.assertIn("200", self._call_get("/state", token=first["token"])[0])
+        self.assertIn("401", self._call_get("/state", token=second["token"])[0])
+
+    def test_daily_cap_locks_pin_login_even_for_the_right_pin(self):
+        from omarchy_voice.mobile_bridge import (
+            _GLOBAL_AUTH_FAILURES, _AUTH_LOCK, MAX_DAILY_AUTH_FAILURES,
+        )
+        # Spread over the day, so only the daily cap can be what refuses this.
+        long_ago = time.monotonic() - 3600.0
+        with _AUTH_LOCK:
+            _GLOBAL_AUTH_FAILURES[:] = [long_ago] * MAX_DAILY_AUTH_FAILURES
+        status, data = self._call_post("/auth", {"pin": "1234"}, token="")
+        self.assertIn("429", status)
+        self.assertIn("24 hours", data.get("error", ""))
+
+    def test_pin_endpoint_respects_the_global_limit(self):
+        from omarchy_voice.mobile_bridge import (
+            _GLOBAL_AUTH_FAILURES, _AUTH_LOCK, MAX_GLOBAL_AUTH_FAILURES,
+        )
+        _, auth = self._call_post("/auth", {"pin": "1234"}, token="")
+        with _AUTH_LOCK:
+            _GLOBAL_AUTH_FAILURES[:] = [time.monotonic()] * MAX_GLOBAL_AUTH_FAILURES
+        status, data = self._call_post(
+            "/pin", {"action": "disable", "current_pin": "0000"}, token=auth["token"])
+        self.assertIn("429", status)
+        self.assertIn("globally", data.get("error", ""))
 
     def test_per_ip_connection_limit_blocks_excessive_connections(self):
         from omarchy_voice.mobile_bridge import (

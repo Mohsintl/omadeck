@@ -9,6 +9,8 @@ on:
 jobs:
   test:
     runs-on: ubuntu-latest
+    # A hung test once held the runner for the six-hour default.
+    timeout-minutes: 10
     strategy:
       matrix:
         python-version: ["3.11", "3.12", "3.13"]
