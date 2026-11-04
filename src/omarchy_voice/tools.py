@@ -1378,7 +1378,8 @@ class Executor:
         runs_commands = _runs_commands(name, args)
         try:
             self.policy.check(description, shell=runs_commands)
-            if runs_commands and self._read_untrusted_recently():
+            if self._read_untrusted_recently() and (
+                    runs_commands or self._outlasts_or_submits(name, args)):
                 raise NeedsConfirmation(description)
         except Denied as exc:
             self.transcript.append(f"DENIED  {description} ({exc})")
@@ -1416,6 +1417,29 @@ class Executor:
                           or (name == "clipboard" and args.get("action") != "write")):
             self._untrusted_read_at = time.monotonic()
         return result
+
+    def _outlasts_or_submits(self, name: str, args: dict) -> bool:
+        """Actions injected text must not get unasked, besides running a command.
+
+        Notes feed future sessions, so a planted one would outlast this read.
+        Enter in a terminal is what turns harmless typed text into a command;
+        without allow_shell the terminal guard already refuses it. Ordinary
+        clicks and typing stay free, because reading a screen and then acting
+        on it is what the assistant is for.
+        """
+        if name == "remember":
+            return args.get("action") != "list"
+        if not self.config.allow_shell:
+            return False
+        if name == "hypr_dispatch":
+            method = str(args.get("lua", "")).split("(", 1)[0].split(".")[-1].strip()
+            return bool(_KEY_DISPATCHER_RE.search(method))
+        if name == "send_shortcut":
+            mods = normalise_mods(args.get("mods", ""))[0] or ""
+            keysym = normalise_key(args.get("key", ""))[0] or ""
+            return (_submits_line(mods, keysym)
+                    and self._is_terminal_window(args.get("window", "activewindow")))
+        return False
 
     def _read_untrusted_recently(self) -> bool:
         read_at = self._untrusted_read_at

@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "omadeck"
-version = "0.2.0"
+version = "0.4.0"
 description = "OmaDeck: AI voice control and mobile remote deck for Linux (Hyprland / Omarchy)"
 readme = "README.md"
 requires-python = ">=3.11"
