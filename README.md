@@ -113,19 +113,21 @@ The installer sets up:
 
 ### 2. Connect from Your Phone
 
-Check your service logs to view your local LAN connection URLs, CA fingerprint, and authentication token:
+Print your pairing link in a terminal. This works while the background service is running:
 ```bash
-systemctl --user status omarchy-voice-mobile
+omarchy-voice mobile
 ```
 You will see output similar to:
 ```text
-  Oma Remote  →  http://192.168.1.50:8765/?token=ZMxr4c9IA2q-0t4YlMe4cA
-  with mic    →  https://192.168.1.50:8765/?token=ZMxr4c9IA2q-0t4YlMe4cA
+  Oma Remote  →  http://192.168.1.50:8765/?token=<token>
+  with mic    →  https://192.168.1.50:8765/?token=<token>
   certificate →  http://192.168.1.50:8765/ca.pem     (install once on the phone)
   fingerprint →  8A:3F:B2:91:...
-  token: ZMxr4c9IA2q-0t4YlMe4cA
+  token: <token>
 ```
-*(Tip: You can also run `omarchy-voice mobile` directly in your terminal at any time — even while the background service is running — to view connection details and scan an instant pairing QR code).*
+Treat the link like a password: anyone with it can control your desktop. The service log deliberately leaves the token out and shows only the certificate fingerprint.
+
+To also get a QR code to scan, install `qrencode` (`sudo pacman -S qrencode`).
 
 #### Step-by-Step Connection Guide:
 1. **Install CA Certificate for Encrypted HTTPS & Microphone**:
@@ -135,7 +137,7 @@ You will see output similar to:
    - **Android**: Open **Settings ➔ Security ➔ Encryption & Credentials ➔ Install a Certificate ➔ CA Certificate**.
    - *Upgrade Note*: If you are upgrading from an earlier OmaDeck version, install the new certificate profile as the CA is now restricted with strict name constraints (`.local`, `.ts.net`, and private subnets).
 2. **Connect & Pair Securely (HTTPS)**:
-   - Open `https://<your-laptop-lan-ip>:8765/?token=<token>` (or scan the terminal pairing QR code).
+   - Open `https://<your-laptop-lan-ip>:8765/?token=<token>` (or scan the QR code, if `qrencode` is installed).
    - HTTPS ensures your pairing token, PIN, dictation audio, and window commands are fully encrypted across your local network.
 3. **PWA Standalone App**:
    - In Safari, tap **Share ➔ Add to Home Screen** (or in Chrome, tap **⋮ ➔ Install App / Add to Home Screen**).

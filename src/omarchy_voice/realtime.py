@@ -23,7 +23,6 @@ from __future__ import annotations
 import array
 import asyncio
 import base64
-import contextlib
 import hashlib
 import json
 import math
@@ -266,6 +265,10 @@ def to_realtime_tools(schemas: list[dict] | None = None) -> list[dict]:
 
 # --- audio ------------------------------------------------------------------
 
+# How long close() waits for the playback task after cancelling it.
+PUMP_STOP_TIMEOUT = 2.0
+
+
 class Speaker:
     """Model audio out, through pw-cat.
 
@@ -349,8 +352,9 @@ class Speaker:
         pump, self._pump = self._pump, None
         if pump is not None and not pump.done():
             pump.cancel()
-            with contextlib.suppress(asyncio.CancelledError):
-                await pump
+            # Bounded, because a task cancelled while starting pw-cat is not
+            # guaranteed to finish, and a barge-in must not freeze the session.
+            await asyncio.wait({pump}, timeout=PUMP_STOP_TIMEOUT)
         self._drop_queued()
         proc, self._proc = self._proc, None
         if proc is not None and proc.returncode is None:

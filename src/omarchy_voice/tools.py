@@ -41,6 +41,42 @@ READ_ONLY_TOOLS = {"hypr_query", "read_screen", "omarchy_help", "system_query",
 # we reject them here.
 SHELL_DISPATCHERS = {"exec_cmd", "exec_raw", "exec"}
 
+# Tools whose output comes from outside: a web page, another program's output,
+# whatever is on screen. Text in there can be written to steer the model.
+UNTRUSTED_OUTPUT_TOOLS = {"read_screen", "read_terminal", "watch_terminal",
+                          "open_page", "web_search"}
+# How long after reading such text a command needs spoken confirmation. A
+# clock rather than a turn boundary so it holds on every path into the
+# executor, planner and realtime alike.
+UNTRUSTED_WINDOW_SECONDS = 120.0
+
+# Chords a shell treats as "run this line", beyond Return itself.
+_LINE_SUBMIT_KEYSYMS = {"Return", "KP_Enter", "Linefeed"}
+_CTRL_LINE_SUBMIT_KEYS = {"j", "m", "o"}
+TERMINAL_SUBMIT_REFUSAL = ("pressing Enter or a line-submitting shortcut (Ctrl+J/M/O) in a "
+                           "terminal window is disabled when allow_shell = false")
+
+
+def _submits_line(mods: str, keysym: str) -> bool:
+    """Whether this chord would run the line in a terminal."""
+    if keysym in _LINE_SUBMIT_KEYSYMS:
+        return True
+    held = {m for m in re.split(r"[\s+]+", (mods or "").upper()) if m}
+    return bool(held & {"CTRL", "CONTROL"}) and keysym.lower() in _CTRL_LINE_SUBMIT_KEYS
+
+
+def _runs_commands(name: str, args: dict) -> bool:
+    """Whether this call hands text to a shell, so the shell rules apply."""
+    if name in ("run_shell", "run_in_terminal"):
+        return True
+    if name == "hypr_dispatch":
+        method = str(args.get("lua", "")).split("(", 1)[0].split(".")[-1].strip()
+        return method in SHELL_DISPATCHERS
+    if name == "type_text":
+        text = str(args.get("text", ""))
+        return "\n" in text or "\r" in text
+    return False
+
 # A single hl.dsp.* call: namespace dots, then one argument list, nothing else.
 _DISPATCH_RE = re.compile(
     r"^hl\.dsp(?:\.[A-Za-z_][\w]*)+\s*\((.*)\)\s*;?\s*$",
@@ -131,8 +167,13 @@ class NeedsConfirmation(Exception):
 class Policy:
     config: Config
 
-    def check(self, description: str) -> None:
-        for pattern in self.config.deny_patterns:
+    def check(self, description: str, shell: bool = True) -> None:
+        """Raise if the action is refused or held. `shell=False` is for text
+        that will not be executed, where interpreter names are just words."""
+        patterns = list(self.config.deny_patterns)
+        if shell:
+            patterns += self.config.shell_deny_patterns
+        for pattern in patterns:
             if re.search(pattern, description, re.IGNORECASE):
                 raise Denied(f"blocked by deny rule /{pattern}/")
         for pattern in self.config.confirm_patterns:
@@ -1067,8 +1108,12 @@ def tools_for(config: Config) -> list[dict]:
 _BARE_ADDRESS_RE = re.compile(r'(window\s*=\s*")(0x[0-9a-fA-F]+)(")')
 # `key = "..."` inside a raw hl.dsp.send_shortcut, so a chord written by hand
 # through hypr_dispatch gets the same keysym check as the send_shortcut tool.
-_LUA_KEY_RE = re.compile(r'(\bkey\s*=\s*")([^"]*)(")')
-_LUA_MODS_RE = re.compile(r'(\bmods\s*=\s*")([^"]*)(")')
+_LUA_KEY_RE = re.compile(r'''(\bkey\s*=\s*["'])([^"']*)(["'])''')
+_LUA_MODS_RE = re.compile(r'''(\bmods\s*=\s*["'])([^"']*)(["'])''')
+_LUA_WINDOW_RE = re.compile(r'''\bwindow\s*=\s*["']([^"']*)["']''')
+# Dispatchers that press keys. hypr_dispatch reaches every dispatcher, so the
+# terminal guard has to recognise more than the one the tools use themselves.
+_KEY_DISPATCHER_RE = re.compile(r"send_?shortcut|send_?key|^pass", re.IGNORECASE)
 
 
 def _wait_description(what: str, value: str) -> str:
@@ -1316,6 +1361,8 @@ class Executor:
         self._last_search_window: str | None = None
         # tmux panes being watched for a command to finish, by target.
         self._watches: dict[str, dict] = {}
+        # When text from outside was last handed to the model.
+        self._untrusted_read_at: float | None = None
         self._lock = threading.Lock()
 
     # -- dispatch -----------------------------------------------------------
@@ -1328,8 +1375,11 @@ class Executor:
         if handler is None:
             return Result(False, f"unknown tool {name!r}")
         description = self.describe(name, args)
+        runs_commands = _runs_commands(name, args)
         try:
-            self.policy.check(description)
+            self.policy.check(description, shell=runs_commands)
+            if runs_commands and self._read_untrusted_recently():
+                raise NeedsConfirmation(description)
         except Denied as exc:
             self.transcript.append(f"DENIED  {description} ({exc})")
             return Result(False, f"refused: {exc}. Tell the user you will not do that.")
@@ -1359,9 +1409,17 @@ class Executor:
                     return Result(False, error)
             return Result(True, f"[dry-run] would run: {description}")
         try:
-            return handler(**args)
+            result = handler(**args)
         except TypeError as exc:
             return Result(False, f"bad arguments: {exc}")
+        if result.ok and (name in UNTRUSTED_OUTPUT_TOOLS
+                          or (name == "clipboard" and args.get("action") != "write")):
+            self._untrusted_read_at = time.monotonic()
+        return result
+
+    def _read_untrusted_recently(self) -> bool:
+        read_at = self._untrusted_read_at
+        return read_at is not None and time.monotonic() - read_at < UNTRUSTED_WINDOW_SECONDS
 
     def run_pending(self) -> Result:
         """Execute the action the user just confirmed out loud."""
@@ -1569,20 +1627,33 @@ class Executor:
         expr, error = _normalise_shortcut_lua(_normalise_window_addresses(lua.strip()))
         if error:
             return Result(False, error)
-        if not self.config.allow_shell and "send_shortcut" in expr:
-            key_m = _LUA_KEY_RE.search(expr)
-            mods_m = _LUA_MODS_RE.search(expr)
-            keysym = key_m.group(2) if key_m else ""
-            clean_mods = mods_m.group(2) if mods_m else ""
-            mods_set = set(clean_mods.upper().split("+"))
-            is_enter = keysym in ("Return", "KP_Enter", "Linefeed")
-            is_ctrl_newline = ("CTRL" in mods_set or "CONTROL" in mods_set) and keysym.lower() in ("j", "m")
-            if is_enter or is_ctrl_newline:
-                win_m = re.search(r'\bwindow\s*=\s*"([^"]*)"', expr)
-                target_win = win_m.group(1) if win_m else "activewindow"
-                if self._is_terminal_window(target_win):
-                    return Result(False, "pressing Enter or newline shortcuts (Ctrl+J/Ctrl+M) in a terminal window is disabled when allow_shell = false")
+        if not self.config.allow_shell:
+            if error := self._guard_key_dispatch(expr):
+                return Result(False, error)
         return self._dispatch_lua(expr)
+
+    def _guard_key_dispatch(self, expr: str) -> str | None:
+        """Hold a hand-written key press to the same rule as send_shortcut.
+
+        Anything this cannot read for certain is refused, because Lua can say
+        the same thing several ways: positional arguments, or a repeated field
+        where the last one wins and a search would only see the first.
+        """
+        method = expr.split("(", 1)[0].split(".")[-1].strip()
+        if not _KEY_DISPATCHER_RE.search(method):
+            return None
+        keys = _LUA_KEY_RE.findall(expr)
+        mods = _LUA_MODS_RE.findall(expr)
+        windows = _LUA_WINDOW_RE.findall(expr)
+        if len(keys) != 1 or len(mods) > 1 or len(windows) > 1:
+            return ("write this key press as one table with a single key, mods and "
+                    "window, or use send_shortcut")
+        keysym = keys[0][1]
+        clean_mods = mods[0][1] if mods else ""
+        target = windows[0] if windows else "activewindow"
+        if _submits_line(clean_mods, keysym) and self._is_terminal_window(target):
+            return TERMINAL_SUBMIT_REFUSAL
+        return None
 
     def _dispatch_lua(self, lua: str) -> Result:
         """Run one dispatcher, treating "not found" as the failure it is.
@@ -1611,7 +1682,8 @@ class Executor:
             terminal_names = {
                 "kitty", "alacritty", "foot", "footclient", "wezterm", "ghostty", "xterm",
                 "gnome-terminal", "konsole", "urxvt", "rxvt", "st", "terminator",
-                "xfce4-terminal", "terminal", "tilix", "contour", "ptyxis"
+                "xfce4-terminal", "terminal", "tilix", "contour", "ptyxis",
+                "term", "kgx", "console", "blackbox", "tabby", "warp", "rio", "hyper",
             }
             tokens = set(re.split(r"[-_.\s/]+", w_class))
             return bool(tokens & terminal_names) or any("terminal" in t for t in tokens)
@@ -1632,13 +1704,9 @@ class Executor:
         keysym, error = normalise_key(key)
         if error:
             return Result(False, error)
-        if not self.config.allow_shell:
-            mods_set = set(clean_mods.upper().split("+"))
-            is_enter = keysym in ("Return", "KP_Enter", "Linefeed")
-            is_ctrl_newline = ("CTRL" in mods_set or "CONTROL" in mods_set) and keysym.lower() in ("j", "m")
-            if is_enter or is_ctrl_newline:
-                if self._is_terminal_window(window):
-                    return Result(False, "pressing Enter or newline shortcuts (Ctrl+J/Ctrl+M) in a terminal window is disabled when allow_shell = false")
+        if not self.config.allow_shell and _submits_line(clean_mods, keysym):
+            if self._is_terminal_window(window):
+                return Result(False, TERMINAL_SUBMIT_REFUSAL)
         lua = (
             f'hl.dsp.send_shortcut({{ mods = {json.dumps(clean_mods)}, '
             f'key = {json.dumps(keysym)}, window = {json.dumps(window)} }})'
@@ -2218,7 +2286,7 @@ class Executor:
             # Defence in depth: a pane is built from a fixed set of shapes, but
             # the deny list is the thing that is allowed to have the last word.
             try:
-                self.policy.check(" ".join(argv))
+                self.policy.check(" ".join(argv), shell=False)
             except (Denied, NeedsConfirmation):
                 return Result(False, f"pane {index + 1} ({label}) is not allowed by policy")
 

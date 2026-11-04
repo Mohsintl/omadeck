@@ -100,18 +100,39 @@ DEFAULT_DENY = [
     r"\bpasswd\b",
     r"\b(sudo|pkexec|doas|su)\b",
     r"\bcryptsetup\b",
-    r"\|\s*(?:(?:ba|z|da|k|c)?sh|python[\d.]*|perl|ruby|node)\b",
-    r"\b(?:curl|wget|fetch)\b.*?(?:[;&|]|&&)\s*(?:(?:ba|z|da|k|c)?sh|python[\d.]*|perl|ruby|node)\b",
+    r"\bgit\b.*?\bpush\b",
+    r"\bfind\b.*?-delete\b",
+    r"\bssh\b",
+]
+
+# Only checked against text that will run as a command (run_shell,
+# run_in_terminal, exec dispatchers, typed text ending a line). These patterns
+# name interpreters, and in ordinary text those are just words: "the dash
+# button" or "learn bash basics" must still be typeable.
+#
+# This list slows down a mistaken or manipulated command. It is not a sandbox
+# and cannot be complete: a script already on disk can do anything. The real
+# boundary is allow_shell, which is off by default.
+_INTERPRETER = r"(?:(?:ba|z|da|k|c)?sh|python[\d.]*|perl|ruby|node)"
+DEFAULT_SHELL_DENY = [
+    rf"\|\s*{_INTERPRETER}\b",
+    rf"\b(?:curl|wget|fetch)\b.*?(?:[;&|]|&&)\s*{_INTERPRETER}\b",
     r"<\s*\(\s*(?:curl|wget|fetch)\b",
     r"\beval\b",
     r"\b(?:ba|z|da|k|c)?sh\s+(?:.*?\s+)?-[a-zA-Z]*c\b",
     r"\b(?:ba|z|da|k|c)?sh\s+(?:.*?\s+)?(?!-)[a-zA-Z0-9_./-]+",
+    r"\b(?:ba|z|da|k|c)?sh\s*<<<?",
     r"\b(?:python[\d.]*|perl|ruby)\s+(?:.*?\s+)?-[a-zA-Z]*[ce]\b",
-    r"\b(?:(?:ba|z|da|k|c)?sh|python[\d.]*|perl|ruby|node)\s+.*?/(?:tmp|var/tmp|dev/shm)/",
+    rf"\b{_INTERPRETER}\s+.*?/(?:tmp|var/tmp|dev/shm)/",
     r"\bnode\s+(?:.*?\s+)?(?:-[a-zA-Z]*e\b|--eval\b)",
-    r"\bgit\b.*?\bpush\b",
-    r"\bfind\b.*?-delete\b",
-    r"\bssh\b",
+    r"\bphp\s+(?:.*?\s+)?-r\b",
+    r"\blua\s+(?:.*?\s+)?-e\b",
+    r"\bawk\b.*\bsystem\s*\(",
+    rf"\bxargs\b.*\b{_INTERPRETER}\b",
+    rf"-exec(?:dir)?\s+(?:\S*/)?{_INTERPRETER}\b",
+    r"\bvim?\s+(?:.*?\s+)?-c\b",
+    r"\bsource\s+\S",
+    r"(?:^|[;&|:]\s*)\.\s+\S",
 ]
 
 
@@ -132,6 +153,7 @@ PREFIXED_SECTIONS = {"realtime"}
 LIST_UNION_KEYS = {
     "confirm_patterns": DEFAULT_CONFIRM,
     "deny_patterns": DEFAULT_DENY,
+    "shell_deny_patterns": DEFAULT_SHELL_DENY,
 }
 
 
@@ -184,8 +206,10 @@ class Config:
     allow_shell: bool = False
     confirm_patterns: list[str] = field(default_factory=lambda: list(DEFAULT_CONFIRM))
     deny_patterns: list[str] = field(default_factory=lambda: list(DEFAULT_DENY))
+    shell_deny_patterns: list[str] = field(default_factory=lambda: list(DEFAULT_SHELL_DENY))
     confirm_patterns_replace: bool = False
     deny_patterns_replace: bool = False
+    shell_deny_patterns_replace: bool = False
     confirm_words: list[str] = field(default_factory=lambda: ["confirm", "yes do it", "go ahead"])
     cancel_words: list[str] = field(default_factory=lambda: ["cancel", "never mind", "nevermind"])
 

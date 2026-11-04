@@ -189,7 +189,7 @@ def _ensure_tls(host: str) -> tuple[Path, Path] | None:
                      "-subj", "/CN=Oma Remote CA",
                      "-addext", "basicConstraints=critical,CA:TRUE,pathlen:0",
                      "-addext", "keyUsage=critical,keyCertSign,cRLSign",
-                     "-addext", "nameConstraints=critical,permitted;DNS:localhost,permitted;DNS:.local,permitted;DNS:.ts.net,permitted;IP:192.168.0.0/255.255.0.0,permitted;IP:10.0.0.0/255.0.0.0,permitted;IP:172.16.0.0/255.240.0.0,permitted;IP:100.64.0.0/255.192.0.0,permitted;IP:127.0.0.0/255.0.0.0,permitted;IP:::1/ffff:ffff:ffff:ffff:ffff:ffff:ffff:ffff,permitted;IP:fe80::/ffff:c000::,permitted;IP:fc00::/fe00::")
+                     "-addext", "nameConstraints=critical,permitted;DNS:localhost,permitted;DNS:.local,permitted;DNS:.ts.net,permitted;IP:192.168.0.0/255.255.0.0,permitted;IP:10.0.0.0/255.0.0.0,permitted;IP:172.16.0.0/255.240.0.0,permitted;IP:100.64.0.0/255.192.0.0,permitted;IP:127.0.0.0/255.0.0.0,permitted;IP:::1/ffff:ffff:ffff:ffff:ffff:ffff:ffff:ffff,permitted;IP:fe80::/ffc0::,permitted;IP:fc00::/fe00::")
             CA_KEY_FILE.chmod(0o600)
             _openssl("x509", "-in", str(CA_CERT_FILE), "-outform", "der",
                      "-out", str(CA_DER_FILE))
@@ -5057,6 +5057,10 @@ def _press_key(key: str) -> tuple[bool, str]:
 _AUTH_FAILURES: dict[str, list[float]] = {}
 _GLOBAL_AUTH_FAILURES: list[float] = []
 MAX_GLOBAL_AUTH_FAILURES = 25
+# A per-minute limit alone still lets a 4-digit PIN fall in hours. This caps the
+# total, at the cost that someone on the LAN can hold PIN login shut for a day.
+# The pairing link keeps working, so the owner is never locked out.
+MAX_DAILY_AUTH_FAILURES = 200
 _AUTH_LOCK = threading.Lock()
 _SESSION_TOKENS: dict[str, float] = {}  # session_token -> expiry_timestamp
 _SESSION_LOCK = threading.Lock()
@@ -5091,9 +5095,45 @@ def _is_allowed_host(host_header: str, server_host: str = "") -> bool:
     return False
 
 
+def _reserve_auth_attempt(client_ip: str, now: float) -> str | None:
+    """Count a PIN attempt before it is checked. Returns the refusal, if any.
+
+    Counting first is what stops parallel guesses racing past the limit.
+    """
+    with _AUTH_LOCK:
+        _GLOBAL_AUTH_FAILURES[:] = [t for t in _GLOBAL_AUTH_FAILURES if now - t < 86400.0]
+        if len(_GLOBAL_AUTH_FAILURES) >= MAX_DAILY_AUTH_FAILURES:
+            return ("Too many failed attempts globally. PIN login is locked for up to "
+                    "24 hours; open the pairing link instead.")
+        recent = sum(1 for t in _GLOBAL_AUTH_FAILURES if now - t < 60.0)
+        if recent >= MAX_GLOBAL_AUTH_FAILURES:
+            return "Too many failed attempts globally. Locked out for 60 seconds."
+
+        attempts = _AUTH_FAILURES.setdefault(client_ip, [])
+        attempts[:] = [t for t in attempts if now - t < 60.0]
+        if len(attempts) >= 5:
+            return "Too many failed attempts. Locked out for 60 seconds."
+        attempts.append(now)
+        _GLOBAL_AUTH_FAILURES.append(now)
+    return None
+
+
+def _forgive_auth_attempt(client_ip: str, now: float) -> None:
+    """A correct PIN is not a failure, so it should not use up the allowance."""
+    with _AUTH_LOCK:
+        _AUTH_FAILURES.pop(client_ip, None)
+        try:
+            _GLOBAL_AUTH_FAILURES.remove(now)
+        except ValueError:
+            pass
+
+
 class BridgeHandler(http.server.BaseHTTPRequestHandler):
 
     timeout = 10.0
+    # The socket timeout restarts on every byte, so a client trickling a header
+    # could hold a connection slot forever without this overall limit.
+    header_deadline = 15.0
     token: str = ""
     pin: str = ""
     stt_model: str = "base.en"
@@ -5115,6 +5155,35 @@ class BridgeHandler(http.server.BaseHTTPRequestHandler):
                 self.wfile.write(b'{"error":"forbidden: invalid host header"}')
                 return False
         return True
+
+    def setup(self):
+        super().setup()
+        self._header_timer = threading.Timer(self.header_deadline, self._abort_slow_headers)
+        self._header_timer.daemon = True
+        self._header_timer.start()
+
+    def _abort_slow_headers(self) -> None:
+        try:
+            # The plain socket method: SSLSocket.shutdown would tear down TLS
+            # state underneath the thread that is reading.
+            socket.socket.shutdown(self.connection, socket.SHUT_RD)
+        except OSError:
+            pass
+
+    def _cancel_header_timer(self) -> None:
+        timer = getattr(self, "_header_timer", None)
+        if timer is not None:
+            timer.cancel()
+
+    def parse_request(self):
+        try:
+            return super().parse_request()
+        finally:
+            self._cancel_header_timer()
+
+    def finish(self):
+        self._cancel_header_timer()
+        super().finish()
 
     def _check_token(self) -> bool:
         tok = self.headers.get("X-Token", "")
@@ -5343,32 +5412,20 @@ class BridgeHandler(http.server.BaseHTTPRequestHandler):
 
             client_ip = self.client_address[0] if (hasattr(self, "client_address") and self.client_address) else "127.0.0.1"
             now = time.monotonic()
-            with _AUTH_LOCK:
-                _GLOBAL_AUTH_FAILURES[:] = [t for t in _GLOBAL_AUTH_FAILURES if now - t < 60.0]
-                if len(_GLOBAL_AUTH_FAILURES) >= MAX_GLOBAL_AUTH_FAILURES:
-                    self._json({"ok": False, "error": "Too many failed attempts globally. Locked out for 60 seconds."}, 429)
-                    return
-
-                attempts = _AUTH_FAILURES.setdefault(client_ip, [])
-                attempts[:] = [t for t in attempts if now - t < 60.0]
-                if len(attempts) >= 5:
-                    self._json({"ok": False, "error": "Too many failed attempts. Locked out for 60 seconds."}, 429)
-                    return
-                attempts.append(now)
-                _GLOBAL_AUTH_FAILURES.append(now)
+            if refusal := _reserve_auth_attempt(client_ip, now):
+                self._json({"ok": False, "error": refusal}, 429)
+                return
 
             pin_attempt = str(payload.get("pin") or "").strip()
             time.sleep(0.2)
             if self.pin and secrets.compare_digest(pin_attempt, self.pin):
-                with _AUTH_LOCK:
-                    _AUTH_FAILURES.pop(client_ip, None)
-                    try:
-                        _GLOBAL_AUTH_FAILURES.remove(now)
-                    except ValueError:
-                        pass
+                _forgive_auth_attempt(client_ip, now)
                 session_tok = secrets.token_urlsafe(24)
                 with _SESSION_LOCK:
-                    _SESSION_TOKENS[session_tok] = time.monotonic() + (86400 * 30)
+                    issued_at = time.monotonic()
+                    for stale in [t for t, exp in _SESSION_TOKENS.items() if exp <= issued_at]:
+                        del _SESSION_TOKENS[stale]
+                    _SESSION_TOKENS[session_tok] = issued_at + (86400 * 30)
                 self._json({"ok": True, "token": session_tok})
             else:
                 self._json({"ok": False, "error": "Incorrect PIN"}, 401)
@@ -5386,27 +5443,24 @@ class BridgeHandler(http.server.BaseHTTPRequestHandler):
             if self.pin and not is_master:
                 client_ip = self.client_address[0] if (hasattr(self, "client_address") and self.client_address) else "127.0.0.1"
                 now = time.monotonic()
-                with _AUTH_LOCK:
-                    attempts = _AUTH_FAILURES.setdefault(client_ip, [])
-                    attempts[:] = [t for t in attempts if now - t < 60.0]
-                    if len(attempts) >= 5:
-                        self._json({"ok": False, "error": "Too many failed attempts. Locked out for 60 seconds."}, 429)
-                        return
-                    attempts.append(now)
-                    _GLOBAL_AUTH_FAILURES.append(now)
+                if refusal := _reserve_auth_attempt(client_ip, now):
+                    self._json({"ok": False, "error": refusal}, 429)
+                    return
                 time.sleep(0.2)
                 if not current_pin or not secrets.compare_digest(current_pin, self.pin):
                     self._json({"ok": False, "error": "Current PIN is required to modify PIN settings."}, 403)
                     return
-                with _AUTH_LOCK:
-                    _AUTH_FAILURES.pop(client_ip, None)
-                    try:
-                        _GLOBAL_AUTH_FAILURES.remove(now)
-                    except ValueError:
-                        pass
+                _forgive_auth_attempt(client_ip, now)
 
             if action == "disable":
                 self.__class__.pin = ""
+                # Keep the phone doing this signed in, but no other session
+                # should outlive the PIN that granted it.
+                with _SESSION_LOCK:
+                    own_expiry = _SESSION_TOKENS.get(tok)
+                    _SESSION_TOKENS.clear()
+                    if own_expiry:
+                        _SESSION_TOKENS[tok] = own_expiry
                 save_local_config({"pin": ""})
                 resp = {"ok": True, "pin_set": False, "message": "PIN lock disabled."}
                 if is_master:
@@ -6621,36 +6675,50 @@ def run(config, port: int = DEFAULT_PORT) -> int:
             Handler.https_url = f"https://{host}:{port}"
             https_url = Handler.https_url
 
-    print(f"\n  Oma Remote  →  {url}/?token={token}")
-    if https_url:
-        print(f"  with mic    →  {https_url}/?token={token}")
-        print(f"  certificate →  {url}/ca.pem     (install once on the phone)")
-        if CA_CERT_FILE.exists():
-            try:
-                der = ssl.PEM_cert_to_DER_cert(CA_CERT_FILE.read_text())
-                fp = hashlib.sha256(der).hexdigest().upper()
-                fp_formatted = ":".join(fp[i:i+2] for i in range(0, len(fp), 2))
-                print(f"  fingerprint →  {fp_formatted}")
-            except Exception:
-                pass
-    print(f"  token: {token}")
-    if sys.stdout.isatty() and shutil.which("qrencode"):
-        target_qr = f"{https_url}/?token={token}" if https_url else f"{url}/?token={token}"
+    fingerprint = ""
+    if https_url and CA_CERT_FILE.exists():
         try:
-            print("\n  Scan with your phone to pair:\n")
-            res = subprocess.run(
-                ["qrencode", "-t", "ANSIUTF8", "-o", "-", target_qr],
-                check=False,
-                capture_output=True,
-                text=True,
-            )
-            if res.returncode == 0 and res.stdout:
-                for line in res.stdout.splitlines():
-                    print(f"  {line}")
-                print()
+            der = ssl.PEM_cert_to_DER_cert(CA_CERT_FILE.read_text())
+            fp = hashlib.sha256(der).hexdigest().upper()
+            fingerprint = ":".join(fp[i:i+2] for i in range(0, len(fp), 2))
         except Exception:
             pass
-    print(f"\n  Open that URL in Safari on your phone.\n", flush=True)
+
+    # A service's stdout is the journal, which keeps it long after the token was
+    # meant to be seen. The fingerprint is public, and lets the phone check a CA
+    # fetched over plain HTTP.
+    if os.environ.get("JOURNAL_STREAM") or os.environ.get("INVOCATION_ID") or not sys.stdout.isatty():
+        print(f"\n  Oma Remote is running on port {port}")
+        if https_url:
+            print(f"  certificate →  {url}/ca.pem     (install once on the phone)")
+            if fingerprint:
+                print(f"  fingerprint →  {fingerprint}")
+        print("  To see the pairing link, run in a terminal: omarchy-voice mobile\n", flush=True)
+    else:
+        print(f"\n  Oma Remote  →  {url}/?token={token}")
+        if https_url:
+            print(f"  with mic    →  {https_url}/?token={token}")
+            print(f"  certificate →  {url}/ca.pem     (install once on the phone)")
+            if fingerprint:
+                print(f"  fingerprint →  {fingerprint}")
+        print(f"  token: {token}")
+        if shutil.which("qrencode"):
+            target_qr = f"{https_url}/?token={token}" if https_url else f"{url}/?token={token}"
+            try:
+                print("\n  Scan with your phone to pair:\n")
+                res = subprocess.run(
+                    ["qrencode", "-t", "ANSIUTF8", "-o", "-", target_qr],
+                    check=False,
+                    capture_output=True,
+                    text=True,
+                )
+                if res.returncode == 0 and res.stdout:
+                    for line in res.stdout.splitlines():
+                        print(f"  {line}")
+                    print()
+            except Exception:
+                pass
+        print(f"\n  Open that URL in Safari on your phone.\n", flush=True)
     hint = _firewall_hint(port)
     if hint:
         print(hint, flush=True)

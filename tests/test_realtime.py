@@ -325,6 +325,28 @@ class RealtimeSessionTests(unittest.IsolatedAsyncioTestCase):
             self.assertIsNone(speaker._proc)
             fake_proc.terminate.assert_called_once()
 
+    async def test_closing_does_not_wait_forever_on_a_stuck_pump(self):
+        """A pump that will not stop must not freeze a barge-in."""
+        from omarchy_voice.realtime import Speaker
+        release = asyncio.Event()
+
+        async def stuck():
+            while not release.is_set():
+                try:
+                    await release.wait()
+                except asyncio.CancelledError:
+                    continue
+
+        speaker = Speaker(24000)
+        speaker._pump = asyncio.create_task(stuck())
+        await asyncio.sleep(0)
+        pump = speaker._pump
+        with mock.patch.object(realtime, "PUMP_STOP_TIMEOUT", 0.05):
+            await asyncio.wait_for(speaker.close(), timeout=2)
+        self.assertIsNone(speaker._pump)
+        release.set()
+        await pump
+
     async def test_typed_turn_is_injected_as_a_user_message(self):
         self.assertEqual(await self.session._inject("switch to workspace four"), "sent")
         # A desktop snapshot is sent ahead of it, so pick the user turn out
