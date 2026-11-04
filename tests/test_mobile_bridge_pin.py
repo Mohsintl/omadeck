@@ -603,6 +603,15 @@ class MobileBridgePinTests(unittest.TestCase):
         tls = mock.MagicMock(spec=ssl.SSLSocket)
         self.assertIn("200", self._plain_http_status("/auth", "192.168.1.20", connection=tls))
 
+    def test_pairing_link_shows_in_a_terminal_started_from_a_systemd_session(self):
+        from omarchy_voice.mobile_bridge import _can_show_pairing_link
+        inherited = {"JOURNAL_STREAM": "8:1234", "INVOCATION_ID": "abc123"}
+        with mock.patch.dict("os.environ", inherited), mock.patch("sys.stdout") as stdout:
+            stdout.isatty.return_value = True
+            self.assertTrue(_can_show_pairing_link())
+            stdout.isatty.return_value = False
+            self.assertFalse(_can_show_pairing_link())
+
     def test_disabling_pin_keeps_only_the_callers_session(self):
         _, first = self._call_post("/auth", {"pin": "1234"}, token="")
         _, second = self._call_post("/auth", {"pin": "1234"}, token="")

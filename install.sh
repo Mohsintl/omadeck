@@ -32,8 +32,8 @@ pacman_install() {
   sudo pacman -S --needed --noconfirm "$pkg"
 }
 
-bold "omarchy-voice installer"
-echo "OpenAI Realtime speech-to-speech, driving Omarchy."
+bold "OmaDeck installer"
+echo "A phone remote and voice control for Omarchy."
 echo
 
 # --- sanity ----------------------------------------------------------------
@@ -53,7 +53,8 @@ rm -rf "$PREFIX/src" "$PREFIX/bin" "$PREFIX/share" "$PREFIX/omarchy" "$PREFIX/.v
 cp -r "$SOURCE/src" "$SOURCE/bin" "$SOURCE/share" "$SOURCE/omarchy" "$PREFIX/"
 chmod +x "$PREFIX/bin/omarchy-voice"
 ln -sf "$PREFIX/bin/omarchy-voice" "$BINDIR/omarchy-voice"
-echo "   omarchy-voice -> $BINDIR/omarchy-voice"
+ln -sf "$PREFIX/bin/omarchy-voice" "$BINDIR/omadeck"
+echo "   omadeck -> $BINDIR/omadeck (omarchy-voice also works)"
 
 if [[ ! -f "$CONFIGDIR/config.toml" ]]; then
   cp "$SOURCE/share/config.example.toml" "$CONFIGDIR/config.toml"
@@ -143,13 +144,24 @@ fi
 
 # The phone bridge is a separate long-running process: it has to stay up even
 # while the daemon is off, and restarting one should not restart the other.
-if ask "also serve the phone/LAN page (systemd user service on port 8765)?"; then
+OLD_MOBILE_UNIT="$UNITDIR/omarchy-voice-mobile.service"
+if [[ -f "$UNITDIR/omadeck.service" || -f "$OLD_MOBILE_UNIT" ]] \
+   || ask "also serve the phone/LAN page (systemd user service on port 8765)?"; then
+  # The service was renamed. Stop the old one, or it would keep holding the port.
+  if [[ -f "$OLD_MOBILE_UNIT" ]]; then
+    systemctl --user disable --now omarchy-voice-mobile.service 2>/dev/null || true
+    rm -f "$OLD_MOBILE_UNIT"
+  fi
   mkdir -p "$UNITDIR"
-  cp "$SOURCE/share/omarchy-voice-mobile.service" "$UNITDIR/"
+  cp "$SOURCE/share/omadeck.service" "$UNITDIR/"
   systemctl --user daemon-reload
-  systemctl --user enable --now omarchy-voice-mobile.service
-  echo "   running. Open the printed URL in your phone's browser:"
-  echo "   omarchy-voice mobile --help, or: systemctl --user status omarchy-voice-mobile"
+  systemctl --user enable omadeck.service
+  # restart, not start: a re-install has to pick up the new code.
+  systemctl --user restart omadeck.service
+  echo "   running. Get your pairing link with: omadeck mobile"
+  if ! command -v qrencode >/dev/null && ask "install qrencode, to show a QR code for pairing?"; then
+    pacman_install qrencode || warn "not installed; the pairing link still works without it"
+  fi
 fi
 
 # --- keybindings -----------------------------------------------------------
@@ -185,6 +197,7 @@ fi
 echo
 bold "next"
 echo "   edit $ENVFILE                put OPENAI_API_KEY=sk-... in it"
-echo "   omarchy-voice doctor              check every moving part"
-echo "   omarchy-voice --dry-run say \"...\"  try a command without a microphone"
+echo "   omadeck mobile                    get your phone pairing link"
+echo "   omadeck doctor                    check every moving part"
+echo "   omadeck --dry-run say \"...\"        try a command without a microphone"
 echo "   systemctl --user start omarchy-voice"

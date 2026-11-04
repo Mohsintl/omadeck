@@ -54,5 +54,5 @@ body:
     id: logs
     attributes:
       label: Relevant Logs
-      description: Paste any output from `journalctl --user -u omarchy-voice-mobile -n 50` or browser console.
+      description: Paste any output from `journalctl --user -u omadeck -n 50` or browser console.
       render: shell

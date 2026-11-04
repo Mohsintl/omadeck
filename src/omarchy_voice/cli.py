@@ -279,7 +279,7 @@ def cmd_settings(args, config) -> int:
 
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
-        prog="omarchy-voice",
+        prog="omadeck",
         description="Drive Omarchy by voice, with OpenAI Realtime as the router.",
     )
     parser.add_argument("--version", action="version", version=f"omarchy-voice {__version__}")

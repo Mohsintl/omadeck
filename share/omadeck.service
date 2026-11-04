@@ -1,6 +1,6 @@
 [Unit]
-Description=omarchy-voice — phone/LAN remote-control bridge
-Documentation=https://omarchy.org
+Description=OmaDeck — phone remote and voice bridge
+Documentation=https://github.com/Mohsintl/omadeck
 PartOf=graphical-session.target
 After=graphical-session.target
 # The bridge is useful without the voice daemon: the page still loads and
@@ -10,7 +10,7 @@ Wants=omarchy-voice.service
 [Service]
 Type=simple
 ExecStart=%h/.local/share/omarchy-voice/bin/omarchy-voice mobile
-# Same key file as the daemon: `omarchy-voice mobile` from a terminal cannot
+# Same key file as the daemon: `omadeck mobile` from a terminal cannot
 # see a key exported in your shell once it is started by systemd.
 EnvironmentFile=-%h/.config/omarchy-voice/env
 Restart=on-failure

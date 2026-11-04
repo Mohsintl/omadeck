@@ -22,7 +22,7 @@ OmaDeck runs locally on your Linux machine with Python 3.10+ and Hyprland.
 3. **Running the Mobile Deck Directly**:
    Instead of using the background systemd service, you can run the bridge directly in your terminal to see live logs:
    ```bash
-   systemctl --user stop omarchy-voice-mobile.service
+   systemctl --user stop omadeck.service
    python3 -m omarchy_voice.mobile_bridge --port 8765
    ```
 
