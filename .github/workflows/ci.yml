@@ -24,7 +24,7 @@ jobs:
       - name: Install system dependencies
         run: |
           sudo apt-get update
-          sudo apt-get install -y grim tesseract-ocr libpipewire-0.3-dev pipewire-bin
+          sudo apt-get install -y grim tesseract-ocr
 
       - name: Install dependencies
         run: |

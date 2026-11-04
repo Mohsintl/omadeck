@@ -300,16 +300,19 @@ class RealtimeSessionTests(unittest.IsolatedAsyncioTestCase):
         it" symptom.
         """
         from omarchy_voice.realtime import Speaker
-        speaker = Speaker(24000)
-        chunk = b"\x00\x01" * 2400          # 0.2 s of PCM16
-        started = time.monotonic()
-        for _ in range(25):                  # 5 s of audio
-            await speaker.write(chunk)
-        self.assertLess(time.monotonic() - started, 1.0)
-        self.assertEqual(speaker._queue.qsize(), 25)
-        await speaker.interrupt()
-        self.assertEqual(speaker._queue.qsize(), 0)
-        self.assertIsNone(speaker._proc)
+        fake_proc = mock.AsyncMock()
+        fake_proc.stdin = mock.AsyncMock()
+        fake_proc.returncode = None
+        with mock.patch.object(Speaker, "_ensure", return_value=fake_proc):
+            speaker = Speaker(24000)
+            chunk = b"\x00\x01" * 2400          # 0.2 s of PCM16
+            started = time.monotonic()
+            for _ in range(25):                  # 5 s of audio
+                await speaker.write(chunk)
+            self.assertLess(time.monotonic() - started, 1.0)
+            await speaker.interrupt()
+            self.assertEqual(speaker._queue.qsize(), 0)
+            self.assertIsNone(speaker._proc)
 
     async def test_typed_turn_is_injected_as_a_user_message(self):
         self.assertEqual(await self.session._inject("switch to workspace four"), "sent")

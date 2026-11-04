@@ -335,21 +335,20 @@ class Speaker:
         await self.close()
 
     async def close(self) -> None:
+        proc, self._proc = self._proc, None
+        if proc is not None and proc.returncode is None:
+            if proc.stdin is not None:
+                try:
+                    proc.stdin.close()
+                except (BrokenPipeError, ConnectionResetError, RuntimeError):
+                    pass
+            await _terminate(proc)
         pump, self._pump = self._pump, None
         if pump is not None and not pump.done():
             pump.cancel()
             with contextlib.suppress(asyncio.CancelledError):
                 await pump
         self._drop_queued()
-        proc, self._proc = self._proc, None
-        if proc is None or proc.returncode is not None:
-            return
-        if proc.stdin is not None:
-            try:
-                proc.stdin.close()
-            except (BrokenPipeError, ConnectionResetError, RuntimeError):
-                pass
-        await _terminate(proc)
 
 
 # --- the session ------------------------------------------------------------
