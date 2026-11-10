@@ -56,7 +56,7 @@ from typing import Any
 
 from . import capabilities
 from .config import Config, CONFIG_DIR, CONFIG_FILE, ENV_FILE
-from .feedback import Feedback
+from .feedback import Feedback, brief
 from .persona import PERSONA
 from .session import ControlServer
 from .tools import TOOL_SCHEMAS, Executor
@@ -1158,6 +1158,7 @@ class LocalPlanner:
                     result_text = result.as_tool_result()
                 except Exception as exc:
                     result_text = f"ERROR: {exc}"
+                self.feedback.log(f"result  {name}: {brief(result_text)}")
                 messages.append({
                     "role": "tool",
                     "content": result_text,

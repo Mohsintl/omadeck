@@ -45,6 +45,7 @@ from pathlib import Path
 from urllib.parse import parse_qs, quote, urlparse
 
 from .config import CONFIG_DIR, STATE_FILE, load_env_file
+from .feedback import brief, write_log
 from .session import send_control, daemon_running
 
 # Load environment keys at startup so LAN/remote workers have access
@@ -5668,11 +5669,15 @@ class BridgeHandler(http.server.BaseHTTPRequestHandler):
 
             if key:
                 ok, err = _press_key(key)
+                write_log(f"key     {key}" if ok else f"error   key {key}: {err}")
                 self._json({"ok": ok, "error": err if not ok else None})
                 return
 
             if text:
                 ok, err = _type_text(text, enter=enter)
+                if not ok:
+                    # Never the text itself: it can be anything typed on the phone.
+                    write_log(f"error   typing: {err}")
                 self._json({"ok": ok, "error": err if not ok else None})
                 return
 
@@ -6490,11 +6495,15 @@ def _dispatch(text: str, voice: bool = False) -> str:
     quick = _quick_command(text, voice=voice)
     if quick is not None:
         reply = quick
+        # Buttons and shortcut phrasings never reach a model, so nothing
+        # else logs them.
+        write_log(f"phone   {text} -> {brief(reply)}")
     else:
         try:
             reply = send_control(f"say {text}", timeout=8.0)
         except (socket.timeout, TimeoutError):
             reply = "[command timed out waiting for daemon response]"
+            write_log(f"error   phone {text}: {reply}")
         except (ConnectionError, FileNotFoundError, OSError):
             reply = _local_think(text)
 

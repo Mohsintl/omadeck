@@ -35,7 +35,7 @@ from typing import Any
 
 from . import capabilities
 from .config import Config, CONFIG_DIR, ENV_FILE, SAFETY_ID_FILE
-from .feedback import Feedback
+from .feedback import Feedback, brief
 from .persona import PERSONA
 from .session import ControlServer, _matches
 from .tools import TOOL_SCHEMAS, Executor, tools_for
@@ -1008,7 +1008,9 @@ class RealtimeSession:
         result = await asyncio.to_thread(self.executor.call, name, args)
         if self.executor.pending:
             self._settle()
-        return result.as_tool_result()
+        text = result.as_tool_result()
+        self.feedback.log(f"result  {name}: {brief(text)}")
+        return text
 
     async def _confirm(self, heard_phrase: str) -> str:
         """The gate the model cannot talk its way through.
