@@ -137,6 +137,37 @@ class MobileBridgePinTests(unittest.TestCase):
             parsed_json = {}
         return status_line, parsed_json
 
+    def _start_url(self, path: str) -> str:
+        return json.loads(self._page(path).partition("\r\n\r\n")[2])["start_url"]
+
+    def _page(self, path: str) -> str:
+        wfile = io.BytesIO()
+        handler = BridgeHandler.__new__(BridgeHandler)
+        handler.wfile = wfile
+        handler.headers = {"Host": "127.0.0.1:8765"}
+        handler.path = path
+        handler.command = "GET"
+        handler.requestline = f"GET {path} HTTP/1.1"
+        handler.request_version = "HTTP/1.1"
+        handler.do_GET()
+        return wfile.getvalue().decode("utf-8")
+
+    def test_manifest_hands_the_token_to_the_home_screen_app(self):
+        BridgeHandler.pin = ""
+        self.assertEqual(self._start_url("/manifest.webmanifest?token=test-token-123"), "/#token=test-token-123")
+        self.assertIn('href="/manifest.webmanifest?token=test-token-123"', self._page("/?token=test-token-123"))
+
+    def test_manifest_keeps_the_token_without_a_valid_request(self):
+        BridgeHandler.pin = ""
+        for path in ("/manifest.webmanifest", "/manifest.webmanifest?token=wrong", "/manifest.webmanifest?token=%C3%A9"):
+            self.assertEqual(self._start_url(path), "/")
+        for path in ("/", "/?token=wrong"):
+            self.assertNotIn("test-token-123", self._page(path))
+
+    def test_manifest_keeps_the_token_when_a_pin_is_set(self):
+        self.assertEqual(self._start_url("/manifest.webmanifest?token=test-token-123"), "/")
+        self.assertNotIn("test-token-123", self._page("/?token=test-token-123"))
+
     def test_provider_status_reports_pin_set(self):
         with mock.patch("omarchy_voice.local_engine._local_config", return_value={"pin": "5678"}):
             status = get_provider_status()
@@ -391,14 +422,15 @@ class MobileBridgePinTests(unittest.TestCase):
         self.assertEqual(data.get("error"), "unauthorized")
 
     def test_why_did_you_kill_port_does_not_kill_port(self):
-        with mock.patch("subprocess.run") as mock_sub:
+        with mock.patch("subprocess.run",
+                        return_value=SimpleNamespace(returncode=0, stderr="", stdout="")) as mock_sub:
             res = _dispatch("why did you kill 3000")
             # Should not call fuser on 3000/tcp
             called_cmds = [call.args[0] for call in mock_sub.call_args_list if call.args]
             self.assertFalse(any("3000/tcp" in cmd for cmd in called_cmds))
 
             res2 = _dispatch("kill port 3000")
-            self.assertIn("Killed processes on port 3000", res2)
+            self.assertIn("Killed process on port 3000", res2)
 
     def test_global_auth_rate_limit_lockout(self):
         from omarchy_voice.mobile_bridge import _AUTH_FAILURES, _GLOBAL_AUTH_FAILURES, _AUTH_LOCK, MAX_GLOBAL_AUTH_FAILURES
@@ -623,6 +655,36 @@ class MobileBridgePinTests(unittest.TestCase):
         self.assertTrue(ok)
         sent = run.call_args.args[0]
         self.assertEqual(sent[:5], ["wtype", "-M", "ctrl", "-k", "z"])
+
+    def test_press_key_falls_back_to_hyprctl_when_wtype_fails(self):
+        def fake_which(cmd):
+            return "/usr/bin/hyprctl" if cmd == "hyprctl" else None
+
+        with mock.patch("omarchy_voice.mobile_bridge.shutil.which", side_effect=fake_which), \
+             mock.patch("omarchy_voice.mobile_bridge.subprocess.run",
+                        return_value=SimpleNamespace(returncode=0, stderr="", stdout="ok")) as run:
+            ok, err = _press_key("ctrl+c")
+        self.assertTrue(ok)
+        sent = run.call_args.args[0]
+        self.assertEqual(sent[0], "hyprctl")
+        self.assertEqual(sent[1], "dispatch")
+        self.assertIn('hl.dsp.send_shortcut', sent[2])
+        self.assertIn('mods = "ctrl"', sent[2])
+        self.assertIn('key = "c"', sent[2])
+
+    def test_kill_port_reports_accurately(self):
+        from omarchy_voice.mobile_bridge import _quick_command
+        # Port with no listening process
+        with mock.patch("omarchy_voice.mobile_bridge.subprocess.run",
+                        return_value=SimpleNamespace(returncode=1, stderr="", stdout="")):
+            reply = _quick_command("kill port 3000")
+            self.assertEqual(reply, "No process was listening on port 3000.")
+
+        # Port with a listening process
+        with mock.patch("omarchy_voice.mobile_bridge.subprocess.run",
+                        return_value=SimpleNamespace(returncode=0, stderr="", stdout="")):
+            reply = _quick_command("kill port 3000")
+            self.assertEqual(reply, "Killed process on port 3000.")
 
     def _pairing_guide_output(self, https_url, qrencode=None):
         from omarchy_voice.mobile_bridge import _print_pairing_guide
