@@ -110,9 +110,27 @@ class Feedback:
 
     # -- log ----------------------------------------------------------------
     def log(self, line: str) -> None:
-        stamp = time.strftime("%Y-%m-%d %H:%M:%S")
+        write_log(line)
+        if self.config.verbose:
+            print(f"  {line}", flush=True)
+
+
+def write_log(line: str) -> None:
+    """Append one line to session.log, which `omadeck log` reads.
+
+    Never raises: a full disk or a read-only home must not fail the command
+    being logged.
+    """
+    stamp = time.strftime("%Y-%m-%d %H:%M:%S")
+    try:
         LOG_FILE.parent.mkdir(parents=True, exist_ok=True)
         with LOG_FILE.open("a") as fh:
             fh.write(f"{stamp}  {line}\n")
-        if self.config.verbose:
-            print(f"  {line}", flush=True)
+    except OSError:
+        pass
+
+
+def brief(text: str, limit: int = 300) -> str:
+    """One line of at most `limit` characters, for a tool result in the log."""
+    flat = " ".join(str(text).split())
+    return flat if len(flat) <= limit else flat[:limit - 1] + "…"

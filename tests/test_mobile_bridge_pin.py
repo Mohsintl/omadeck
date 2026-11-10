@@ -5,6 +5,7 @@ import io
 import json
 import ssl
 import sys
+import tempfile
 import time
 import unittest
 from pathlib import Path
@@ -52,6 +53,12 @@ class MobileBridgePinTests(unittest.TestCase):
         self.save_token_patch = mock.patch("omarchy_voice.mobile_bridge._save_token")
         self.mock_save_token = self.save_token_patch.start()
 
+        # Commands write to session.log; keep that out of the real home.
+        self.log_dir = tempfile.TemporaryDirectory()
+        self.log_file = Path(self.log_dir.name) / "session.log"
+        self.log_patch = mock.patch("omarchy_voice.feedback.LOG_FILE", self.log_file)
+        self.log_patch.start()
+
     def tearDown(self):
         from omarchy_voice.mobile_bridge import (
             _AUTH_FAILURES, _GLOBAL_AUTH_FAILURES, _AUTH_LOCK,
@@ -64,6 +71,8 @@ class MobileBridgePinTests(unittest.TestCase):
             _SESSION_TOKENS.clear()
         self.save_local_config_patch.stop()
         self.save_token_patch.stop()
+        self.log_patch.stop()
+        self.log_dir.cleanup()
         BridgeHandler.pin = self.orig_pin
         BridgeHandler.token = self.orig_token
 
@@ -645,6 +654,31 @@ class MobileBridgePinTests(unittest.TestCase):
             self.assertTrue(_can_show_pairing_link())
             stdout.isatty.return_value = False
             self.assertFalse(_can_show_pairing_link())
+
+    def _logged(self) -> str:
+        return self.log_file.read_text() if self.log_file.exists() else ""
+
+    def test_a_phone_button_is_logged_with_its_reply(self):
+        with mock.patch("omarchy_voice.mobile_bridge._quick_command", return_value="Killed processes on port 3000."):
+            _dispatch("kill port 3000")
+        self.assertIn("phone   kill port 3000 -> Killed processes on port 3000.", self._logged())
+
+    def test_a_daemon_timeout_is_logged(self):
+        with mock.patch("omarchy_voice.mobile_bridge._quick_command", return_value=None),              mock.patch("omarchy_voice.mobile_bridge.send_control", side_effect=TimeoutError):
+            _dispatch("open the news")
+        self.assertIn("error   phone open the news: [command timed out", self._logged())
+
+    def test_a_failed_key_is_logged_with_its_error(self):
+        with mock.patch("omarchy_voice.mobile_bridge._press_key", return_value=(False, "no keymap")):
+            self._call_post("/type", {"key": "ctrl+c"}, token="test-token-123")
+        self.assertIn("error   key ctrl+c: no keymap", self._logged())
+
+    def test_typed_text_never_reaches_the_log(self):
+        with mock.patch("omarchy_voice.mobile_bridge._type_text", return_value=(False, "wtype failed")):
+            self._call_post("/type", {"text": "hunter2"}, token="test-token-123")
+        logged = self._logged()
+        self.assertIn("error   typing: wtype failed", logged)
+        self.assertNotIn("hunter2", logged)
 
     def test_code_profile_has_a_ctrl_z_key(self):
         self.assertIn('data-key="ctrl+z"', _PWA_HTML)

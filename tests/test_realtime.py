@@ -140,6 +140,11 @@ class RealtimeSessionTests(unittest.IsolatedAsyncioTestCase):
         self.assertTrue(output.startswith("ERROR:"), output)
         self.assertIsNone(self.session.executor.pending)
 
+    async def test_a_refused_tool_result_is_logged(self):
+        await self.session._dispatch("run_shell", {"command": "sudo rm -rf /"})
+        logged = feedback.LOG_FILE.read_text()
+        self.assertIn("result  run_shell: ERROR: refused", logged)
+
     async def test_function_call_is_answered_and_a_reply_requested(self):
         await self.session._on_response_done({
             "type": "response.done",
