@@ -69,5 +69,33 @@ class RestartTests(unittest.TestCase):
         self.assertIs(args.func, cli.cmd_restart)
 
 
+class KillPortCommandTests(unittest.TestCase):
+    """`omadeck kill-port N` is what Hyprland runs for the phone's Kill buttons."""
+
+    def _run(self, reply):
+        out = io.StringIO()
+        with mock.patch("omarchy_voice.mobile_bridge.kill_port", return_value=reply) as kp, \
+             mock.patch("omarchy_voice.feedback.write_log") as log, \
+             contextlib.redirect_stdout(out):
+            code = cli.cmd_kill_port(SimpleNamespace(port=3000), None)
+        return code, kp, log, out.getvalue()
+
+    def test_it_kills_without_handing_off_again(self):
+        code, kp, log, out = self._run("Killed python3 on port 3000.")
+        self.assertEqual(code, 0)
+        kp.assert_called_once_with(3000, hand_off=False)
+        self.assertIn("kill-port 3000: Killed python3", log.call_args.args[0])
+        self.assertIn("Killed python3", out)
+
+    def test_a_failure_exits_non_zero(self):
+        code, *_ = self._run("Tried to stop port 3000, but something is still listening.")
+        self.assertEqual(code, 1)
+
+    def test_the_parser_knows_kill_port(self):
+        args = cli.build_parser().parse_args(["kill-port", "3000"])
+        self.assertIs(args.func, cli.cmd_kill_port)
+        self.assertEqual(args.port, 3000)
+
+
 if __name__ == "__main__":
     unittest.main()
