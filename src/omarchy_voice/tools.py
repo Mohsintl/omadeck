@@ -453,6 +453,19 @@ def _window_matches(client: dict, hint: str) -> bool:
     return hint.lower() in haystack
 
 
+_NUMBER_WORDS = {
+    "one": "1", "two": "2", "three": "3", "four": "4", "five": "5",
+    "six": "6", "seven": "7", "eight": "8", "nine": "9", "ten": "10",
+}
+
+
+def _workspace_number(value) -> str | None:
+    """'5', 5 or 'five' -> '5'; anything else (names, specials, junk) -> None."""
+    text = str(value).strip().lower()
+    text = _NUMBER_WORDS.get(text, text)
+    return text if text.isdigit() and 0 < int(text) <= 99 else None
+
+
 def _pane_hint(kind: str, target: str, name: str) -> str:
     """What the window this pane opens should look like."""
     target = (target or "").strip()
@@ -608,13 +621,17 @@ TOOL_SCHEMAS = [
             "fail here. For a SECOND window of an app already open, pass '<desktop- "
             "id>:<action>', e.g. 'google-chrome:new-window'. Not a shell command "
             'line, and for a web page use open_page instead — this hands off to the '
-            'browser, which opens an invisible tab.'
+            'browser, which opens an invisible tab. To open it on a particular '
+            'workspace ("open chrome on workspace 5"), pass workspace: the tool waits '
+            'for the new window and moves it there itself, so do not query or move it.'
         ),
         "input_schema": {
             "type": "object",
             "properties": {
                 "app": {"type": "string", "description": "A .desktop id from the application list."},
                 "url": {"type": "string", "description": "Optional http(s) URL to open instead."},
+                "workspace": {"type": "string",
+                              "description": 'Optional workspace number to open it on, e.g. "5".'},
             },
             "required": ["app"],
             "additionalProperties": False,
@@ -1489,7 +1506,9 @@ class Executor:
         if name == "run_shell":
             return args.get("command", "")
         if name == "launch_app":
-            return f'launch {args.get("app", "")}{" " + args["url"] if args.get("url") else ""}'
+            return (f'launch {args.get("app", "")}'
+                    f'{" " + args["url"] if args.get("url") else ""}'
+                    f'{" on workspace " + str(args["workspace"]) if args.get("workspace") else ""}')
         if name == "send_shortcut":
             # Report the keysym that will actually be pressed, not the word the
             # model said: the log is the only record of what hit the window.
@@ -1756,7 +1775,9 @@ class Executor:
         grace = LAUNCH_GRACE if argv[0] == "launch" else None
         return self._shell(["omarchy", *argv], timeout=30, grace=grace)
 
-    def _validate_launch_app(self, app: str, url: str = "") -> str | None:
+    def _validate_launch_app(self, app: str, url: str = "", workspace: str = "") -> str | None:
+        if workspace and _workspace_number(workspace) is None:
+            return 'workspace must be a number such as "5"'
         if url:
             scheme = urlparse(url).scheme.lower()
             if scheme not in ("http", "https"):
@@ -1786,10 +1807,21 @@ class Executor:
                 return "empty app"
         return None
 
-    def _tool_launch_app(self, app: str, url: str = "") -> Result:
-        error = self._validate_launch_app(app, url)
+    def _tool_launch_app(self, app: str, url: str = "", workspace: str = "") -> Result:
+        error = self._validate_launch_app(app, url, workspace)
         if error:
             return Result(False, error)
+        if workspace:
+            # Launch then place, here rather than by the model: asked to "open
+            # a new chrome window in workspace five" it launched, dumped every
+            # window to find the new one, then moved it, and the three model
+            # round trips took 28 seconds.
+            before = self.window_addresses()
+            started = self._tool_launch_app(app, url)
+            if not started.ok:
+                return started
+            hint = "" if url else _pane_hint("app", app, "")
+            return self.place_new_window(before, str(workspace), hint)
         if url:
             return self._shell(["xdg-open", url], timeout=10, grace=LAUNCH_GRACE)
         app = (app or "").strip()
@@ -2124,6 +2156,31 @@ class Executor:
         return self._ocr_region(geometry)
 
     # -- composition --------------------------------------------------------
+    def window_addresses(self) -> set[str]:
+        """Every mapped window, so a launch can tell which one is new."""
+        return {c.get("address") for c in self._query_json("clients")}
+
+    def place_new_window(self, before: set[str], workspace: str, hint: str = "",
+                         timeout: float = 10.0) -> Result:
+        """Wait for the window a launch is about to map, and move it to workspace.
+
+        Follows it there, so the person sees the window they asked for.
+        """
+        number = _workspace_number(workspace)
+        if number is None:
+            return Result(False, 'workspace must be a number such as "5"')
+        address = self._await_new_window(before, timeout, hint)
+        if address is None:
+            return Result(True, f"started, but no new window appeared within "
+                                f"{timeout:.0f}s, so it was not moved to workspace {number}")
+        moved = self._dispatch_lua(
+            f'hl.dsp.window.move({{ workspace = "{number}", '
+            f'window = "address:{address}", follow = true }})')
+        if not moved.ok:
+            return Result(False, f"started, but could not move it to workspace {number}: "
+                                 f"{moved.output}")
+        return Result(True, f"opened on workspace {number}")
+
     def _await_new_window(self, before: set[str], timeout: float,
                           hint: str = "") -> str | None:
         """Block until the window we just launched is mapped, and return it.

@@ -412,6 +412,56 @@ class DesktopActionTests(unittest.TestCase):
         self.assertIn("omarchy_cli", result.output)
 
 
+class LaunchOnWorkspaceTests(unittest.TestCase):
+    """"Open chrome on workspace 5" is one tool call, not launch, query, move."""
+
+    def setUp(self):
+        self.executor = Executor(Config(dry_run=False))
+
+    def test_workspace_numbers(self):
+        from omarchy_voice.tools import _workspace_number
+        self.assertEqual(_workspace_number("5"), "5")
+        self.assertEqual(_workspace_number(5), "5")
+        self.assertEqual(_workspace_number("Five"), "5")
+        self.assertIsNone(_workspace_number("special:scratchpad"))
+        self.assertIsNone(_workspace_number("0"))
+
+    def test_a_named_workspace_is_refused(self):
+        result = self.executor.call("launch_app", {"app": "google-chrome",
+                                                   "workspace": "scratchpad"})
+        self.assertFalse(result.ok)
+        self.assertIn("workspace", result.output)
+
+    def test_the_new_window_is_moved_and_followed(self):
+        from omarchy_voice.tools import Result
+        with mock.patch.object(Executor, "_await_new_window", return_value="0xabc"), \
+             mock.patch.object(Executor, "_dispatch_lua",
+                               return_value=Result(True, "ok")) as dispatch:
+            result = self.executor.place_new_window({"0x1"}, "five")
+        self.assertTrue(result.ok)
+        self.assertEqual(result.output, "opened on workspace 5")
+        lua = dispatch.call_args.args[0]
+        self.assertIn('workspace = "5"', lua)
+        self.assertIn('window = "address:0xabc"', lua)
+        self.assertIn("follow = true", lua)
+
+    def test_no_window_is_reported_not_claimed(self):
+        with mock.patch.object(Executor, "_await_new_window", return_value=None), \
+             mock.patch.object(Executor, "_dispatch_lua") as dispatch:
+            result = self.executor.place_new_window(set(), "3", timeout=0.1)
+        self.assertTrue(result.ok)
+        self.assertIn("not moved", result.output)
+        dispatch.assert_not_called()
+
+    def test_a_failed_launch_is_not_moved(self):
+        with mock.patch.object(Executor, "window_addresses", return_value=set()), \
+             mock.patch.object(Executor, "place_new_window") as place:
+            result = self.executor.call("launch_app", {"app": "definitely-not-installed",
+                                                       "workspace": "2"})
+        self.assertFalse(result.ok)
+        place.assert_not_called()
+
+
 class WindowAddressTests(unittest.TestCase):
     """A bare 0x address matches nothing, and Hyprland says so only as a warning."""
 

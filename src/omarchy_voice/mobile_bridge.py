@@ -5748,6 +5748,13 @@ _WS_WORDS = {
     "six": "6", "seven": "7", "eight": "8", "nine": "9", "ten": "10",
 }
 
+_CHROME_NAMES = ("chrome", "google chrome", "google-chrome")
+
+# How long the phone waits for the daemon's model to answer. It was 8 seconds,
+# and a three-step request takes the model 20 to 30: the phone reported a
+# timeout while the desktop went on and did the work.
+DAEMON_REPLY_TIMEOUT = 60.0
+
 _DAEMON_OFF = ("The desktop mic daemon is not running — use the mic button "
                "on this page, or type a command.")
 
@@ -5819,6 +5826,42 @@ def _quick_command(text: str, voice: bool = False) -> str | None:
                           {"lua": f'hl.dsp.focus({{ workspace = "{number}" }})'})
             return (f"Moved to workspace {number}." if ok
                     else f"Couldn't switch workspace: {out}")
+
+    # --- open an app on a given workspace ---------------------------------
+    # "Open a new chrome window in workspace five" took the planner three
+    # round trips and 28 seconds, longer than the phone waited. Answered here
+    # it is one launch and one move.
+    match_open_on = re.fullmatch(
+        r"(?:please )?(?:open|launch|start)(?: up)? (?:a |an |the )?(?:new )?"
+        r"(.+?)(?: window)? (?:in|on|to|at) (?:the )?(?:workspace|desktop|ws) ([\w+-]+)",
+        t,
+    )
+    if match_open_on:
+        what, target = match_open_on.groups()
+        ws = _WS_WORDS.get(target, target)
+        if ws.isdigit():
+            if what in _CHROME_NAMES:
+                ok, out = run("launch_app", {"app": "google-chrome:new-window",
+                                             "workspace": ws})
+                return (f"Opened Chrome on workspace {ws}." if ok
+                        else f"Couldn't open Chrome: {out}")
+            # Anything else this page already knows how to open: open it the
+            # usual way, then move whatever window that produced.
+            try:
+                before = executor.window_addresses()
+            except Exception:
+                return None
+            opened = _quick_command(f"open {what}", voice=voice)
+            if opened is None:
+                return None  # not one we know; the planner can use launch_app
+            if opened.startswith(("Couldn't", "Could not")):
+                return opened
+            placed = executor.place_new_window(before, ws)
+            if not placed.ok:
+                return f"{opened.rstrip('.')}, but {placed.output}."
+            if placed.output.startswith("started, but"):
+                return f"{opened.rstrip('.')}, but no new window appeared to move."
+            return f"{opened.rstrip('.')} on workspace {ws}."
 
     # --- tab navigation (inside active workspace / window) ----------------
     if t in ("previous tab", "prev tab", "previous tab in workspace",
@@ -6500,7 +6543,7 @@ def _dispatch(text: str, voice: bool = False) -> str:
         write_log(f"phone   {text} -> {brief(reply)}")
     else:
         try:
-            reply = send_control(f"say {text}", timeout=8.0)
+            reply = send_control(f"say {text}", timeout=DAEMON_REPLY_TIMEOUT)
         except (socket.timeout, TimeoutError):
             reply = "[command timed out waiting for daemon response]"
             write_log(f"error   phone {text}: {reply}")
