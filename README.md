@@ -10,6 +10,14 @@
 
 <div align="center">
 
+<a href="docs/media/omadeck-demo.mp4"><img src="docs/media/omadeck-demo-poster.jpg" width="360" alt="Watch the OmaDeck demo: workspaces, voice commands, dictation, killing a dev server, and copy and paste, all from an iPad" /></a>
+
+*Workspaces, a voice command, dictation, killing `:3000`, and copy and paste across apps, all from the iPad.*
+
+</div>
+
+<div align="center">
+
 | 📱 Mobile Touch Remote (Portrait) | 💻 Linux Desktop (Hyprland / Omarchy) |
 | :---: | :---: |
 | <img src="docs/images/portrait-deck-tokyo-night.png" width="310" alt="OmaDeck Mobile Remote (Tokyo Night)" /> | <img src="docs/images/pc-screen.png" width="510" alt="Omarchy Linux Desktop" /> |
