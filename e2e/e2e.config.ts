@@ -2,7 +2,6 @@ import type { E2EConfig } from 'e2e';
 import { web } from '@e2e-dev/web';
 import { gateway } from 'ai';
 
-export const TOKEN = 'e2e-pairing-token';
 const PORT = 8799;
 
 export default {
