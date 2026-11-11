@@ -74,6 +74,14 @@ class DictationTests(unittest.TestCase):
             self.assertIn("mic_trigger", status)
             self.assertEqual(status["mic_trigger"], "both")
 
+    def test_dictate_does_not_look_like_the_mic(self):
+        # Two identical mic icons side by side read as one button twice.
+        start = _PWA_HTML.index('id="dictate-btn"')
+        button = _PWA_HTML[start:_PWA_HTML.index("</button>", start)]
+        mic_path = 'M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z'
+        self.assertNotIn(mic_path, button)
+        self.assertIn("DICTATE_SVG_DEFAULT", _PWA_HTML)
+
     def test_pwa_html_contains_dictate_and_mic_trigger_elements(self):
         self.assertIn('id="dictate-btn"', _PWA_HTML)
         self.assertIn('class="cmd-input-wrap"', _PWA_HTML)

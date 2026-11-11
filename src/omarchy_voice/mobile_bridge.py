@@ -958,7 +958,7 @@ _PWA_HTML = r"""<!DOCTYPE html>
   .aux-keys {
     width: 100%;
     display: grid;
-    grid-template-columns: repeat(5, 1fr);
+    grid-template-columns: repeat(7, 1fr);
     gap: 4px;
     height: 28px;
     flex-shrink: 0;
@@ -3314,8 +3314,10 @@ _PWA_HTML = r"""<!DOCTYPE html>
         <button class="key-chip" data-key="enter" title="Send Enter to PC">↵ Enter</button>
         <button class="key-chip" data-key="backspace" title="Send Backspace to PC">⌫ Del</button>
         <button class="key-chip" data-key="tab" title="Send Tab to PC">Tab ⇥</button>
-        <button class="key-chip" data-key="paste" title="Paste clipboard into PC">📋 Paste</button>
         <button class="key-chip" data-key="escape" title="Send Escape to PC">Esc</button>
+        <button class="key-chip" data-key="select_all" title="Select all (Ctrl+A)">All</button>
+        <button class="key-chip" data-key="copy" title="Copy (Ctrl+Shift+C in a terminal)">Copy</button>
+        <button class="key-chip" data-key="paste" title="Paste (Ctrl+Shift+V in a terminal)">Paste</button>
       </div>
 
       <!-- Mode Toggle -->
@@ -3336,7 +3338,7 @@ _PWA_HTML = r"""<!DOCTYPE html>
         <div class="cmd-input-wrap">
           <input id="cmd-input" type="text" placeholder="Type a command…" autocomplete="off" autocorrect="off">
           <button id="dictate-btn" class="input-inline-btn" title="Dictate speech into input box">
-            <svg class="icon-svg" viewBox="0 0 24 24"><path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"></path><path d="M19 10v2a7 7 0 0 1-14 0v-2"></path><line x1="12" y1="19" x2="12" y2="23"></line><line x1="8" y1="23" x2="16" y2="23"></line></svg>
+            <svg class="icon-svg" viewBox="0 0 24 24"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path><line x1="8" y1="9" x2="16" y2="9"></line><line x1="8" y1="13" x2="13" y2="13"></line></svg>
           </button>
         </div>
         <button id="type-direct-btn" class="cmd-action-btn" title="Type into PC">Type</button>
@@ -4723,6 +4725,9 @@ let recordingTarget = 'action'; // 'action' or 'input'
 let micTriggerMode = localStorage.getItem('omadeck_mic_trigger') || 'both';
 
 const MIC_SVG_DEFAULT = '<svg class="icon-svg" viewBox="0 0 24 24"><path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"></path><path d="M19 10v2a7 7 0 0 1-14 0v-2"></path><line x1="12" y1="19" x2="12" y2="23"></line><line x1="8" y1="23" x2="16" y2="23"></line></svg>';
+// Dictate gets a speech bubble, not a second mic: two identical mics side by
+// side read as the same button.
+const DICTATE_SVG_DEFAULT = '<svg class="icon-svg" viewBox="0 0 24 24"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path><line x1="8" y1="9" x2="16" y2="9"></line><line x1="8" y1="13" x2="13" y2="13"></line></svg>';
 const MIC_SVG_STOP = '<svg class="icon-svg" viewBox="0 0 24 24"><rect x="6" y="6" width="12" height="12" rx="2" fill="#fff" stroke="#fff"></rect></svg>';
 
 function showNote(html) { if (note) { note.innerHTML = html; note.hidden = false; } }
@@ -4825,7 +4830,8 @@ function stopRecording() {
   clearTimeout(holdTimer);
   if (activeTriggerBtn) {
     activeTriggerBtn.classList.remove('recording', 'latched');
-    activeTriggerBtn.innerHTML = MIC_SVG_DEFAULT;
+    activeTriggerBtn.innerHTML = (activeTriggerBtn === dictateBtn)
+      ? DICTATE_SVG_DEFAULT : MIC_SVG_DEFAULT;
     activeTriggerBtn.title = (activeTriggerBtn === dictateBtn)
       ? 'Dictate speech into input box'
       : 'Hold to talk or tap to dictate';
@@ -4978,6 +4984,38 @@ def _type_text(text: str, enter: bool = False) -> tuple[bool, str]:
         return False, str(exc)
 
 
+def _focused_is_terminal() -> bool | None:
+    """Whether the focused window is a terminal; None if it cannot be told."""
+    if not shutil.which("hyprctl"):
+        return None
+    try:
+        res = subprocess.run(["hyprctl", "-j", "activewindow"],
+                             capture_output=True, text=True, timeout=3)
+        window = json.loads(res.stdout or "{}")
+    except Exception:
+        return None
+    if not isinstance(window, dict) or not window:
+        return None
+    from .tools import is_terminal_class
+    return is_terminal_class(window.get("class") or window.get("initialClass") or "")
+
+
+def _clipboard_chord(action: str) -> tuple[str | None, str]:
+    """The copy or paste chord for the focused window.
+
+    Terminals copy and paste with Ctrl+Shift, and in a terminal Ctrl+C is not
+    copy at all: it stops whatever is running. So Copy is refused when the
+    focused window cannot be identified, rather than risk killing a process.
+    """
+    terminal = _focused_is_terminal()
+    letter = "c" if action == "copy" else "v"
+    if terminal:
+        return f"ctrl+shift+{letter}", ""
+    if terminal is None and action == "copy":
+        return None, "couldn't tell which window is focused, so Copy was not sent"
+    return f"ctrl+{letter}", ""
+
+
 def _press_key(key: str) -> tuple[bool, str]:
     """Send a single key press or key combination (e.g. Return, Backspace, Ctrl+C, Ctrl+V, Alt+Left)."""
     if not shutil.which("wtype") and not shutil.which("hyprctl"):
@@ -4986,11 +5024,18 @@ def _press_key(key: str) -> tuple[bool, str]:
     k_raw = key.strip()
     k_lower = k_raw.lower()
 
+    if k_lower in ("copy", "paste"):
+        chord, err = _clipboard_chord(k_lower)
+        if chord is None:
+            return False, err
+        k_lower = k_raw = chord
+
     # Aliases
     aliases = {
         "sigint": "ctrl+c",
         "interrupt": "ctrl+c",
-        "paste": "ctrl+v",
+        "select_all": "ctrl+a",
+        "selectall": "ctrl+a",
         "clear": "ctrl+l",
         "term_copy": "ctrl+shift+c",
         "term_paste": "ctrl+shift+v",
