@@ -98,6 +98,21 @@
     .step p { margin: 6px 0 8px; color: var(--soft); }
     pre { margin: 0; background: #0a0812; border: 1px solid var(--panel-edge); border-radius: 12px; padding: 14px 16px; overflow-x: auto; font-family: var(--mono); font-size: 15px; color: var(--accent-light); }
 
+    .moments { list-style: none; padding: 0; margin: 0 0 32px; display: grid; gap: 12px; }
+    .moments li { display: grid; grid-template-columns: 92px minmax(0, 1fr); gap: 18px; align-items: start; background: var(--panel); border: 1px solid var(--panel-edge); border-radius: 18px; padding: 18px 20px; }
+    .moments h3 { margin: 0 0 4px; font-size: 19px; }
+    .moments p { margin: 0; color: var(--muted); }
+    .tag { display: inline-block; text-align: center; padding: 6px 0; border-radius: 10px; background: #2a1e42; border: 1px solid var(--accent); color: var(--accent-light); font-weight: 700; font-size: 14px; }
+    code { font-family: var(--mono); font-size: 0.92em; color: var(--accent-light); }
+    .wide-shot { width: 100%; border-radius: 18px; border: 1px solid var(--panel-edge); display: block; }
+    .everything { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 24px 20px; }
+    .everything h3 { margin: 0 0 8px; font-size: 17px; color: var(--accent-light); }
+    .everything ul { margin: 0; padding-left: 18px; color: var(--muted); font-size: 15px; }
+    .everything li { margin: 4px 0; }
+    .codebox { position: relative; }
+    .copy { position: absolute; top: 8px; right: 8px; padding: 5px 10px; border-radius: 8px; border: 1px solid var(--panel-edge); background: var(--panel); color: var(--soft); font: 600 13px var(--sans); cursor: pointer; }
+    .copy:hover { border-color: var(--accent); color: var(--ink); }
+    .codebox pre { padding-right: 72px; }
     .shots { display: grid; grid-template-columns: 1.4fr 1fr 1fr; gap: 16px; }
     .shots img { width: 100%; border-radius: 16px; border: 1px solid var(--panel-edge); display: block; }
 
@@ -113,9 +128,13 @@
       .hero { padding-top: 16px; gap: 36px; }
       .grid { grid-template-columns: 1fr 1fr; }
       .shots { grid-template-columns: 1fr; }
+      .everything { grid-template-columns: 1fr 1fr; }
     }
     @media (max-width: 560px) {
       .grid { grid-template-columns: 1fr; }
+      .everything { grid-template-columns: 1fr; }
+      .moments li { grid-template-columns: 1fr; gap: 10px; }
+      .tag { justify-self: start; padding: 4px 12px; }
       .gh span { display: none; }
       .lede { font-size: 17px; }
     }
@@ -163,21 +182,55 @@
         </div>
       </section>
 
-      <section class="story">
-        <blockquote>I leave coding agents running on one workspace and YouTube on another. Instead of getting up to switch, pause a video or check on the agents, I just do it from my phone.</blockquote>
-        <img src="images/landscape-deck-tokyo-night.png" alt="The OmaDeck deck in landscape, Tokyo Night theme" loading="lazy" />
+      <section>
+        <h2>One evening on the couch</h2>
+        <p class="section-lede">I leave coding agents working on one workspace and YouTube playing on another. This is how the evening goes, without getting up once.</p>
+        <ol class="moments">
+          <li><span class="tag">Desk</span><div><h3>Check on the agents.</h3><p>Tap workspace 2 to see where they are, then tap 3 to get back to the video.</p></div></li>
+          <li><span class="tag">Media</span><div><h3>Pause the video.</h3><p>Play, pause, skip and volume are on the Media deck, along with brightness and the audio output.</p></div></li>
+          <li><span class="tag">Code</span><div><h3>A dev server hangs.</h3><p>Tap <code>:3000</code> on the Code deck. The deck tells you what it stopped.</p></div></li>
+          <li><span class="tag">Voice</span><div><h3>Need a browser on workspace 5.</h3><p>Hold the mic and say "open Chrome on workspace 5". It opens there and the screen follows.</p></div></li>
+          <li><span class="tag">Type</span><div><h3>Answer the agent.</h3><p>Dictate the reply into the focused window, then send it with the Enter key on the deck.</p></div></li>
+        </ol>
+        <img class="wide-shot" src="images/landscape-deck-tokyo-night.png" alt="The OmaDeck deck in landscape, Tokyo Night theme" loading="lazy" />
       </section>
 
       <section id="install">
         <h2>Install in three commands</h2>
         <p class="section-lede">On your Omarchy machine. Your phone just needs a browser.</p>
         <div class="steps">
-          <div class="step"><div><p>Get the code</p><pre>git clone https://github.com/Mohsintl/omadeck.git
-cd omadeck</pre></div></div>
-          <div class="step"><div><p>Install it</p><pre>./install.sh</pre></div></div>
-          <div class="step"><div><p>Pair your phone: scan the QR codes it shows, then add the page to your Home Screen</p><pre>omadeck mobile</pre></div></div>
+          <div class="step"><div><p>Get the code</p><div class="codebox"><pre>git clone https://github.com/Mohsintl/omadeck.git
+cd omadeck</pre><button class="copy" type="button">Copy</button></div></div></div>
+          <div class="step"><div><p>Install it</p><div class="codebox"><pre>./install.sh</pre><button class="copy" type="button">Copy</button></div></div></div>
+          <div class="step"><div><p>Pair your phone: scan the QR codes it shows, then add the page to your Home Screen</p><div class="codebox"><pre>omadeck mobile</pre><button class="copy" type="button">Copy</button></div></div></div>
         </div>
-        <p class="note">Runs on your own network over HTTPS, with token or PIN pairing. Tested on iPhone and iPad; Android should work too, and reports are welcome.</p>
+        <p class="note">Tested on iPhone and iPad with Omarchy on Hyprland. Android should work too, and reports are welcome.</p>
+      </section>
+
+      <section>
+        <h2>Built for your own network</h2>
+        <p class="section-lede">OmaDeck types and runs actions on your desktop, so it stays close to home.</p>
+        <div class="grid">
+          <div class="card"><h3>Local network only</h3><p>The deck talks to your computer over your Wi-Fi. Away from home, use Tailscale or WireGuard, never port forwarding.</p></div>
+          <div class="card"><h3>Paired, with an optional PIN</h3><p>Each phone pairs with an auto-generated token. Add a 4–8 digit PIN on shared networks; wrong guesses are rate limited.</p></div>
+          <div class="card"><h3>HTTPS with your own certificate</h3><p>A local certificate, limited to private addresses, encrypts the connection. PINs and API keys are never sent over plain HTTP.</p></div>
+          <div class="card"><h3>No shell by default</h3><p>The assistant can't run shell commands unless you turn that on.</p></div>
+          <div class="card"><h3>Careful with what it reads</h3><p>After the assistant reads a page or the clipboard, commands wait for your spoken confirmation.</p></div>
+          <div class="card"><h3>Honest about the limits</h3><p>The security guide lists what OmaDeck does and doesn't protect against. <a href="https://github.com/Mohsintl/omadeck#-network-security--privacy-guide">Read it</a>.</p></div>
+        </div>
+      </section>
+
+      <section>
+        <h2>Everything in OmaDeck</h2>
+        <div class="everything">
+          <div><h3>Desk</h3><ul><li>Workspaces 1–5 and the scratchpad</li><li>Move windows between workspaces</li><li>Fullscreen, float, split and swap</li><li>Launch Files, Terminal, Web and more</li></ul></div>
+          <div><h3>Code</h3><ul><li>Kill <code>:3000</code>, <code>:8000</code> and other ports</li><li>Ctrl+C, Ctrl+Z and Ctrl+L</li><li>Git status, diff and push</li><li>Run the tests</li></ul></div>
+          <div><h3>Media</h3><ul><li>Play, pause and skip</li><li>Volume, mute and audio output</li><li>Display brightness</li></ul></div>
+          <div><h3>Web</h3><ul><li>New, close and switch tabs</li><li>Back, forward, reload and zoom</li><li>Jump to the address bar</li></ul></div>
+          <div><h3>Utils</h3><ul><li>btop, Lazygit, Lazydocker, OpenCode</li><li>Night light, keep awake, zen mode</li><li>Clipboard history</li></ul></div>
+          <div><h3>Typing and voice</h3><ul><li>Type or dictate into any window</li><li>Enter, Del, Tab, Esc, All, Copy, Paste</li><li>Voice commands with Ollama, Groq, OpenAI and more</li><li>Hold, tap or both to talk</li></ul></div>
+          <div><h3>Look and setup</h3><ul><li>Five profiles, portrait or landscape</li><li>24 themes, or follow your Omarchy theme</li><li>Add to the Home Screen, no app store</li><li><code>omadeck log -f</code> shows what happened</li></ul></div>
+        </div>
       </section>
 
       <section>
@@ -205,5 +258,19 @@ cd omadeck</pre></div></div>
       <span><a href="https://github.com/Mohsintl/omadeck/releases/latest">Latest release</a> · <a href="https://github.com/Mohsintl/omadeck/issues">Report a bug</a> · <a href="https://mohsintl.is-a.dev/">Made by Mohsin</a></span>
     </div>
   </footer>
+  <script>
+    document.querySelectorAll(".copy").forEach((btn) => {
+      btn.addEventListener("click", async () => {
+        const text = btn.previousElementSibling.textContent;
+        try { await navigator.clipboard.writeText(text); btn.textContent = "Copied"; }
+        catch (e) {
+          const range = document.createRange(); range.selectNodeContents(btn.previousElementSibling);
+          const sel = getSelection(); sel.removeAllRanges(); sel.addRange(range);
+          btn.textContent = "Selected";
+        }
+        setTimeout(() => { btn.textContent = "Copy"; }, 1600);
+      });
+    });
+  </script>
 </body>
 </html>
