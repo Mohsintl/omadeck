@@ -453,6 +453,20 @@ def _window_matches(client: dict, hint: str) -> bool:
     return hint.lower() in haystack
 
 
+TERMINAL_NAMES = frozenset({
+    "kitty", "alacritty", "foot", "footclient", "wezterm", "ghostty", "xterm",
+    "gnome-terminal", "konsole", "urxvt", "rxvt", "st", "terminator",
+    "xfce4-terminal", "terminal", "tilix", "contour", "ptyxis",
+    "term", "kgx", "console", "blackbox", "tabby", "warp", "rio", "hyper",
+})
+
+
+def is_terminal_class(window_class: str) -> bool:
+    """Whether a Hyprland window class belongs to a terminal emulator."""
+    tokens = set(re.split(r"[-_.\s/]+", str(window_class).lower()))
+    return bool(tokens & TERMINAL_NAMES) or any("terminal" in t for t in tokens)
+
+
 _NUMBER_WORDS = {
     "one": "1", "two": "2", "three": "3", "four": "4", "five": "5",
     "six": "6", "seven": "7", "eight": "8", "nine": "9", "ten": "10",
@@ -1721,15 +1735,7 @@ class Executor:
             window, _ = self._window_geometry(target)
             if not window:
                 return not self.config.allow_shell
-            w_class = str(window.get("class") or window.get("initialClass") or "").lower()
-            terminal_names = {
-                "kitty", "alacritty", "foot", "footclient", "wezterm", "ghostty", "xterm",
-                "gnome-terminal", "konsole", "urxvt", "rxvt", "st", "terminator",
-                "xfce4-terminal", "terminal", "tilix", "contour", "ptyxis",
-                "term", "kgx", "console", "blackbox", "tabby", "warp", "rio", "hyper",
-            }
-            tokens = set(re.split(r"[-_.\s/]+", w_class))
-            return bool(tokens & terminal_names) or any("terminal" in t for t in tokens)
+            return is_terminal_class(window.get("class") or window.get("initialClass") or "")
         except Exception:
             return not self.config.allow_shell
 

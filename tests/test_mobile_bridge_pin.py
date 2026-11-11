@@ -729,6 +729,53 @@ class MobileBridgePinTests(unittest.TestCase):
         sent = run.call_args.args[0]
         self.assertEqual(sent[:5], ["wtype", "-M", "ctrl", "-k", "z"])
 
+    def _press_in(self, key, window_class):
+        """Press `key` with `window_class` focused; return the wtype argv sent."""
+        sent = []
+
+        def fake_run(argv, **kwargs):
+            if argv[:3] == ["hyprctl", "-j", "activewindow"]:
+                body = json.dumps({"class": window_class}) if window_class else ""
+                return SimpleNamespace(returncode=0, stdout=body, stderr="")
+            sent.append(argv)
+            return SimpleNamespace(returncode=0, stdout="", stderr="")
+
+        with mock.patch("omarchy_voice.mobile_bridge.shutil.which", return_value="/usr/bin/x"), \
+             mock.patch("omarchy_voice.mobile_bridge.subprocess.run", side_effect=fake_run):
+            ok, err = _press_key(key)
+        return ok, err, sent
+
+    def test_copy_in_a_terminal_never_sends_ctrl_c(self):
+        ok, _, sent = self._press_in("copy", "Alacritty")
+        self.assertTrue(ok)
+        self.assertEqual(sent[0], ["wtype", "-M", "ctrl", "-M", "shift", "-k", "c",
+                                   "-m", "shift", "-m", "ctrl"])
+
+    def test_copy_and_paste_outside_a_terminal(self):
+        _, _, sent = self._press_in("copy", "google-chrome")
+        self.assertEqual(sent[0][:5], ["wtype", "-M", "ctrl", "-k", "c"])
+        _, _, sent = self._press_in("paste", "google-chrome")
+        self.assertEqual(sent[0][:5], ["wtype", "-M", "ctrl", "-k", "v"])
+
+    def test_paste_in_a_terminal_uses_ctrl_shift_v(self):
+        _, _, sent = self._press_in("paste", "foot")
+        self.assertIn("shift", sent[0])
+        self.assertEqual(sent[0][sent[0].index("-k") + 1], "v")
+
+    def test_copy_is_refused_when_the_window_is_unknown(self):
+        ok, err, sent = self._press_in("copy", None)
+        self.assertFalse(ok)
+        self.assertIn("Copy was not sent", err)
+        self.assertEqual(sent, [])
+
+    def test_select_all_is_ctrl_a(self):
+        _, _, sent = self._press_in("select_all", "google-chrome")
+        self.assertEqual(sent[0][:5], ["wtype", "-M", "ctrl", "-k", "a"])
+
+    def test_key_row_has_select_all_copy_and_paste(self):
+        for key in ("enter", "backspace", "tab", "escape", "select_all", "copy", "paste"):
+            self.assertIn(f'data-key="{key}"', _PWA_HTML)
+
     def test_press_key_falls_back_to_hyprctl_when_wtype_fails(self):
         def fake_which(cmd):
             return "/usr/bin/hyprctl" if cmd == "hyprctl" else None
