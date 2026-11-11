@@ -431,15 +431,19 @@ class MobileBridgePinTests(unittest.TestCase):
         self.assertEqual(data.get("error"), "unauthorized")
 
     def test_why_did_you_kill_port_does_not_kill_port(self):
-        with mock.patch("subprocess.run",
-                        return_value=SimpleNamespace(returncode=0, stderr="", stdout="")) as mock_sub:
-            res = _dispatch("why did you kill 3000")
-            # Should not call fuser on 3000/tcp
-            called_cmds = [call.args[0] for call in mock_sub.call_args_list if call.args]
-            self.assertFalse(any("3000/tcp" in cmd for cmd in called_cmds))
+        # Patch kill_port itself: it finds listeners with ss where ss exists
+        # (Linux, CI) and fuser elsewhere, so mocking either command alone
+        # passed on one platform and failed on the other.
+        with mock.patch("omarchy_voice.mobile_bridge.kill_port",
+                        return_value="Killed python3 on port 3000.") as kp, \
+             mock.patch("omarchy_voice.mobile_bridge.send_control",
+                        return_value="I stopped it because you asked."):
+            _dispatch("why did you kill 3000")
+            kp.assert_not_called()
 
             res2 = _dispatch("kill port 3000")
-            self.assertIn("Killed process on port 3000", res2)
+        kp.assert_called_once_with(3000)
+        self.assertEqual(res2, "Killed python3 on port 3000.")
 
     def test_global_auth_rate_limit_lockout(self):
         from omarchy_voice.mobile_bridge import _AUTH_FAILURES, _GLOBAL_AUTH_FAILURES, _AUTH_LOCK, MAX_GLOBAL_AUTH_FAILURES
