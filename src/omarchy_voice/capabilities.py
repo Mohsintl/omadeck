@@ -351,7 +351,8 @@ SECOND_WINDOW = (
     "For ANOTHER window of an app that is already open, use the launch_app tool "
     "with '<desktop-id>:<action>', e.g. launch_app(app=\"google-chrome:new-window\") "
     "or 'google-chrome:new-private-window' for incognito. Launching normally "
-    "focuses the existing window instead of opening a second one."
+    "focuses the existing window instead of opening a second one. Add "
+    "workspace=\"5\" to open it straight onto workspace 5 in one call."
 )
 
 

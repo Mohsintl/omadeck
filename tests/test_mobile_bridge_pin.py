@@ -668,6 +668,45 @@ class MobileBridgePinTests(unittest.TestCase):
             _dispatch("open the news")
         self.assertIn("error   phone open the news: [command timed out", self._logged())
 
+    def test_the_phone_waits_for_a_slow_model(self):
+        from omarchy_voice.mobile_bridge import DAEMON_REPLY_TIMEOUT
+        with mock.patch("omarchy_voice.mobile_bridge._quick_command", return_value=None), \
+             mock.patch("omarchy_voice.mobile_bridge.send_control",
+                        return_value="Done.") as send:
+            _dispatch("open the news")
+        self.assertGreaterEqual(DAEMON_REPLY_TIMEOUT, 30)
+        self.assertEqual(send.call_args.kwargs["timeout"], DAEMON_REPLY_TIMEOUT)
+
+    def test_open_chrome_on_a_workspace_skips_the_model(self):
+        from omarchy_voice.mobile_bridge import _quick_command
+        from omarchy_voice.tools import Executor, Result
+        with mock.patch.object(Executor, "call",
+                               return_value=Result(True, "opened on workspace 5")) as call:
+            reply = _quick_command("Open new chrome window in workspace five.")
+        self.assertEqual(reply, "Opened Chrome on workspace 5.")
+        call.assert_called_once_with("launch_app", {"app": "google-chrome:new-window",
+                                                    "workspace": "5"})
+
+    def test_open_a_known_app_on_a_workspace_moves_its_window(self):
+        from omarchy_voice.mobile_bridge import _quick_command
+        from omarchy_voice.tools import Executor, Result
+        with mock.patch.object(Executor, "call", return_value=Result(True, "")), \
+             mock.patch.object(Executor, "window_addresses", return_value={"0x1"}), \
+             mock.patch.object(Executor, "place_new_window",
+                               return_value=Result(True, "opened on workspace 3")) as place:
+            reply = _quick_command("open files on workspace 3")
+        self.assertEqual(reply, "Opened Files on workspace 3.")
+        self.assertEqual(place.call_args.args, ({"0x1"}, "3"))
+
+    def test_an_unknown_app_on_a_workspace_goes_to_the_model(self):
+        from omarchy_voice.mobile_bridge import _quick_command
+        from omarchy_voice.tools import Executor
+        with mock.patch.object(Executor, "window_addresses", return_value=set()), \
+             mock.patch.object(Executor, "place_new_window") as place:
+            reply = _quick_command("open blender on workspace 2")
+        self.assertIsNone(reply)
+        place.assert_not_called()
+
     def test_a_failed_key_is_logged_with_its_error(self):
         with mock.patch("omarchy_voice.mobile_bridge._press_key", return_value=(False, "no keymap")):
             self._call_post("/type", {"key": "ctrl+c"}, token="test-token-123")
