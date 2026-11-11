@@ -146,6 +146,46 @@ class MobileBridgePinTests(unittest.TestCase):
             parsed_json = {}
         return status_line, parsed_json
 
+    def _get_bytes(self, path: str) -> tuple[str, bytes]:
+        """GET `path` without a token; return (status line, body bytes)."""
+        wfile = io.BytesIO()
+        handler = BridgeHandler.__new__(BridgeHandler)
+        handler.rfile = io.BytesIO()
+        handler.wfile = wfile
+        handler.headers = {"Host": "127.0.0.1:8765"}
+        handler.path = path
+        handler.command = "GET"
+        handler.requestline = f"GET {path} HTTP/1.1"
+        handler.request_version = "HTTP/1.1"
+        handler.log_message = lambda *args: None
+        handler.do_GET()
+        head, _, body = wfile.getvalue().partition(b"\r\n\r\n")
+        return head.split(b"\r\n")[0].decode(), body
+
+    def test_the_logo_is_served_at_every_icon_size(self):
+        import struct
+        from omarchy_voice.mobile_bridge import ASSETS_DIR
+        sizes = {"/icon.png": 192, "/icon-192.png": 192, "/icon-512.png": 512,
+                 "/icon-maskable-512.png": 512, "/apple-touch-icon.png": 180,
+                 "/favicon.ico": 192}
+        for path, size in sizes.items():
+            status, body = self._get_bytes(path)
+            self.assertIn("200", status, path)
+            self.assertEqual(body[:8], b"\x89PNG\r\n\x1a\n", path)
+            width, height = struct.unpack(">II", body[16:24])
+            self.assertEqual((width, height), (size, size), path)
+        # The real logo, not the generated fallback circle.
+        _, body = self._get_bytes("/icon-512.png")
+        self.assertEqual(body, (ASSETS_DIR / "icon-512.png").read_bytes())
+
+    def test_the_manifest_lists_any_and_maskable_icons(self):
+        from omarchy_voice.mobile_bridge import ICON_FILES, _manifest_json
+        icons = json.loads(_manifest_json("/"))["icons"]
+        self.assertEqual({i["purpose"] for i in icons}, {"any", "maskable"})
+        for icon in icons:
+            self.assertIn(icon["src"], ICON_FILES)
+        self.assertIn('rel="apple-touch-icon" href="/apple-touch-icon.png"', _PWA_HTML)
+
     def _start_url(self, path: str) -> str:
         return json.loads(self._page(path).partition("\r\n\r\n")[2])["start_url"]
 

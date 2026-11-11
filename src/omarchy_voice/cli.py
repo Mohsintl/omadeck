@@ -312,7 +312,7 @@ def cmd_settings(args, config) -> int:
     try:
         webbrowser.open(url)
         print(f"Opened: {url}")
-        print("Tip: You can also tap ⚙️ on Oma Remote from your mobile phone!")
+        print("Tip: You can also tap ⚙️ in OmaDeck on your phone!")
     except Exception as exc:
         print(f"Could not open browser automatically: {exc}")
         print(f"Open {url} in your browser.")
