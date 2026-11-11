@@ -108,8 +108,8 @@ cd omadeck
 ```
 
 The installer sets up:
-1. The `omadeck` command and engine (`omarchy-voice` still works too).
-2. The `omadeck.service` systemd user service (auto-starts on boot).
+1. The `omadeck` command and engine.
+2. Background services that start when you log in: one for the phone page, and optionally one for the voice daemon.
 
 ### 2. Connect from Your Phone
 
@@ -224,23 +224,35 @@ In the **API Keys** pane:
 
 ---
 
-## 🖥️ Desktop Commands & Systemd Management
-
-The deck runs as a background user service:
+## 🖥️ Desktop Commands
 
 ```bash
-# Restart the remote service
-systemctl --user restart omadeck.service
-
 # Show your pairing link
 omadeck mobile
 
-# View live logs
-journalctl --user -u omadeck -f
+# Restart everything (the voice daemon and the phone page), e.g. after an update
+omadeck restart
 
-# Stop the service
-systemctl --user stop omadeck.service
+# What it heard, what the AI did, and every phone button press, live
+omadeck log -f
+
+# Check every moving part
+omadeck doctor
+
+# Try a command without speaking
+omadeck say "go to workspace 2"
 ```
+
+### Updating
+
+```bash
+cd omadeck
+git pull
+./install.sh
+omadeck restart
+```
+
+The installer copies the new code into place and keeps your settings, keys and pairing. Answer **N** to its questions on a re-install.
 
 ---
 

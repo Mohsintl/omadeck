@@ -37,6 +37,7 @@ realtime = [
 ]
 
 [project.scripts]
+omadeck = "omarchy_voice.cli:main"
 omarchy-voice = "omarchy_voice.cli:main"
 
 [tool.setuptools.packages.find]
