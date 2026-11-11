@@ -3,7 +3,7 @@
 [OmaDeck](../README.md) turns a phone into a remote deck for a Hyprland
 desktop: the phone opens a web page served by a Python bridge, and every key
 the phone taps becomes a `hyprctl` or `wtype` call on the PC. These tests
-drive that page in a phone-sized browser with [e2e](https://e2e.tester.army)
+drive that page in a phone-sized browser with [e2e](https://e2e.com)
 and check what reached the desktop.
 
 ![The deck on a phone-sized screen](screenshot.png)
