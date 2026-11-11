@@ -1244,6 +1244,64 @@ def _desktop_entry_exists(app_id: str) -> bool:
     return _desktop_entry_path(app_id) is not None
 
 
+def _desktop_entry_fields(path: Path) -> dict[str, str]:
+    """The keys of a .desktop file's [Desktop Entry] group (not its actions)."""
+    fields: dict[str, str] = {}
+    in_entry = False
+    try:
+        text = path.read_text(errors="replace")
+    except OSError:
+        return fields
+    for line in text.splitlines():
+        line = line.strip()
+        if line.startswith("["):
+            in_entry = line == "[Desktop Entry]"
+        elif in_entry and "=" in line:
+            key, _, value = line.partition("=")
+            fields.setdefault(key.strip(), value.strip())
+    return fields
+
+
+def _spoken(text: str) -> str:
+    return " ".join(re.sub(r"[-_.]+", " ", text.lower()).split())
+
+
+def find_desktop_app(name: str) -> tuple[str, str] | None:
+    """The installed app a spoken name means, as (desktop id, display name).
+
+    Matches the id ("spotify", "org.gnome.Calculator") or the name people see
+    in the launcher ("OBS Studio", "Calculator"), ignoring case and dashes.
+    Only an exact match counts, and two different apps with the same name
+    return None: a guess here opens the wrong program.
+    """
+    wanted = _spoken(name)
+    if not wanted:
+        return None
+    by_id: dict[str, tuple[str, str]] = {}
+    for directory in XDG_APP_DIRS:
+        try:
+            paths = sorted(directory.glob("*.desktop"))
+        except OSError:
+            continue
+        for path in paths:
+            app_id = path.stem
+            if app_id in by_id:
+                continue  # an earlier directory overrides this one
+            fields = _desktop_entry_fields(path)
+            by_id[app_id] = ("", "")  # seen, even if hidden, so it still overrides
+            if (fields.get("Type", "Application") != "Application"
+                    or fields.get("NoDisplay", "").lower() == "true"
+                    or fields.get("Hidden", "").lower() == "true"):
+                continue
+            by_id[app_id] = (app_id, fields.get("Name", app_id))
+    entries = [e for e in by_id.values() if e[0]]
+    for app_id, label in entries:
+        if _spoken(app_id) == wanted:
+            return app_id, label
+    named = [e for e in entries if _spoken(e[1]) == wanted]
+    return named[0] if len(named) == 1 else None
+
+
 def desktop_actions(app_id: str) -> list[str]:
     """The extra entry points a .desktop declares, e.g. Chrome's new-window.
 
