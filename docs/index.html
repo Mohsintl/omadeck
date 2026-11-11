@@ -1,0 +1,209 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>OmaDeck: your phone is the keyboard now</title>
+  <meta name="description" content="OmaDeck turns any phone or tablet into a Stream Deck and voice remote for Omarchy and Hyprland. No app store, no hardware, free and open source." />
+  <meta name="color-scheme" content="dark" />
+  <meta name="theme-color" content="#0e0b16" />
+  <link rel="icon" type="image/png" href="assets/omadeck-logo-256.png" />
+  <link rel="apple-touch-icon" href="assets/omadeck-logo-256.png" />
+  <meta property="og:title" content="OmaDeck" />
+  <meta property="og:description" content="Turn your phone into a Stream Deck and voice remote for Hyprland and Omarchy." />
+  <meta property="og:image" content="https://mohsintl.is-a.dev/omadeck/assets/social-preview.png" />
+  <meta property="og:url" content="https://mohsintl.is-a.dev/omadeck/" />
+  <meta name="twitter:card" content="summary_large_image" />
+  <style>
+    :root {
+      --ground: #0e0b16;
+      --panel: #171226;
+      --panel-edge: #2d2346;
+      --ink: #ffffff;
+      --soft: #d8c4ff;
+      --muted: #a99bc9;
+      --accent: #b46cff;
+      --accent-light: #e2c6ff;
+      --star: #ffd166;
+      --mono: ui-monospace, "JetBrains Mono", "SF Mono", Menlo, Consolas, monospace;
+      --sans: Inter, ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+    }
+    * { box-sizing: border-box; }
+    html { scroll-behavior: smooth; }
+    body {
+      margin: 0;
+      background: var(--ground);
+      color: var(--ink);
+      font-family: var(--sans);
+      line-height: 1.55;
+      -webkit-font-smoothing: antialiased;
+    }
+    body::before {
+      content: "";
+      position: fixed;
+      inset: -20vh -20vw auto;
+      height: 90vh;
+      background: radial-gradient(closest-side, rgba(180, 108, 255, 0.28), rgba(180, 108, 255, 0));
+      pointer-events: none;
+      z-index: -1;
+    }
+    a { color: var(--accent-light); }
+    .wrap { max-width: 1080px; margin: 0 auto; padding: 0 20px; }
+
+    /* header */
+    header { display: flex; align-items: center; justify-content: space-between; padding: 20px 0; }
+    .brand { display: flex; align-items: center; gap: 12px; text-decoration: none; color: var(--ink); font-weight: 800; font-size: 20px; letter-spacing: -0.02em; }
+    .brand img { width: 40px; height: 40px; border-radius: 10px; }
+    .gh { display: inline-flex; align-items: center; gap: 8px; padding: 9px 16px; border-radius: 999px; border: 1px solid var(--panel-edge); color: var(--ink); text-decoration: none; font-weight: 600; font-size: 15px; background: var(--panel); }
+    .gh:hover { border-color: var(--accent); }
+
+    /* hero */
+    .hero { display: grid; grid-template-columns: 1.1fr 0.9fr; gap: 48px; align-items: center; padding: 40px 0 72px; }
+    .eyebrow { color: var(--soft); font-weight: 600; font-size: 15px; margin: 0 0 14px; }
+    h1 { font-size: clamp(42px, 6vw, 72px); line-height: 1.02; letter-spacing: -0.04em; margin: 0 0 20px; font-weight: 900; }
+    h1 span { color: var(--accent-light); }
+    .lede { font-size: 19px; color: var(--soft); max-width: 34ch; margin: 0 0 30px; }
+    .ctas { display: flex; flex-wrap: wrap; gap: 12px; }
+    .btn { display: inline-flex; align-items: center; gap: 8px; padding: 14px 22px; border-radius: 14px; font-weight: 700; text-decoration: none; font-size: 16px; }
+    .btn-primary { background: var(--accent); color: #12091f; }
+    .btn-primary:hover { background: var(--accent-light); }
+    .btn-ghost { border: 1px solid var(--panel-edge); color: var(--ink); background: var(--panel); }
+    .btn-ghost:hover { border-color: var(--accent); }
+    .note { margin-top: 18px; color: var(--muted); font-size: 14px; }
+    .video {
+      justify-self: center; width: 100%; max-width: 380px; aspect-ratio: 4 / 5;
+      border-radius: 28px; overflow: hidden; border: 2px solid var(--accent);
+      box-shadow: 0 0 80px rgba(180, 108, 255, 0.35); background: var(--panel);
+    }
+    .video video { width: 100%; height: 100%; object-fit: cover; display: block; }
+
+    /* sections */
+    section { padding: 64px 0; border-top: 1px solid var(--panel-edge); }
+    h2 { font-size: clamp(30px, 4vw, 42px); letter-spacing: -0.03em; margin: 0 0 12px; font-weight: 800; }
+    .section-lede { color: var(--soft); font-size: 18px; margin: 0 0 36px; max-width: 60ch; }
+    .grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; }
+    .card { background: var(--panel); border: 1px solid var(--panel-edge); border-radius: 20px; padding: 24px; }
+    .card h3 { margin: 0 0 8px; font-size: 20px; letter-spacing: -0.01em; }
+    .card p { margin: 0; color: var(--muted); font-size: 16px; }
+    .key { display: inline-grid; place-items: center; width: 44px; height: 44px; border-radius: 12px; background: #2a1e42; border: 2px solid var(--accent); color: var(--accent-light); font-weight: 800; margin-bottom: 14px; font-size: 20px; }
+
+    .story { display: grid; grid-template-columns: 1fr 1fr; gap: 40px; align-items: center; }
+    .story blockquote { margin: 0; font-size: 22px; line-height: 1.45; color: var(--ink); border-left: 3px solid var(--accent); padding-left: 22px; }
+    .story img { width: 100%; border-radius: 18px; border: 1px solid var(--panel-edge); }
+
+    .steps { counter-reset: step; display: grid; gap: 14px; max-width: 760px; }
+    .step { display: grid; grid-template-columns: 40px minmax(0, 1fr); gap: 16px; align-items: start; }
+    .step > div { min-width: 0; }
+    .step::before { counter-increment: step; content: counter(step); display: grid; place-items: center; width: 40px; height: 40px; border-radius: 50%; background: #2a1e42; border: 2px solid var(--accent); font-weight: 800; color: var(--accent-light); }
+    .step p { margin: 6px 0 8px; color: var(--soft); }
+    pre { margin: 0; background: #0a0812; border: 1px solid var(--panel-edge); border-radius: 12px; padding: 14px 16px; overflow-x: auto; font-family: var(--mono); font-size: 15px; color: var(--accent-light); }
+
+    .shots { display: grid; grid-template-columns: 1.4fr 1fr 1fr; gap: 16px; }
+    .shots img { width: 100%; border-radius: 16px; border: 1px solid var(--panel-edge); display: block; }
+
+    .star { text-align: center; }
+    .star .big { font-size: 56px; color: var(--star); line-height: 1; }
+    .star p { color: var(--soft); font-size: 18px; max-width: 52ch; margin: 14px auto 26px; }
+
+    footer { padding: 36px 0 48px; color: var(--muted); font-size: 14px; border-top: 1px solid var(--panel-edge); }
+    footer .wrap { display: flex; flex-wrap: wrap; gap: 12px 24px; justify-content: space-between; }
+
+    @media (max-width: 860px) {
+      .hero, .story { grid-template-columns: 1fr; }
+      .hero { padding-top: 16px; gap: 36px; }
+      .grid { grid-template-columns: 1fr 1fr; }
+      .shots { grid-template-columns: 1fr; }
+    }
+    @media (max-width: 560px) {
+      .grid { grid-template-columns: 1fr; }
+      .gh span { display: none; }
+      .lede { font-size: 17px; }
+    }
+    @media (prefers-reduced-motion: reduce) { html { scroll-behavior: auto; } }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <header>
+      <a class="brand" href="./"><img src="assets/omadeck-logo-256.png" alt="" />OmaDeck</a>
+      <a class="gh" href="https://github.com/Mohsintl/omadeck">
+        <svg width="18" height="18" viewBox="0 0 16 16" fill="currentColor" aria-hidden="true"><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z"/></svg>
+        <span>Star on GitHub</span>
+      </a>
+    </header>
+
+    <main>
+      <div class="hero">
+        <div>
+          <p class="eyebrow">For Omarchy &amp; Hyprland</p>
+          <h1>Your phone is the <span>keyboard</span> now.</h1>
+          <p class="lede">OmaDeck turns any phone or tablet into a Stream Deck and voice remote for your desktop. Run it from the couch, the bed, or across the room.</p>
+          <div class="ctas">
+            <a class="btn btn-primary" href="#install">Install</a>
+            <a class="btn btn-ghost" href="https://github.com/Mohsintl/omadeck">View on GitHub</a>
+          </div>
+          <p class="note">Free and open source · Apache 2.0 · No app store, no extra hardware</p>
+        </div>
+        <div class="video">
+          <video src="media/omadeck-demo.mp4" autoplay muted loop playsinline preload="metadata"
+                 aria-label="Demo: switching workspaces, a voice command opening Chrome, dictation, and killing a dev server from an iPad"></video>
+        </div>
+      </div>
+
+      <section>
+        <h2>Tap it. Say it. Done.</h2>
+        <p class="section-lede">A touch deck with real buttons for your desktop, plus voice control when tapping is too slow.</p>
+        <div class="grid">
+          <div class="card"><div class="key">1</div><h3>Switch workspaces</h3><p>One tap to jump workspaces, move windows, or toggle the scratchpad.</p></div>
+          <div class="card"><div class="key">🎙</div><h3>Say what you want</h3><p>"Open Chrome on workspace 5" just works. Bring your own AI: Ollama fully local, or Groq, OpenAI and more.</p></div>
+          <div class="card"><div class="key">⌨</div><h3>Type from your phone</h3><p>Type or dictate into whatever window is focused, with Enter, Tab, Esc, All, Copy and Paste keys.</p></div>
+          <div class="card"><div class="key">⚡</div><h3>Kill :3000</h3><p>Stop a stuck dev server with one tap, without hunting for the terminal.</p></div>
+          <div class="card"><div class="key">5</div><h3>Five profiles</h3><p>Desk, Code, Media, Web and Utils decks, each with the buttons that fit the moment.</p></div>
+          <div class="card"><div class="key">◐</div><h3>24 themes</h3><p>Pick a theme you like, or let the deck follow your Omarchy theme automatically.</p></div>
+        </div>
+      </section>
+
+      <section class="story">
+        <blockquote>I leave coding agents running on one workspace and YouTube on another. Instead of getting up to switch, pause a video or check on the agents, I just do it from my phone.</blockquote>
+        <img src="images/landscape-deck-tokyo-night.png" alt="The OmaDeck deck in landscape, Tokyo Night theme" loading="lazy" />
+      </section>
+
+      <section id="install">
+        <h2>Install in three commands</h2>
+        <p class="section-lede">On your Omarchy machine. Your phone just needs a browser.</p>
+        <div class="steps">
+          <div class="step"><div><p>Get the code</p><pre>git clone https://github.com/Mohsintl/omadeck.git
+cd omadeck</pre></div></div>
+          <div class="step"><div><p>Install it</p><pre>./install.sh</pre></div></div>
+          <div class="step"><div><p>Pair your phone: scan the QR codes it shows, then add the page to your Home Screen</p><pre>omadeck mobile</pre></div></div>
+        </div>
+        <p class="note">Runs on your own network over HTTPS, with token or PIN pairing. Tested on iPhone and iPad; Android should work too, and reports are welcome.</p>
+      </section>
+
+      <section>
+        <h2>See the deck</h2>
+        <p class="section-lede">Big, tactile keys that fit a phone in portrait or a tablet in landscape.</p>
+        <div class="shots">
+          <img src="images/landscape-deck.png" alt="OmaDeck in landscape" loading="lazy" />
+          <img src="images/portrait-deck-tokyo-night.png" alt="OmaDeck in portrait, Tokyo Night theme" loading="lazy" />
+          <img src="images/themes-tokyo-night.png" alt="The theme picker" loading="lazy" />
+        </div>
+      </section>
+
+      <section class="star">
+        <div class="big" aria-hidden="true">★</div>
+        <h2>Like it?</h2>
+        <p>If OmaDeck saves you a trip to the keyboard, a star on GitHub helps a lot. Ideas, bugs and pull requests are all welcome.</p>
+        <a class="btn btn-primary" href="https://github.com/Mohsintl/omadeck">Star OmaDeck on GitHub</a>
+      </section>
+    </main>
+  </div>
+
+  <footer>
+    <div class="wrap">
+      <span>OmaDeck · Apache 2.0 · built on <a href="https://github.com/wombatoperator/omarchy-voice">omarchy-voice</a> by Britain Eriksen</span>
+      <span><a href="https://github.com/Mohsintl/omadeck/releases/latest">Latest release</a> · <a href="https://github.com/Mohsintl/omadeck/issues">Report a bug</a> · <a href="https://mohsintl.is-a.dev/">Made by Mohsin</a></span>
+    </div>
+  </footer>
+</body>
+</html>
