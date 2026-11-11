@@ -1,0 +1,16 @@
+{
+  "name": "omadeck-e2e",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "test:e2e": "e2e run"
+  },
+  "devDependencies": {
+    "@e2e-dev/web": "^0.15.5",
+    "@types/node": "^24.0.0",
+    "ai": "^7.0.0",
+    "e2e": "^0.23.0",
+    "playwright": "^1.65.0",
+    "zod": "^4.1.8"
+  }
+}
