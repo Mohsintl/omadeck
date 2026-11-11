@@ -10,9 +10,9 @@
 
 <div align="center">
 
-<a href="docs/media/omadeck-demo.mp4"><img src="docs/media/omadeck-demo-poster.jpg" width="360" alt="Watch the OmaDeck demo: workspaces, voice commands, dictation, killing a dev server, and copy and paste, all from an iPad" /></a>
+<img src="docs/media/omadeck-demo.gif" width="400" alt="OmaDeck demo at 2x speed: switching workspaces, a voice command opening Chrome, dictation into an editor, killing a dev server on port 3000, and copying a link from VS Code into Chrome, all from an iPad" />
 
-*Workspaces, a voice command, dictation, killing `:3000`, and copy and paste across apps, all from the iPad.*
+*At 2x speed: workspaces, a voice command, dictation, killing `:3000`, and copy and paste across apps, all from the iPad. [Full-quality video (MP4)](docs/media/omadeck-demo.mp4).*
 
 </div>
 
