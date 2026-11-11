@@ -36,3 +36,37 @@ jobs:
       - name: Run unit test suite
         run: |
           python -m unittest discover -s tests
+
+  e2e:
+    # The phone deck in a browser, against the real bridge with a fake desktop.
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    defaults:
+      run:
+        working-directory: e2e
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Install e2e
+        run: npm install --no-audit --no-fund
+
+      - name: Run e2e tests
+        run: npm run test:e2e
+        env:
+          AI_GATEWAY_API_KEY: ${{ secrets.AI_GATEWAY_API_KEY }}
+
+      - name: Keep the report and traces
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: e2e-report
+          path: e2e/.e2e/

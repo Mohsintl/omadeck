@@ -1,0 +1,4 @@
+#!/bin/sh
+# Stands in for wtype, which types text into the focused Wayland window.
+echo "wtype $*" >> "$OMADECK_E2E_CALLS"
+exit 0

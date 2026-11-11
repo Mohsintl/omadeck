@@ -1,0 +1,6 @@
+#!/bin/sh
+# Stands in for Hyprland's hyprctl: records the call so a test can check
+# what a button asked the desktop to do, and answers queries with empty JSON.
+echo "hyprctl $*" >> "$OMADECK_E2E_CALLS"
+[ "$1" = "-j" ] && echo '{}'
+exit 0

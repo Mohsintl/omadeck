@@ -34,6 +34,12 @@ OmaDeck runs locally on your Linux machine with Python 3.10+ and Hyprland.
    ```
    After changing installed code, `./install.sh` and then `omadeck restart` puts it live.
 
+5. **Testing the Phone Deck**:
+   The [e2e tests](e2e/README.md) open the deck in a phone-sized browser and check what reached the desktop, using fake `hyprctl` and `wtype`, so they need no Hyprland session:
+   ```bash
+   cd e2e && npm install && npm run test:e2e
+   ```
+
 ---
 
 ## 🎨 Modifying the Web Deck (PWA)
