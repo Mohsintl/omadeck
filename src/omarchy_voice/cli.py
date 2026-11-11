@@ -117,6 +117,36 @@ def cmd_listen(args, config) -> int:
     return 0
 
 
+# The voice daemon kept its original unit name; the phone page has its own.
+SERVICES = (("omarchy-voice.service", "voice"), ("omadeck.service", "phone page"))
+
+
+def cmd_restart(args, config) -> int:
+    """Restart both services, so nobody has to remember the unit names."""
+    if not shutil.which("systemctl"):
+        print("error: systemctl not found", file=sys.stderr)
+        return 1
+    restarted = failed = 0
+    for unit, label in SERVICES:
+        installed = subprocess.run(["systemctl", "--user", "cat", unit],
+                                   capture_output=True, text=True).returncode == 0
+        if not installed:
+            continue
+        result = subprocess.run(["systemctl", "--user", "restart", unit],
+                                capture_output=True, text=True)
+        if result.returncode == 0:
+            restarted += 1
+            print(f"  {_tick(True)} restarted {label} ({unit})")
+        else:
+            failed += 1
+            print(f"  {_tick(False)} {label} ({unit}): {result.stderr.strip()}")
+    if not restarted and not failed:
+        print("No OmaDeck services are installed. Run ./install.sh, or start one by "
+              "hand with: omadeck run  /  omadeck mobile")
+        return 1
+    return 1 if failed else 0
+
+
 def cmd_status(args, config) -> int:
     state = {"status": "stopped", "text": "", "icon": "󰍭"}
     if cfg.STATE_FILE.exists():
@@ -145,13 +175,13 @@ def cmd_manifest(args, config) -> int:
 
 
 def cmd_doctor(args, config) -> int:
-    print(_bold(f"omarchy-voice {__version__}\n"))
+    print(_bold(f"omadeck {__version__}\n"))
 
     print(_bold("openai"))
     key = bool(os.environ.get(config.api_key_env))
     print(f"  {_tick(key)} {config.api_key_env}"
           + ("" if key else f"  (put it in {cfg.ENV_FILE})"))
-    print(f"  → planner model {config.planner_model} (`omarchy-voice say`)")
+    print(f"  → planner model {config.planner_model} (`omadeck say`)")
     print(f"  → realtime model {config.realtime_model}, voice {config.realtime_voice}")
     if cfg.ENV_FILE.exists():
         mode = cfg.ENV_FILE.stat().st_mode & 0o777
@@ -282,7 +312,7 @@ def build_parser() -> argparse.ArgumentParser:
         prog="omadeck",
         description="Drive Omarchy by voice, with OpenAI Realtime as the router.",
     )
-    parser.add_argument("--version", action="version", version=f"omarchy-voice {__version__}")
+    parser.add_argument("--version", action="version", version=f"omadeck {__version__}")
     parser.add_argument("-n", "--dry-run", action="store_true",
                         help="decide, but narrate actions instead of running them")
     parser.add_argument("-v", "--verbose", action="store_true")
@@ -305,6 +335,10 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument("words", nargs="*",
                    help="text for `listen say`")
     p.set_defaults(func=cmd_listen)
+
+    p = sub.add_parser("restart",
+                       help="restart the voice daemon and the phone page, e.g. after an update")
+    p.set_defaults(func=cmd_restart)
 
     p = sub.add_parser("status", help="what the daemon is doing (for the bar)")
     p.add_argument("--json", action="store_true")

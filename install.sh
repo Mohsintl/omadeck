@@ -130,7 +130,7 @@ if [[ -d $OMARCHY_BIN ]] && ask "also install the 'omarchy voice ...' commands i
   if sudo install -m 755 "$SOURCE"/omarchy/bin/omarchy-voice* "$OMARCHY_BIN/"; then
     echo "   installed. Try: omarchy voice doctor"
   else
-    warn "could not install them; 'omarchy-voice' still works on its own."
+    warn "could not install them; 'omadeck' still works on its own."
   fi
 fi
 
@@ -139,7 +139,7 @@ if ask "install the systemd user service (starts with your session)?"; then
   cp "$SOURCE/share/omarchy-voice.service" "$UNITDIR/"
   systemctl --user daemon-reload
   systemctl --user enable omarchy-voice.service
-  echo "   enabled. Start it now with: systemctl --user start omarchy-voice"
+  echo "   enabled. Start it now with: omadeck restart"
 fi
 
 # The phone bridge is a separate long-running process: it has to stay up even
@@ -200,4 +200,4 @@ echo "   edit $ENVFILE                put OPENAI_API_KEY=sk-... in it"
 echo "   omadeck mobile                    get your phone pairing link"
 echo "   omadeck doctor                    check every moving part"
 echo "   omadeck --dry-run say \"...\"        try a command without a microphone"
-echo "   systemctl --user start omarchy-voice"
+echo "   omadeck restart                   start or restart everything (also after an update)"

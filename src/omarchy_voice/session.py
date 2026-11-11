@@ -139,7 +139,7 @@ def daemon_running() -> bool:
 def send_control(command: str, timeout: float = 5.0) -> str:
     """Talk to a running daemon from the CLI."""
     if not daemon_running():
-        raise ConnectionError("no omarchy-voice daemon is running")
+        raise ConnectionError("the OmaDeck voice daemon is not running (start it with: omadeck restart)")
     client = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
     client.settimeout(timeout)
     client.connect(str(SOCKET_PATH))

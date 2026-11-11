@@ -2,7 +2,7 @@
 # Every key here is optional — these are the defaults.
 
 [openai]
-# Used by `omarchy-voice say` (typed, no microphone). The daemon itself talks
+# Used by `omadeck say` (typed, no microphone). The daemon itself talks
 # to the Realtime API; this is the Chat Completions model for one-shot plans.
 planner_model = "gpt-4.1"
 api_key_env = "OPENAI_API_KEY"

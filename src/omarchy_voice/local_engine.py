@@ -1455,7 +1455,7 @@ def run(config: Config) -> int:
         for p in problems:
             print(f"local engine: {p}", file=sys.stderr)
         fb = Feedback(config)
-        fb.state("error", "local engine not configured — see: omarchy-voice doctor")
+        fb.state("error", "local engine not configured — see: omadeck doctor")
         # non-fatal: let it stay down without spamming restarts
         return 0
     try:

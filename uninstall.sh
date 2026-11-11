@@ -81,4 +81,4 @@ if removed:
 PYEOF
 fi
 
-echo "omarchy-voice removed."
+echo "OmaDeck removed."

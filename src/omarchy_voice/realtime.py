@@ -1376,7 +1376,7 @@ def run(config: Config) -> int:
     if unconfigured:
         note = f"{config.api_key_env} is not set — put it in {ENV_FILE}"
         print(note)
-        print("then: systemctl --user restart omarchy-voice")
+        print("then: omadeck restart")
         Feedback(config).state("unconfigured", note)
         return 0
     if hard:
