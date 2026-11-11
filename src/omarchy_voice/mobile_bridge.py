@@ -5114,8 +5114,8 @@ def kill_port(port: int, hand_off: bool = True) -> str:
     return f"Killed {names} on port {port}."
 
 
-def _focused_is_terminal() -> bool | None:
-    """Whether the focused window is a terminal; None if it cannot be told."""
+def _focused_window() -> dict | None:
+    """Hyprland's activewindow, or None if it cannot be read."""
     if not shutil.which("hyprctl"):
         return None
     try:
@@ -5124,26 +5124,130 @@ def _focused_is_terminal() -> bool | None:
         window = json.loads(res.stdout or "{}")
     except Exception:
         return None
-    if not isinstance(window, dict) or not window:
+    return window if isinstance(window, dict) and window else None
+
+
+def _focused_is_terminal() -> bool | None:
+    """Whether the focused window is a terminal; None if it cannot be told."""
+    window = _focused_window()
+    if window is None:
         return None
     from .tools import is_terminal_class
     return is_terminal_class(window.get("class") or window.get("initialClass") or "")
 
 
-def _clipboard_chord(action: str) -> tuple[str | None, str]:
-    """The copy or paste chord for the focused window.
+VIM_NAMES = frozenset({"nvim", "vim", "vi", "lvim", "nvim-qt"})
 
-    Terminals copy and paste with Ctrl+Shift, and in a terminal Ctrl+C is not
-    copy at all: it stops whatever is running. So Copy is refused when the
-    focused window cannot be identified, rather than risk killing a process.
+
+def _process_children() -> dict[int, list[tuple[int, str]]]:
+    """ppid -> [(pid, command name)] for every process /proc shows."""
+    children: dict[int, list[tuple[int, str]]] = {}
+    try:
+        entries = [p for p in Path("/proc").iterdir() if p.name.isdigit()]
+    except OSError:
+        return children
+    for entry in entries:
+        try:
+            stat = (entry / "stat").read_text()
+        except OSError:
+            continue
+        # "pid (comm) state ppid ...": comm may itself contain spaces or ")".
+        head, _, tail = stat.rpartition(")")
+        comm = head.partition("(")[2]
+        fields = tail.split()
+        if len(fields) >= 2 and fields[1].isdigit():
+            children.setdefault(int(fields[1]), []).append((int(entry.name), comm))
+    return children
+
+
+def _terminal_runs_vim(window: dict) -> bool:
+    """Whether the focused terminal window is showing Vim or Neovim.
+
+    The title says so when the shell or Neovim sets it. Otherwise look for a
+    vim process under the terminal's own process, but only when that process
+    serves this one window: a terminal server (footclient, kitty single
+    instance) has every window's shell under it, and a Neovim in another
+    window would make a plain shell here look like Vim.
     """
-    terminal = _focused_is_terminal()
-    letter = "c" if action == "copy" else "v"
-    if terminal:
-        return f"ctrl+shift+{letter}", ""
-    if terminal is None and action == "copy":
-        return None, "couldn't tell which window is focused, so Copy was not sent"
-    return f"ctrl+{letter}", ""
+    import re
+    title = str(window.get("title") or "").lower()
+    if re.search(r"(^|[\s/:(\[-])(n?vim|vi|lvim)($|[\s:)\]-])", title):
+        return True
+    pid = window.get("pid")
+    if not isinstance(pid, int) or pid <= 0:
+        return False
+    children = _process_children()
+    if len(children.get(pid, [])) != 1:
+        return False
+    todo, seen = [pid], set()
+    while todo:
+        current = todo.pop()
+        for child, comm in children.get(current, []):
+            if child in seen:
+                continue
+            seen.add(child)
+            if comm in VIM_NAMES:
+                return True
+            todo.append(child)
+    return False
+
+
+def _hypr_shortcut(mods: str, key: str) -> tuple[bool, str]:
+    """Press a chord through Hyprland, which delivers it to the focused window.
+
+    Preferred for app shortcuts: VS Code ignored Ctrl+A sent by wtype, a known
+    habit of Electron apps with virtual-keyboard modifiers.
+    """
+    if not shutil.which("hyprctl"):
+        return False, "hyprctl is not installed"
+    lua = (f"hl.dsp.send_shortcut({{ mods = {json.dumps(mods)}, key = {json.dumps(key)}, "
+           'window = "activewindow" })')
+    try:
+        res = subprocess.run(["hyprctl", "dispatch", lua],
+                             capture_output=True, text=True, timeout=5)
+    except Exception as exc:
+        return False, str(exc)
+    out = (res.stdout or "").lower()
+    if res.returncode == 0 and "not found" not in out and "error" not in out:
+        return True, ""
+    return False, (res.stderr or res.stdout or "hyprctl dispatch failed").strip()
+
+
+_APP_CHORDS = {"select_all": "a", "copy": "c", "paste": "v"}
+
+
+def _editing_key(action: str) -> tuple[bool, str]:
+    """All, Copy and Paste, done the way the focused window understands them.
+
+    - Apps: Ctrl+A/C/V, through Hyprland first and wtype if that fails.
+    - Neovim in a terminal: Ctrl+A would add 1 to a number and Ctrl+Shift+C
+      only copies a mouse selection, so All is `Esc gg V G` and Copy is
+      `"+y`, a yank to the system clipboard.
+    - Any other terminal: Copy and Paste use Ctrl+Shift, because Ctrl+C stops
+      the running program. A shell has nothing to select all.
+    """
+    from .tools import is_terminal_class
+    letter = _APP_CHORDS[action]
+    window = _focused_window()
+    if window is None:
+        if action == "copy":
+            return False, "couldn't tell which window is focused, so Copy was not sent"
+        return _press_key(f"ctrl+{letter}")
+    if not is_terminal_class(window.get("class") or window.get("initialClass") or ""):
+        ok, err = _hypr_shortcut("ctrl", letter)
+        return (ok, err) if ok else _press_key(f"ctrl+{letter}")
+
+    if action == "paste":
+        # Bracketed paste: Neovim pastes it as text in any mode.
+        return _press_key("ctrl+shift+v")
+    if _terminal_runs_vim(window):
+        if action == "select_all":
+            ok, err = _press_key("escape")
+            return _type_text("ggVG") if ok else (ok, err)
+        return _type_text('"+y')
+    if action == "copy":
+        return _press_key("ctrl+shift+c")
+    return False, "nothing to select in a terminal shell; All works in editors and Neovim"
 
 
 def _press_key(key: str) -> tuple[bool, str]:
@@ -5154,18 +5258,13 @@ def _press_key(key: str) -> tuple[bool, str]:
     k_raw = key.strip()
     k_lower = k_raw.lower()
 
-    if k_lower in ("copy", "paste"):
-        chord, err = _clipboard_chord(k_lower)
-        if chord is None:
-            return False, err
-        k_lower = k_raw = chord
+    if k_lower in ("copy", "paste", "select_all", "selectall"):
+        return _editing_key("select_all" if k_lower == "selectall" else k_lower)
 
     # Aliases
     aliases = {
         "sigint": "ctrl+c",
         "interrupt": "ctrl+c",
-        "select_all": "ctrl+a",
-        "selectall": "ctrl+a",
         "clear": "ctrl+l",
         "term_copy": "ctrl+shift+c",
         "term_paste": "ctrl+shift+v",

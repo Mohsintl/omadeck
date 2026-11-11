@@ -751,19 +751,23 @@ class MobileBridgePinTests(unittest.TestCase):
         sent = run.call_args.args[0]
         self.assertEqual(sent[:5], ["wtype", "-M", "ctrl", "-k", "z"])
 
-    def _press_in(self, key, window_class):
-        """Press `key` with `window_class` focused; return the wtype argv sent."""
+    def _press_in(self, key, window_class, title="", vim=False, hypr_ok=True):
+        """Press `key` with a window focused; return everything sent to it."""
         sent = []
 
         def fake_run(argv, **kwargs):
             if argv[:3] == ["hyprctl", "-j", "activewindow"]:
-                body = json.dumps({"class": window_class}) if window_class else ""
+                body = (json.dumps({"class": window_class, "title": title, "pid": 100})
+                        if window_class else "")
                 return SimpleNamespace(returncode=0, stdout=body, stderr="")
             sent.append(argv)
-            return SimpleNamespace(returncode=0, stdout="", stderr="")
+            if argv[:2] == ["hyprctl", "dispatch"] and not hypr_ok:
+                return SimpleNamespace(returncode=1, stdout="", stderr="no")
+            return SimpleNamespace(returncode=0, stdout="ok", stderr="")
 
         with mock.patch("omarchy_voice.mobile_bridge.shutil.which", return_value="/usr/bin/x"), \
-             mock.patch("omarchy_voice.mobile_bridge.subprocess.run", side_effect=fake_run):
+             mock.patch("omarchy_voice.mobile_bridge.subprocess.run", side_effect=fake_run), \
+             mock.patch("omarchy_voice.mobile_bridge._terminal_runs_vim", return_value=vim):
             ok, err = _press_key(key)
         return ok, err, sent
 
@@ -773,11 +777,19 @@ class MobileBridgePinTests(unittest.TestCase):
         self.assertEqual(sent[0], ["wtype", "-M", "ctrl", "-M", "shift", "-k", "c",
                                    "-m", "shift", "-m", "ctrl"])
 
-    def test_copy_and_paste_outside_a_terminal(self):
-        _, _, sent = self._press_in("copy", "google-chrome")
-        self.assertEqual(sent[0][:5], ["wtype", "-M", "ctrl", "-k", "c"])
-        _, _, sent = self._press_in("paste", "google-chrome")
-        self.assertEqual(sent[0][:5], ["wtype", "-M", "ctrl", "-k", "v"])
+    def test_app_shortcuts_go_through_hyprland(self):
+        # VS Code ignored Ctrl+A from wtype; Hyprland delivers it to the window.
+        for key, letter in (("select_all", "a"), ("copy", "c"), ("paste", "v")):
+            ok, _, sent = self._press_in(key, "code")
+            self.assertTrue(ok)
+            self.assertEqual(len(sent), 1)
+            self.assertEqual(sent[0][:2], ["hyprctl", "dispatch"])
+            self.assertIn('mods = "ctrl"', sent[0][2])
+            self.assertIn(f'key = "{letter}"', sent[0][2])
+
+    def test_app_shortcuts_fall_back_to_wtype(self):
+        _, _, sent = self._press_in("select_all", "code", hypr_ok=False)
+        self.assertEqual(sent[1][:5], ["wtype", "-M", "ctrl", "-k", "a"])
 
     def test_paste_in_a_terminal_uses_ctrl_shift_v(self):
         _, _, sent = self._press_in("paste", "foot")
@@ -790,9 +802,34 @@ class MobileBridgePinTests(unittest.TestCase):
         self.assertIn("Copy was not sent", err)
         self.assertEqual(sent, [])
 
-    def test_select_all_is_ctrl_a(self):
-        _, _, sent = self._press_in("select_all", "google-chrome")
-        self.assertEqual(sent[0][:5], ["wtype", "-M", "ctrl", "-k", "a"])
+    def test_select_all_in_neovim_selects_every_line(self):
+        ok, _, sent = self._press_in("select_all", "Alacritty", vim=True)
+        self.assertTrue(ok)
+        self.assertEqual(sent[0][:3], ["wtype", "-k", "Escape"])
+        self.assertEqual(sent[1], ["wtype", "--", "ggVG"])
+
+    def test_copy_in_neovim_yanks_to_the_system_clipboard(self):
+        _, _, sent = self._press_in("copy", "Alacritty", vim=True)
+        self.assertEqual(sent, [["wtype", "--", '"+y']])
+
+    def test_select_all_in_a_shell_presses_nothing(self):
+        ok, err, sent = self._press_in("select_all", "Alacritty")
+        self.assertFalse(ok)
+        self.assertIn("nothing to select", err)
+        self.assertEqual(sent, [])
+
+    def test_vim_is_recognised_from_the_title_or_its_process(self):
+        from omarchy_voice.mobile_bridge import _terminal_runs_vim
+        self.assertTrue(_terminal_runs_vim({"title": "nvim ~/notes.md", "pid": 1}))
+        self.assertTrue(_terminal_runs_vim({"title": "notes.md - NVIM", "pid": 1}))
+        self.assertFalse(_terminal_runs_vim({"title": "vivid colours", "pid": 1}))
+        tree = {100: [(200, "bash")], 200: [(300, "nvim")]}
+        with mock.patch("omarchy_voice.mobile_bridge._process_children", return_value=tree):
+            self.assertTrue(_terminal_runs_vim({"title": "~", "pid": 100}))
+        # A terminal server with several windows: another window's nvim proves nothing.
+        server = {100: [(200, "bash"), (201, "bash")], 201: [(300, "nvim")]}
+        with mock.patch("omarchy_voice.mobile_bridge._process_children", return_value=server):
+            self.assertFalse(_terminal_runs_vim({"title": "~", "pid": 100}))
 
     def test_key_row_has_select_all_copy_and_paste(self):
         for key in ("enter", "backspace", "tab", "escape", "select_all", "copy", "paste"):
