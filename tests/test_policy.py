@@ -462,6 +462,52 @@ class LaunchOnWorkspaceTests(unittest.TestCase):
         place.assert_not_called()
 
 
+class FindDesktopAppTests(unittest.TestCase):
+    """"Open spotify" or "open OBS Studio" names an installed app, not a chip."""
+
+    def setUp(self):
+        import tempfile
+        self._tmp = tempfile.TemporaryDirectory()
+        root = Path(self._tmp.name)
+        self.user, self.system = root / "user", root / "system"
+        self.user.mkdir()
+        self.system.mkdir()
+        self._patch = mock.patch("omarchy_voice.tools.XDG_APP_DIRS", (self.user, self.system))
+        self._patch.start()
+
+    def tearDown(self):
+        self._patch.stop()
+        self._tmp.cleanup()
+
+    def _entry(self, directory, app_id, name, extra=""):
+        (directory / f"{app_id}.desktop").write_text(
+            f"[Desktop Entry]\nType=Application\nName={name}\nExec={app_id}\n{extra}"
+            f"[Desktop Action new-window]\nName=New Window\n")
+
+    def test_by_id_and_by_launcher_name(self):
+        from omarchy_voice.tools import find_desktop_app
+        self._entry(self.system, "spotify", "Spotify")
+        self._entry(self.system, "com.obsproject.Studio", "OBS Studio")
+        self.assertEqual(find_desktop_app("Spotify"), ("spotify", "Spotify"))
+        self.assertEqual(find_desktop_app("obs studio"),
+                         ("com.obsproject.Studio", "OBS Studio"))
+        self.assertIsNone(find_desktop_app("obs"))  # no guessing at partial names
+
+    def test_hidden_entries_and_user_overrides(self):
+        from omarchy_voice.tools import find_desktop_app
+        self._entry(self.system, "helper", "Helper", "NoDisplay=true\n")
+        self._entry(self.system, "notes", "Notes")
+        self._entry(self.user, "notes", "Notes", "Hidden=true\n")
+        self.assertIsNone(find_desktop_app("helper"))
+        self.assertIsNone(find_desktop_app("notes"))
+
+    def test_two_apps_with_one_name_is_not_a_guess(self):
+        from omarchy_voice.tools import find_desktop_app
+        self._entry(self.system, "a.editor", "Editor")
+        self._entry(self.system, "b.editor", "Editor")
+        self.assertIsNone(find_desktop_app("editor"))
+
+
 class WindowAddressTests(unittest.TestCase):
     """A bare 0x address matches nothing, and Hyprland says so only as a warning."""
 

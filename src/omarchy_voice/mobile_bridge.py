@@ -5878,6 +5878,7 @@ _WS_WORDS = {
 }
 
 _CHROME_NAMES = ("chrome", "google chrome", "google-chrome")
+_NOT_WINDOWS = ("menu", "launcher", "clipboard", "tab")
 
 # How long the phone waits for the daemon's model to answer. It was 8 seconds,
 # and a three-step request takes the model 20 to 30: the phone reported a
@@ -5974,6 +5975,10 @@ def _quick_command(text: str, voice: bool = False) -> str | None:
                                              "workspace": ws})
                 return (f"Opened Chrome on workspace {ws}." if ok
                         else f"Couldn't open Chrome: {out}")
+            # Menus and the launcher are overlays, not windows: there is
+            # nothing to move, and waiting for a window would just stall.
+            if any(word in what.split() for word in _NOT_WINDOWS):
+                return f"The {what} isn't a window, so it can't go on a workspace."
             # Anything else this page already knows how to open: open it the
             # usual way, then move whatever window that produced.
             try:
@@ -5982,7 +5987,20 @@ def _quick_command(text: str, voice: bool = False) -> str | None:
                 return None
             opened = _quick_command(f"open {what}", voice=voice)
             if opened is None:
-                return None  # not one we know; the planner can use launch_app
+                # Not a chip: any installed app, found by its id or by the
+                # name the launcher shows. Only an unknown name reaches the
+                # model.
+                from .tools import find_desktop_app
+                found = find_desktop_app(what)
+                if found is None:
+                    return None
+                app_id, label = found
+                ok, out = run("launch_app", {"app": app_id, "workspace": ws})
+                if not ok:
+                    return f"Couldn't open {label}: {out}"
+                if out.startswith("started, but"):
+                    return f"Opened {label}, but no new window appeared to move."
+                return f"Opened {label} on workspace {ws}."
             if opened.startswith(("Couldn't", "Could not")):
                 return opened
             placed = executor.place_new_window(before, ws)

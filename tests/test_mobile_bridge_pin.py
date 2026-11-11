@@ -702,10 +702,32 @@ class MobileBridgePinTests(unittest.TestCase):
         from omarchy_voice.mobile_bridge import _quick_command
         from omarchy_voice.tools import Executor
         with mock.patch.object(Executor, "window_addresses", return_value=set()), \
-             mock.patch.object(Executor, "place_new_window") as place:
+             mock.patch.object(Executor, "place_new_window") as place, \
+             mock.patch("omarchy_voice.tools.find_desktop_app", return_value=None):
             reply = _quick_command("open blender on workspace 2")
         self.assertIsNone(reply)
         place.assert_not_called()
+
+    def test_an_installed_app_on_a_workspace_skips_the_model(self):
+        from omarchy_voice.mobile_bridge import _quick_command
+        from omarchy_voice.tools import Executor, Result
+        with mock.patch.object(Executor, "window_addresses", return_value=set()), \
+             mock.patch("omarchy_voice.tools.find_desktop_app",
+                        return_value=("com.obsproject.Studio", "OBS Studio")), \
+             mock.patch.object(Executor, "call",
+                               return_value=Result(True, "opened on workspace 2")) as call:
+            reply = _quick_command("Open OBS Studio on workspace two.")
+        self.assertEqual(reply, "Opened OBS Studio on workspace 2.")
+        call.assert_called_once_with("launch_app", {"app": "com.obsproject.Studio",
+                                                    "workspace": "2"})
+
+    def test_a_menu_is_not_sent_to_a_workspace(self):
+        from omarchy_voice.mobile_bridge import _quick_command
+        from omarchy_voice.tools import Executor
+        with mock.patch.object(Executor, "call") as call:
+            reply = _quick_command("open the launcher on workspace 3")
+        self.assertIn("isn't a window", reply)
+        call.assert_not_called()
 
     def test_a_failed_key_is_logged_with_its_error(self):
         with mock.patch("omarchy_voice.mobile_bridge._press_key", return_value=(False, "no keymap")):
