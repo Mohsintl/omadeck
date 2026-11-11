@@ -1,4 +1,6 @@
-# 🎮 OmaDeck
+<p align="center"><img src="docs/assets/omadeck-logo-256.png" width="128" alt="OmaDeck logo: a glowing purple deck of keys with a microphone key, inside segmented rings" /></p>
+
+<h1 align="center">OmaDeck</h1>
 
 [![License: Apache 2.0](https://img.shields.io/badge/License-Apache_2.0-blue.svg)](LICENSE)
 [![Platform](https://img.shields.io/badge/Client-iOS%20%7C%20Android%20(PWA)-blue)](#)

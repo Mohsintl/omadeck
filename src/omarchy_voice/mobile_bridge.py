@@ -84,28 +84,47 @@ def _generate_icon_png(width=192, height=192) -> bytes:
     return b"\x89PNG\r\n\x1a\n" + ihdr_chunk + idat_chunk + iend_chunk
 
 _ICON_PNG: bytes | None = None
+ASSETS_DIR = Path(__file__).resolve().parent / "assets"
+# URL path -> logo file in assets/. The art comes from launch/logo/final.py.
+ICON_FILES = {
+    "/icon.png": "icon-192.png",
+    "/favicon.ico": "icon-192.png",
+    "/icon-192.png": "icon-192.png",
+    "/icon-512.png": "icon-512.png",
+    "/icon-maskable-512.png": "icon-maskable-512.png",
+    "/apple-touch-icon.png": "apple-touch-icon.png",
+}
+_ICON_CACHE: dict[str, bytes] = {}
 
-def _get_icon_png() -> bytes:
-    global _ICON_PNG
-    if _ICON_PNG is None:
-        _ICON_PNG = _generate_icon_png()
-    return _ICON_PNG
+
+def _get_icon_png(path: str = "/icon.png") -> bytes:
+    """The OmaDeck logo for `path`, or a plain generated icon if the file is missing."""
+    name = ICON_FILES.get(path, "icon-192.png")
+    if name not in _ICON_CACHE:
+        try:
+            _ICON_CACHE[name] = (ASSETS_DIR / name).read_bytes()
+        except OSError:
+            global _ICON_PNG
+            if _ICON_PNG is None:
+                _ICON_PNG = _generate_icon_png()
+            return _ICON_PNG
+    return _ICON_CACHE[name]
 
 def _manifest_json(start_url: str = "/") -> bytes:
     return json.dumps({
-        "name": "Oma Remote",
-        "short_name": "Oma",
+        "name": "OmaDeck",
+        "short_name": "OmaDeck",
         "start_url": start_url,
         "display": "standalone",
         "background_color": "#0f0f13",
         "theme_color": "#0f0f13",
         "icons": [
-            {
-                "src": "/icon.png",
-                "sizes": "192x192",
-                "type": "image/png",
-                "purpose": "any maskable"
-            }
+            {"src": "/icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any"},
+            {"src": "/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any"},
+            # The rings reach the edges; Android's masks would clip them, so
+            # the maskable icon has the art shrunk into the safe zone.
+            {"src": "/icon-maskable-512.png", "sizes": "512x512", "type": "image/png",
+             "purpose": "maskable"},
         ]
     }).encode("utf-8")
 
@@ -408,7 +427,7 @@ _PWA_HTML = r"""<!DOCTYPE html>
 </script>
 <link rel="manifest" href="/manifest.webmanifest">
 <link rel="icon" href="/icon.png" type="image/png">
-<link rel="apple-touch-icon" href="/icon.png">
+<link rel="apple-touch-icon" href="/apple-touch-icon.png">
 <title>Oma Deck</title>
 <style>
   :root {
@@ -5637,11 +5656,12 @@ class BridgeHandler(http.server.BaseHTTPRequestHandler):
             self.send_header("Connection", "close")
             self.end_headers()
             self.wfile.write(manifest)
-        elif path in ("/icon.png", "/apple-touch-icon.png", "/favicon.ico"):
-            icon = _get_icon_png()
+        elif path in ICON_FILES:
+            icon = _get_icon_png(path)
             self.send_response(200)
             self.send_header("Content-Type", "image/png")
             self.send_header("Content-Length", str(len(icon)))
+            self.send_header("Cache-Control", "public, max-age=86400")
             self.send_header("Connection", "close")
             self.end_headers()
             self.wfile.write(icon)
@@ -7168,7 +7188,7 @@ def run(config, port: int = DEFAULT_PORT) -> int:
     # meant to be seen. The fingerprint is public, and lets the phone check a CA
     # fetched over plain HTTP.
     if not _can_show_pairing_link():
-        print(f"\n  Oma Remote is running on port {port}")
+        print(f"\n  OmaDeck is running on port {port}")
         if https_url:
             print(f"  certificate →  {url}/ca.pem     (install once on the phone)")
             fingerprint = _ca_fingerprint()
