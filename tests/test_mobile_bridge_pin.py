@@ -792,19 +792,73 @@ class MobileBridgePinTests(unittest.TestCase):
         self.assertIn('mods = "ctrl"', sent[2])
         self.assertIn('key = "c"', sent[2])
 
-    def test_kill_port_reports_accurately(self):
-        from omarchy_voice.mobile_bridge import _quick_command
-        # Port with no listening process
-        with mock.patch("omarchy_voice.mobile_bridge.subprocess.run",
-                        return_value=SimpleNamespace(returncode=1, stderr="", stdout="")):
-            reply = _quick_command("kill port 3000")
-            self.assertEqual(reply, "No process was listening on port 3000.")
+    # `ss -Hltnp` lines: python's http.server listens on [::] (IPv6), which
+    # fuser missed, so the port was reported free while the server ran.
+    SS_PYTHON = ('LISTEN 0 5 *:3000 *:* users:(("python3",pid=4242,fd=3))\n')
+    SS_ROOT = 'LISTEN 0 4096 0.0.0.0:3000 0.0.0.0:*\n'
 
-        # Port with a listening process
-        with mock.patch("omarchy_voice.mobile_bridge.subprocess.run",
-                        return_value=SimpleNamespace(returncode=0, stderr="", stdout="")):
+    def _kill(self, ss_outputs, kill_side_effect=None):
+        from omarchy_voice.mobile_bridge import kill_port
+        outputs = iter(ss_outputs)
+
+        def fake_run(argv, **kwargs):
+            self.assertEqual(argv[0], "ss")
+            return SimpleNamespace(returncode=0, stdout=next(outputs, ""), stderr="")
+
+        with mock.patch("omarchy_voice.mobile_bridge.shutil.which", return_value="/usr/bin/ss"), \
+             mock.patch("omarchy_voice.mobile_bridge.subprocess.run", side_effect=fake_run), \
+             mock.patch("omarchy_voice.mobile_bridge.os.kill",
+                        side_effect=kill_side_effect) as kill, \
+             mock.patch("omarchy_voice.mobile_bridge.time.sleep"):
+            return kill_port(3000), kill
+
+    def test_kill_port_finds_an_ipv6_python_server(self):
+        import signal
+        reply, kill = self._kill([self.SS_PYTHON, ""])
+        self.assertEqual(reply, "Killed python3 on port 3000.")
+        kill.assert_called_once_with(4242, signal.SIGTERM)
+
+    def test_kill_port_with_nothing_listening(self):
+        reply, kill = self._kill([""])
+        self.assertEqual(reply, "No process was listening on port 3000.")
+        kill.assert_not_called()
+
+    def test_kill_port_escalates_when_the_server_ignores_sigterm(self):
+        import signal
+        # Still listening after SIGTERM and every re-check, then gone.
+        reply, kill = self._kill([self.SS_PYTHON] * 11 + [""])
+        self.assertEqual(reply, "Killed python3 on port 3000.")
+        self.assertEqual(kill.call_count, 2)
+        self.assertEqual(kill.call_args_list[-1].args,
+                         (4242, getattr(signal, "SIGKILL", signal.SIGTERM)))
+
+    def test_kill_port_says_so_when_the_port_stays_busy(self):
+        reply, _ = self._kill([self.SS_PYTHON] * 20)
+        self.assertIn("still listening", reply)
+
+    def test_kill_port_owned_by_another_user_is_explained(self):
+        reply, kill = self._kill([self.SS_ROOT])
+        self.assertIn("another user's process", reply)
+        kill.assert_not_called()
+
+    def test_open_on_a_workspace_as_speech_to_text_writes_it(self):
+        from omarchy_voice.mobile_bridge import _quick_command
+        from omarchy_voice.tools import Executor, Result
+        # "Open Chromium Workspace too" in the log: no "on", and "two" as "too".
+        with mock.patch.object(Executor, "call",
+                               return_value=Result(True, "opened on workspace 2")) as call:
+            reply = _quick_command("Open Chrome Workspace too")
+        self.assertEqual(reply, "Opened Chrome on workspace 2.")
+        call.assert_called_once_with("launch_app", {"app": "google-chrome:new-window",
+                                                    "workspace": "2"})
+
+    def test_the_phone_button_uses_kill_port(self):
+        from omarchy_voice.mobile_bridge import _quick_command
+        with mock.patch("omarchy_voice.mobile_bridge.kill_port",
+                        return_value="Killed python3 on port 3000.") as kp:
             reply = _quick_command("kill port 3000")
-            self.assertEqual(reply, "Killed process on port 3000.")
+        self.assertEqual(reply, "Killed python3 on port 3000.")
+        kp.assert_called_once_with(3000)
 
     def _pairing_guide_output(self, https_url, qrencode=None):
         from omarchy_voice.mobile_bridge import _print_pairing_guide

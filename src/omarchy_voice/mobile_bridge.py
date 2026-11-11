@@ -4984,6 +4984,87 @@ def _type_text(text: str, enter: bool = False) -> tuple[bool, str]:
         return False, str(exc)
 
 
+def _port_listeners(port: int) -> tuple[list[tuple[int, str]], bool] | None:
+    """The (pid, name) of every process listening on TCP `port`.
+
+    The second value says whether something listens that cannot be named,
+    because another user (root, Docker) owns it. None if `ss` is missing.
+
+    `ss` sees IPv4 and IPv6 alike. `fuser 3000/tcp` did not find
+    `python -m http.server 3000`, which listens on `::`, and reported the
+    port as free while the server was running.
+    """
+    import re
+    if not shutil.which("ss"):
+        return None
+    try:
+        res = subprocess.run(["ss", "-Hltnp", f"sport = :{port}"],
+                             capture_output=True, text=True, timeout=3)
+    except Exception:
+        return None
+    found: dict[int, str] = {}
+    unnamed = False
+    for line in res.stdout.splitlines():
+        if not line.strip():
+            continue
+        users = re.findall(r'\("([^"]*)",pid=(\d+)', line)
+        if not users:
+            unnamed = True
+        for name, pid in users:
+            found[int(pid)] = name
+    return sorted(found.items()), unnamed
+
+
+def kill_port(port: int) -> str:
+    """Stop whatever listens on TCP `port`, and check that it actually went."""
+    import signal
+    listeners = _port_listeners(port)
+    if listeners is None:
+        # No ss: fall back to fuser, which at least covers IPv4.
+        try:
+            check = subprocess.run(["fuser", f"{port}/tcp"], capture_output=True, timeout=2)
+        except FileNotFoundError:
+            return "Couldn't check the port: neither ss nor fuser is installed."
+        if check.returncode != 0:
+            return f"No process was listening on port {port}."
+        subprocess.run(["fuser", "-k", f"{port}/tcp"], capture_output=True, timeout=2)
+        return f"Killed process on port {port}."
+
+    procs, unnamed = listeners
+    if not procs:
+        if unnamed:
+            return (f"Port {port} is in use by another user's process (root or Docker), "
+                    "which OmaDeck can't stop.")
+        return f"No process was listening on port {port}."
+
+    for pid, _ in procs:
+        try:
+            os.kill(pid, signal.SIGTERM)
+        except ProcessLookupError:
+            pass
+        except PermissionError:
+            return f"Not allowed to stop pid {pid} on port {port}."
+    # Give servers a moment to shut down cleanly, then insist.
+    remaining = procs
+    for _ in range(10):  # about 1.5 seconds
+        remaining = (_port_listeners(port) or ([], False))[0]
+        if not remaining:
+            break
+        time.sleep(0.15)
+    else:
+        for pid, _ in remaining:
+            try:
+                os.kill(pid, getattr(signal, "SIGKILL", signal.SIGTERM))
+            except (ProcessLookupError, PermissionError):
+                pass
+        time.sleep(0.2)
+        if (_port_listeners(port) or ([], False))[0]:
+            return f"Tried to stop port {port}, but something is still listening."
+
+    names = ", ".join(sorted({name for _, name in procs}))
+    return f"Killed {names} on port {port}."
+
+
 def _focused_is_terminal() -> bool | None:
     """Whether the focused window is a terminal; None if it cannot be told."""
     if not shutil.which("hyprctl"):
@@ -5791,6 +5872,9 @@ _SOCKET_COMMANDS = {"toggle", "start", "stop", "quit", "confirm", "cancel"}
 _WS_WORDS = {
     "one": "1", "two": "2", "three": "3", "four": "4", "five": "5",
     "six": "6", "seven": "7", "eight": "8", "nine": "9", "ten": "10",
+    # What speech-to-text writes for a spoken number after "workspace":
+    # "open chromium workspace two" came back as "... workspace too".
+    "to": "2", "too": "2", "for": "4",
 }
 
 _CHROME_NAMES = ("chrome", "google chrome", "google-chrome")
@@ -5878,7 +5962,7 @@ def _quick_command(text: str, voice: bool = False) -> str | None:
     # it is one launch and one move.
     match_open_on = re.fullmatch(
         r"(?:please )?(?:open|launch|start)(?: up)? (?:a |an |the )?(?:new )?"
-        r"(.+?)(?: window)? (?:in|on|to|at) (?:the )?(?:workspace|desktop|ws) ([\w+-]+)",
+        r"(.+?)(?: window)?(?: (?:in|on|to|at))? (?:the )?(?:workspace|desktop|ws) ([\w+-]+)",
         t,
     )
     if match_open_on:
@@ -6124,8 +6208,7 @@ def _quick_command(text: str, voice: bool = False) -> str | None:
         return "Terminated Local LLM services (ports 11434 & 8080)."
 
     if t in ("kill t3 dashboard", "kill t3", "kill dashboard", "stop t3 dashboard", "stop t3"):
-        subprocess.run(["fuser", "-k", "3773/tcp"], capture_output=True, timeout=2)
-        return "Killed T3 Dashboard (port 3773)."
+        return kill_port(3773).replace("port 3773", "port 3773 (T3 Dashboard)")
 
     kill_port_match = re.match(r"^(?:please\s+)?(?:kill|stop)\s+(?:port\s+)?(\d{2,5})\.?$", t)
     if kill_port_match and not re.search(r"\b(?:don't|do not|never|avoid|skip)\b", t):
@@ -6134,11 +6217,7 @@ def _quick_command(text: str, voice: bool = False) -> str | None:
         if 1 <= port_num <= 65535:
             if port == "11434":
                 subprocess.run(["systemctl", "stop", "ollama", "--no-ask-password"], capture_output=True, timeout=2)
-            check = subprocess.run(["fuser", f"{port}/tcp"], capture_output=True, timeout=2)
-            if check.returncode != 0:
-                return f"No process was listening on port {port}."
-            subprocess.run(["fuser", "-k", f"{port}/tcp"], capture_output=True, text=True, timeout=2)
-            return f"Killed process on port {port}."
+            return kill_port(port_num)
 
     if t in ("git status", "git diff", "git pull", "git push", "run tests"):
         if voice and t == "git push":
