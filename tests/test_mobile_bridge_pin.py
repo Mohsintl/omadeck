@@ -859,9 +859,50 @@ class MobileBridgePinTests(unittest.TestCase):
         self.assertIn("still listening", reply)
 
     def test_kill_port_owned_by_another_user_is_explained(self):
-        reply, kill = self._kill([self.SS_ROOT])
+        from omarchy_voice.mobile_bridge import kill_port
+        with mock.patch("omarchy_voice.mobile_bridge.shutil.which", return_value="/usr/bin/ss"), \
+             mock.patch("omarchy_voice.mobile_bridge.subprocess.run",
+                        return_value=SimpleNamespace(returncode=0, stdout=self.SS_ROOT,
+                                                     stderr="")), \
+             mock.patch("omarchy_voice.mobile_bridge.os.kill") as kill:
+            reply = kill_port(3000, hand_off=False)
         self.assertIn("another user's process", reply)
         kill.assert_not_called()
+
+    def _hidden(self, ss_after):
+        """Kill a port whose process the sandbox hides, via a fake Hyprland."""
+        from omarchy_voice.mobile_bridge import kill_port
+        ss_outputs = iter([self.SS_ROOT] + ss_after)
+        evals = []
+
+        def fake_run(argv, **kwargs):
+            if argv[0] == "hyprctl":
+                evals.append(argv)
+                return SimpleNamespace(returncode=0, stdout="ok", stderr="")
+            return SimpleNamespace(returncode=0, stdout=next(ss_outputs, self.SS_ROOT),
+                                   stderr="")
+
+        with mock.patch("omarchy_voice.mobile_bridge.shutil.which", return_value="/usr/bin/x"), \
+             mock.patch("omarchy_voice.mobile_bridge._launcher",
+                        return_value="/home/u/.local/share/omarchy-voice/bin/omarchy-voice"), \
+             mock.patch("omarchy_voice.mobile_bridge.subprocess.run", side_effect=fake_run), \
+             mock.patch("omarchy_voice.mobile_bridge.os.kill") as kill, \
+             mock.patch("omarchy_voice.mobile_bridge.time.sleep"):
+            reply = kill_port(3000)
+        kill.assert_not_called()  # the kill happens in the helper Hyprland starts
+        return reply, evals
+
+    def test_a_hidden_process_is_killed_through_hyprland(self):
+        reply, evals = self._hidden([self.SS_ROOT, ""])
+        self.assertEqual(reply, "Killed the process on port 3000.")
+        self.assertEqual(len(evals), 1)
+        self.assertEqual(evals[0][:2], ["hyprctl", "eval"])
+        self.assertEqual(evals[0][2], 'hl.exec_cmd("/home/u/.local/share/omarchy-voice/'
+                                      'bin/omarchy-voice kill-port 3000")')
+
+    def test_a_port_that_stays_busy_after_hyprland_says_so(self):
+        reply, _ = self._hidden([self.SS_ROOT] * 40)
+        self.assertIn("still in use", reply)
 
     def test_open_on_a_workspace_as_speech_to_text_writes_it(self):
         from omarchy_voice.mobile_bridge import _quick_command

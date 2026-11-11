@@ -5015,8 +5015,55 @@ def _port_listeners(port: int) -> tuple[list[tuple[int, str]], bool] | None:
     return sorted(found.items()), unnamed
 
 
-def kill_port(port: int) -> str:
-    """Stop whatever listens on TCP `port`, and check that it actually went."""
+def _port_busy(port: int) -> bool:
+    """Whether anything listens on `port`, named or not."""
+    listeners = _port_listeners(port)
+    return bool(listeners and (listeners[0] or listeners[1]))
+
+
+def _launcher() -> str | None:
+    """The installed omarchy-voice launcher: PREFIX/bin next to PREFIX/src."""
+    candidate = Path(__file__).resolve().parents[2] / "bin" / "omarchy-voice"
+    if candidate.is_file():
+        return str(candidate)
+    return shutil.which("omadeck") or shutil.which("omarchy-voice")
+
+
+def _kill_port_via_hyprland(port: int) -> str:
+    """Have Hyprland run `kill-port` outside this service's sandbox.
+
+    The service runs in its own user namespace, where `ss -p` cannot name the
+    processes of the rest of the session: it sees a listener on :3000 but not
+    the python behind it. Hyprland starts commands as the session itself, the
+    same way the Inspector button is launched.
+    """
+    launcher = _launcher()
+    if not launcher or not shutil.which("hyprctl"):
+        return (f"Port {port} is in use, but OmaDeck can't see which process holds "
+                "it. Stop it from a terminal.")
+    lua = f'hl.exec_cmd({json.dumps(f"{launcher} kill-port {int(port)}", ensure_ascii=False)})'
+    try:
+        r = subprocess.run(["hyprctl", "eval", lua], capture_output=True, text=True, timeout=3)
+        started = r.returncode == 0 and r.stdout.strip().lower() == "ok"
+    except Exception:
+        started = False
+    if not started:
+        return f"Port {port} is in use, but Hyprland would not run the kill."
+    # The helper waits up to ~2s itself before forcing; allow for that.
+    for _ in range(25):
+        time.sleep(0.15)
+        if not _port_busy(port):
+            return f"Killed the process on port {port}."
+    return (f"Port {port} is still in use. It may belong to root or Docker, "
+            "which OmaDeck can't stop.")
+
+
+def kill_port(port: int, hand_off: bool = True) -> str:
+    """Stop whatever listens on TCP `port`, and check that it actually went.
+
+    hand_off: when the listener's process is hidden by the sandbox, ask
+    Hyprland to run the kill instead. False in the helper Hyprland starts.
+    """
     import signal
     listeners = _port_listeners(port)
     if listeners is None:
@@ -5032,6 +5079,8 @@ def kill_port(port: int) -> str:
 
     procs, unnamed = listeners
     if not procs:
+        if unnamed and hand_off:
+            return _kill_port_via_hyprland(port)
         if unnamed:
             return (f"Port {port} is in use by another user's process (root or Docker), "
                     "which OmaDeck can't stop.")

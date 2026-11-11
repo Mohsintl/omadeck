@@ -147,6 +147,20 @@ def cmd_restart(args, config) -> int:
     return 1 if failed else 0
 
 
+def cmd_kill_port(args, config) -> int:
+    """Stop what listens on a port. The phone's Kill buttons run this through
+    Hyprland, outside the service sandbox that hides the process."""
+    from .feedback import write_log
+    from .mobile_bridge import kill_port
+    if not 1 <= args.port <= 65535:
+        print("error: port must be 1-65535", file=sys.stderr)
+        return 1
+    reply = kill_port(args.port, hand_off=False)
+    write_log(f"result  kill-port {args.port}: {reply}")
+    print(reply)
+    return 0 if reply.startswith(("Killed", "No process")) else 1
+
+
 def cmd_status(args, config) -> int:
     state = {"status": "stopped", "text": "", "icon": "󰍭"}
     if cfg.STATE_FILE.exists():
@@ -339,6 +353,10 @@ def build_parser() -> argparse.ArgumentParser:
     p = sub.add_parser("restart",
                        help="restart the voice daemon and the phone page, e.g. after an update")
     p.set_defaults(func=cmd_restart)
+
+    p = sub.add_parser("kill-port", help="stop whatever is listening on a TCP port")
+    p.add_argument("port", type=int)
+    p.set_defaults(func=cmd_kill_port)
 
     p = sub.add_parser("status", help="what the daemon is doing (for the bar)")
     p.add_argument("--json", action="store_true")
