@@ -5,54 +5,83 @@ body:
   - type: markdown
     attributes:
       value: |
-        Thanks for filing a bug report! Please make sure you are running the latest version of OmaDeck.
+        Thanks for filing a bug report! Please update to the latest `main` first (`git pull && ./install.sh && omadeck restart`), since it may already be fixed.
+
+        **Before you paste anything:** remove your pairing token, PIN, API keys and LAN IP address. Issues are public.
+  - type: input
+    id: version
+    attributes:
+      label: OmaDeck version
+      description: Output of `omadeck --version`, or `git log -1 --oneline` in your clone.
+      placeholder: "e.g. omadeck 0.4.0, or 89b2051"
+    validations:
+      required: true
   - type: input
     id: environment
     attributes:
-      label: Environment & Devices
-      description: What phone/OS and Linux desktop environment are you running?
-      placeholder: "e.g. Phone: iPhone 15 Pro (iOS 18 Safari) | Desktop: Arch Linux / Omarchy / Hyprland 0.45"
+      label: Phone and desktop
+      description: Which phone or tablet and browser, and which Linux setup?
+      placeholder: "e.g. iPad (iOS 26, Safari, added to Home Screen) | Omarchy 3.x on Hyprland 0.56"
+    validations:
+      required: true
+  - type: dropdown
+    id: area
+    attributes:
+      label: What part of OmaDeck?
+      options:
+        - A deck button or key (no AI involved)
+        - Typing or dictation
+        - Voice or typed commands (AI)
+        - Pairing, HTTPS certificate, or Home Screen app
+        - Install, update, or services
+        - Something else
     validations:
       required: true
   - type: dropdown
     id: ai_provider
     attributes:
-      label: AI Provider
-      description: Which LLM provider are you using?
+      label: AI provider
+      description: Only matters for voice or typed commands.
       options:
-        - Groq (Default / Recommended)
-        - Ollama (Local)
+        - Not applicable
+        - Groq
+        - Ollama (local)
         - OpenAI
         - OpenRouter
         - DeepSeek
         - Mistral
         - NVIDIA NIM
-        - Custom Endpoint
-        - None / Not applicable
+        - Custom endpoint
     validations:
       required: true
   - type: textarea
     id: description
     attributes:
-      label: What happened?
-      description: A clear and concise description of the bug.
-      placeholder: "When I tap on Workspace 3 or speak a command..."
+      label: What happened, and what did you expect?
+      placeholder: "I tapped :3000 with a dev server running. The deck said ... but I expected ..."
     validations:
       required: true
   - type: textarea
     id: reproduction
     attributes:
-      label: Steps to Reproduce
-      description: How can we reproduce this?
+      label: Steps to reproduce
       placeholder: |
-        1. Open OmaDeck in browser at http://<ip>:8765
-        2. Tap on ...
-        3. See error
+        1. Open the deck on the phone
+        2. Go to the Code tab and tap ...
+        3. See ...
     validations:
       required: true
   - type: textarea
-    id: logs
+    id: log
     attributes:
-      label: Relevant Logs
-      description: Paste any output from `journalctl --user -u omadeck -n 50` or browser console.
+      label: What OmaDeck logged
+      description: |
+        Run `omadeck log -n 40` right after reproducing the bug and paste the output. It shows what was heard, what the AI did, and every button press.
+        Remove tokens, keys and IP addresses first.
+      render: shell
+  - type: textarea
+    id: doctor
+    attributes:
+      label: omadeck doctor
+      description: Output of `omadeck doctor`, with any keys removed.
       render: shell
