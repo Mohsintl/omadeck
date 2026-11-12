@@ -1,5 +1,5 @@
 [build-system]
-requires = ["setuptools>=61.0"]
+requires = ["setuptools>=77.0"]
 build-backend = "setuptools.build_meta"
 
 [project]
@@ -8,16 +8,17 @@ version = "0.5.0"
 description = "OmaDeck: AI voice control and mobile remote deck for Linux (Hyprland / Omarchy)"
 readme = "README.md"
 requires-python = ">=3.11"
-license = { text = "Apache-2.0" }
+license = "Apache-2.0"
+license-files = ["LICENSE", "NOTICE"]
 authors = [
     { name = "Mohsin TL" }
 ]
 keywords = ["hyprland", "voice-control", "omarchy", "streamdeck", "linux", "speech-to-text", "pwa"]
 classifiers = [
     "Development Status :: 4 - Beta",
-    "Environment :: X11 Applications",
+    "Environment :: Console",
+    "Environment :: Web Environment",
     "Intended Audience :: End Users/Desktop",
-    "License :: OSI Approved :: Apache Software License",
     "Operating System :: POSIX :: Linux",
     "Programming Language :: Python :: 3",
     "Programming Language :: Python :: 3.11",
@@ -26,6 +27,12 @@ classifiers = [
     "Programming Language :: Python :: 3.14",
     "Topic :: Desktop Environment",
 ]
+
+[project.urls]
+Homepage = "https://mohsintl.is-a.dev/omadeck/"
+Repository = "https://github.com/Mohsintl/omadeck"
+Issues = "https://github.com/Mohsintl/omadeck/issues"
+Changelog = "https://github.com/Mohsintl/omadeck/blob/main/CHANGELOG.md"
 
 [project.optional-dependencies]
 local-stt = [

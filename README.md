@@ -15,7 +15,7 @@
 
 <div align="center">
 
-<img src="docs/media/omadeck-demo.gif" width="400" alt="OmaDeck demo at 2x speed: switching workspaces, a voice command opening Chrome, dictation into an editor, killing a dev server on port 3000, and copying a link from VS Code into Chrome, all from an iPad" />
+<img src="docs/media/omadeck-demo.webp" width="400" alt="OmaDeck demo at 2x speed: switching workspaces, a voice command opening Chrome, dictation into an editor, killing a dev server on port 3000, and copying a link from VS Code into Chrome, all from an iPad" />
 
 *At 2x speed: workspaces, a voice command, dictation, killing `:3000`, and copy and paste across apps, all from the iPad. [Full-quality video (MP4)](docs/media/omadeck-demo.mp4).*
 
@@ -25,7 +25,7 @@
 
 | 📱 Mobile Touch Remote (Portrait) | 💻 Linux Desktop (Hyprland / Omarchy) |
 | :---: | :---: |
-| <img src="docs/images/portrait-deck-tokyo-night.png" width="310" alt="OmaDeck Mobile Remote (Tokyo Night)" /> | <img src="docs/images/pc-screen.png" width="510" alt="Omarchy Linux Desktop" /> |
+| <img src="docs/images/portrait-deck-tokyo-night.png" width="310" alt="OmaDeck Mobile Remote (Tokyo Night)" /> | <img src="docs/images/pc-screen.jpg" width="510" alt="Omarchy Linux Desktop" /> |
 
 *OmaDeck running in Tokyo Night theme: tactile quick keys, inline dictation mic, instant workspace switching, and direct PC typing.*
 
@@ -119,6 +119,15 @@ Prop your phone or tablet next to your keyboard as a dedicated physical Stream D
 ---
 
 ## 🚀 Quick Start
+
+### Requirements
+
+- **On the PC:** Omarchy, or Arch with Hyprland, with `hyprctl` and `wtype`. Python 3.11 or newer; the phone deck needs no Python packages of its own.
+- **On the phone:** iPhone or iPad with Safari (tested), or Android with Chrome (should work, not tested yet).
+- **The network:** the phone and the PC on the same Wi-Fi or LAN, or the same Tailscale network. The deck listens on port `8765`.
+- **Optional:** `qrencode` for the pairing QR codes, and an API key (Groq, OpenAI and others) or a local Ollama for voice and AI.
+
+The installer runs as your user and puts everything under your home folder. It only asks for `sudo` to install packages with pacman, or for the optional `omarchy voice ...` commands. [Uninstalling](#-uninstall) removes all of it.
 
 ### 1. Installation
 
@@ -282,6 +291,42 @@ omadeck restart
 ```
 
 The installer copies the new code into place and keeps your settings, keys and pairing. Answer **N** to its questions on a re-install.
+
+---
+
+## 🩺 Troubleshooting
+
+Start with `omadeck doctor`, which checks every moving part, and `omadeck log -f`, which shows each button press and voice command as it happens.
+
+| What you see | What to do |
+|:---|:---|
+| The deck loads on the PC but times out on the phone | The firewall is probably blocking it. Omarchy turns on `ufw`, so allow the port with `sudo ufw allow 8765/tcp`. `omadeck mobile` warns about this when it spots it. Also check that the phone is on the same Wi-Fi, not mobile data. |
+| The browser warns that the connection isn't private | The certificate isn't trusted yet. Do step 1 of `omadeck mobile` again; on iPhone, also turn on full trust in **Settings ➔ General ➔ About ➔ Certificate Trust Settings**. |
+| The mic doesn't work | Browsers only allow the mic over HTTPS. Open the `https://` link, not the `http://` one, after installing the certificate. |
+| The deck asks for the "Desktop Pairing Token" | The link is missing its `?token=...`, or the token changed. Scan the QR code from `omadeck mobile` again. |
+| The Home Screen icon shows the old logo | Remove the icon from the Home Screen and add it again; iOS keeps the old one. |
+| Buttons do nothing on the PC | Check that `hyprctl` and `wtype` are installed, then run `omadeck restart`. |
+
+Still stuck? [Open an issue](https://github.com/Mohsintl/omadeck/issues) with the output of `omadeck doctor`.
+
+---
+
+## 🧹 Uninstall
+
+```bash
+cd omadeck
+./uninstall.sh
+```
+
+It stops and removes the services, the `omadeck` command, the installed code, the bar widget and the keybinding it added. It backs up `bindings.lua` and `shell.json` before changing them. Your settings, API keys and certificates stay in `~/.config/omarchy-voice` so a re-install keeps your pairing.
+
+To remove those as well:
+
+```bash
+./uninstall.sh --purge
+```
+
+Then delete the "Oma Remote CA" certificate from your phone: on iPhone, **Settings ➔ General ➔ VPN & Device Management**.
 
 ---
 

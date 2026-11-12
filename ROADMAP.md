@@ -6,20 +6,30 @@ Community feedback and contributions are highly encouraged!
 
 ---
 
-## 📌 Near-Term (v0.2.0)
+## ✅ Shipped (up to v0.5.0)
 
 - [x] **Universal Multi-Provider Engine**: Groq, Ollama, OpenAI, OpenRouter, DeepSeek, Mistral, NVIDIA NIM, and custom endpoints.
 - [x] **Zero-Scroll PWA Mobile Deck**: Fullscreen touch deck on iOS & Android.
 - [x] **Direct PC Typing**: Real-time typing from phone keyboard directly into focused PC window.
 - [x] **Decoupled STT Configuration**: Support independent `STT_API_KEY` for Whisper alongside local LLMs.
 - [x] **Quick Sound Mute Button**: Header toggle to instantly mute/unmute OmaDeck audio and cancel voice speech.
+- [x] **Voice Commands That Open Apps**: "Open Chrome on workspace 5" works for any installed app (v0.4.0).
+- [x] **Copy, Paste and Select-All Keys**: Work in normal apps, terminals and Neovim (v0.4.0).
+- [x] **Two-Minute Install**: `./install.sh --quick` ends with pairing QR codes (v0.5.0).
+- [x] **Arrow Keys With Hold-to-Repeat** (v0.5.0).
+- [x] **Saved API Keys List**: See and remove every key saved on the computer from Settings (v0.5.0).
+
+---
+
+## 📌 Next Up
+
 - [ ] **Custom Macro Builder in Web UI**: Drag-and-drop or form-based builder to define custom touch buttons with custom bash commands or key combinations.
 - [ ] **Obsidian & Note Quick-Capture**: Dedicated button to dictate or type a quick note directly into your daily Obsidian vault.
 - [ ] **Battery & Desktop Sensor Indicators**: Live display of PC CPU temperature, RAM usage, and laptop battery level on the top status strip.
 
 ---
 
-## 🚀 Medium-Term (v0.3.0)
+## 🚀 Later
 
 - [ ] **Local Wake-Word Detection**: Optional offline "Hey Oma" wake word powered by openWakeWord.
 - [ ] **Bluetooth LE / USB WebHID Fallback**: Direct offline phone-to-PC connection when Wi-Fi/LAN is unavailable or restricted.
