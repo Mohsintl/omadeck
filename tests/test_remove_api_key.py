@@ -124,10 +124,55 @@ class RemoveApiKeyTests(unittest.TestCase):
         self.assertIn("401", status)
         self.assertIn("GROQ_API_KEY=gsk_live_secret_value", self.env_file.read_text())
 
-    def test_settings_has_a_remove_button_for_each_key(self):
-        self.assertIn('data-remove-key="llm"', _PWA_HTML)
-        self.assertIn('data-remove-key="stt"', _PWA_HTML)
-        self.assertIn("/settings/remove-key", _PWA_HTML)
+    # --- "Keys saved on this computer": every key, each removable by name ---
+
+    def test_settings_lists_every_saved_key_masked(self):
+        keys = local_engine.get_provider_status()["saved_keys"]
+        self.assertEqual([k["name"] for k in keys], ["GROQ_API_KEY", "STT_API_KEY", "OPENAI_API_KEY"])
+        by_name = {k["name"]: k for k in keys}
+        self.assertEqual(by_name["GROQ_API_KEY"]["masked"], "gsk_••••alue")
+        self.assertTrue(by_name["GROQ_API_KEY"]["in_use"])          # the provider in use
+        self.assertFalse(by_name["OPENAI_API_KEY"]["in_use"])        # left over from before
+        self.assertEqual(by_name["OPENAI_API_KEY"]["label"], "OpenAI")
+        self.assertEqual(by_name["STT_API_KEY"]["label"], "Speech-to-text")
+        for k in keys:
+            self.assertNotIn("secret", k["masked"])                   # never the whole key
+
+    def test_a_key_from_another_provider_can_be_removed(self):
+        status, data = self.post({"name": "OPENAI_API_KEY"})
+        self.assertIn("200", status)
+        self.assertTrue(data["ok"], data)
+        self.assertNotIn("in use", data["message"].lower())
+        text = self.env_file.read_text()
+        self.assertNotIn("OPENAI_API_KEY", text)
+        self.assertIn("GROQ_API_KEY=gsk_live_secret_value", text)
+        self.assertNotIn("OPENAI_API_KEY", [k["name"] for k in local_engine.saved_keys()])
+
+    def test_removing_the_key_in_use_says_voice_needs_one(self):
+        _, data = self.post({"name": "GROQ_API_KEY"})
+        self.assertTrue(data["ok"], data)
+        self.assertIn("voice commands need a key", data["message"])
+
+    def test_only_listed_keys_can_be_removed(self):
+        for name in ("HOME", "PATH", "NOT_SAVED_KEY", "../env"):
+            _, data = self.post({"name": name})
+            self.assertFalse(data["ok"], name)
+        self.assertEqual(len(local_engine.saved_keys()), 3)
+
+    def test_a_legacy_config_toml_key_is_listed_and_removable(self):
+        self.local["api_key"] = "gsk_from_config_file"
+        names = [k["name"] for k in local_engine.saved_keys()]
+        self.assertIn(local_engine.LEGACY_CONFIG_KEY, names)
+        _, data = self.post({"name": local_engine.LEGACY_CONFIG_KEY})
+        self.assertTrue(data["ok"], data)
+        self.assertEqual(self.saved_config.get("api_key"), "")
+
+    def test_settings_draws_the_saved_keys_list(self):
+        self.assertIn('id="saved-keys-list"', _PWA_HTML)
+        self.assertIn("renderSavedKeys(data.saved_keys", _PWA_HTML)
+        self.assertIn("JSON.stringify({ name: k.name })", _PWA_HTML)
+        # One place to remove keys, not a second set of buttons per field.
+        self.assertNotIn("data-remove-key", _PWA_HTML)
 
 
 if __name__ == "__main__":

@@ -1457,7 +1457,19 @@ _PWA_HTML = r"""<!DOCTYPE html>
   }
   .chat-btn:hover { background: var(--surface-hover); color: var(--text); }
   .chat-btn:active { background: var(--surface-active); }
-  .chat-btn.key-remove { color: #fca5a5; border-color: #632222; }
+  .chat-btn.key-remove { color: #fca5a5; border-color: #632222; flex-shrink: 0; }
+  .saved-keys { margin-top: 10px; padding-top: 12px; border-top: 1px solid var(--border); }
+  .saved-keys-list { display: flex; flex-direction: column; gap: 6px; }
+  .saved-key {
+    display: flex; align-items: center; gap: 8px;
+    background: var(--input-bg); border: 1px solid var(--input-border);
+    border-radius: var(--radius-md); padding: 8px 10px;
+  }
+  .saved-key-info { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+  .saved-key-name { font-family: ui-monospace, 'SF Mono', Menlo, monospace; font-size: 0.74rem; font-weight: 700; color: var(--text); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .saved-key-meta { font-size: 0.7rem; color: var(--text-muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .saved-key-meta .in-use { color: #86efac; font-weight: 700; }
+  .saved-keys-empty { font-size: 0.76rem; color: var(--text-muted); font-style: italic; }
   .chat-body {
     flex: 1;
     overflow-y: auto;
@@ -2953,7 +2965,6 @@ _PWA_HTML = r"""<!DOCTYPE html>
           <div style="display: flex; gap: 6px;">
             <input type="password" id="setting-api-key" class="setting-input" placeholder="Paste your API key…" autocomplete="off" spellcheck="false" style="flex: 1;">
             <button type="button" class="chat-btn" id="toggle-key-visibility" title="Show/Hide">View</button>
-            <button type="button" class="chat-btn key-remove" id="remove-api-key" data-remove-key="llm" title="Delete the saved key from this computer" hidden>Remove</button>
           </div>
           <div class="setting-desc" id="setting-key-desc">Saved to ~/.config/omarchy-voice/env (chmod 600)</div>
         </div>
@@ -2992,7 +3003,6 @@ _PWA_HTML = r"""<!DOCTYPE html>
           <div style="display: flex; gap: 6px;">
             <input type="password" id="setting-stt-key" class="setting-input" placeholder="Optional — Groq or OpenAI key for voice…" autocomplete="off" spellcheck="false" style="flex: 1;">
             <button type="button" class="chat-btn" id="toggle-stt-key-visibility" title="Show/Hide">View</button>
-            <button type="button" class="chat-btn key-remove" id="remove-stt-key" data-remove-key="stt" title="Delete the saved key from this computer" hidden>Remove</button>
           </div>
           <div class="setting-desc" id="setting-stt-key-desc">Saved as STT_API_KEY in the same env file. Leave blank to reuse your LLM key.</div>
         </div>
@@ -3021,6 +3031,14 @@ _PWA_HTML = r"""<!DOCTYPE html>
         <div style="display: flex; flex-direction: column; gap: 8px; margin-top: 4px;">
           <button id="save-settings-btn" class="primary-btn">Test &amp; Save Keys</button>
           <div id="settings-status" class="status-box" style="display: none;"></div>
+        </div>
+
+        <!-- Every key saved on the computer, each removable -->
+        <div class="setting-group saved-keys" id="group-saved-keys">
+          <div class="setting-label">Keys saved on this computer</div>
+          <div class="setting-desc">Everything in ~/.config/omarchy-voice/env. Remove any you no longer use.</div>
+          <div id="saved-keys-list" class="saved-keys-list"></div>
+          <div id="saved-keys-status" class="status-box" style="display: none;"></div>
         </div>
       </div>
 
@@ -4424,14 +4442,7 @@ async function loadSettings() {
       settingStt.value = data.stt;
     }
     updateSttUI();
-    const removeSttKey = document.getElementById('remove-stt-key');
-    if (removeSttKey) removeSttKey.hidden = !data.stt_api_key_set;
-    const removeApiKey = document.getElementById('remove-api-key');
-    if (removeApiKey) {
-      removeApiKey.hidden = !data.api_key_set;
-      // The saved provider's key, even if the dropdown has been changed since.
-      removeApiKey.dataset.keyName = data.api_key_env || 'API key';
-    }
+    renderSavedKeys(data.saved_keys || []);
     if (settingSttKeyBadge) {
       if (data.stt_api_key_set) {
         settingSttKeyBadge.textContent = '✓ Set (' + data.stt_api_key_masked + ')';
@@ -4470,35 +4481,71 @@ async function loadSettings() {
 
 loadSettings();
 
-// Remove a saved key: deletes it from the env file on the computer.
-document.querySelectorAll('[data-remove-key]').forEach((btn) => {
-  btn.addEventListener('click', async () => {
-    const which = btn.dataset.removeKey;
-    const what = which === 'stt' ? 'the speech-to-text key' : 'the saved ' + (btn.dataset.keyName || 'API key');
-    if (!confirm('Remove ' + what + ' from this computer? You can paste it again later.')) return;
-    haptic(10);
-    btn.disabled = true;
-    try {
-      const r = await fetch('/settings/remove-key', { method: 'POST', headers, body: JSON.stringify({ key: which }) });
-      if (checkAuth(r)) return;
-      const res = await r.json();
-      if (settingsStatus) {
-        settingsStatus.style.display = 'block';
-        settingsStatus.className = 'status-box ' + (res.ok ? 'success' : 'error');
-        settingsStatus.textContent = (res.ok ? '✓ ' : '✕ ') + (res.message || res.error || 'Could not remove the key');
-      }
-      await loadSettings();
-    } catch (e) {
-      if (settingsStatus) {
-        settingsStatus.style.display = 'block';
-        settingsStatus.className = 'status-box error';
-        settingsStatus.textContent = '✕ Error: ' + e;
-      }
-    } finally {
-      btn.disabled = false;
+// "Keys saved on this computer": every key in the env file, each removable.
+function renderSavedKeys(keys) {
+  const list = document.getElementById('saved-keys-list');
+  if (!list) return;
+  list.replaceChildren();
+  if (!keys.length) {
+    const empty = document.createElement('div');
+    empty.className = 'saved-keys-empty';
+    empty.textContent = 'No keys saved.';
+    list.appendChild(empty);
+    return;
+  }
+  for (const k of keys) {
+    const row = document.createElement('div');
+    row.className = 'saved-key';
+    const info = document.createElement('div');
+    info.className = 'saved-key-info';
+    const name = document.createElement('div');
+    name.className = 'saved-key-name';
+    name.textContent = k.name;
+    const meta = document.createElement('div');
+    meta.className = 'saved-key-meta';
+    meta.textContent = [k.label, k.masked].filter(Boolean).join(' · ');
+    if (k.in_use) {
+      const tag = document.createElement('span');
+      tag.className = 'in-use';
+      tag.textContent = ' · in use';
+      meta.appendChild(tag);
     }
-  });
-});
+    info.append(name, meta);
+    const btn = document.createElement('button');
+    btn.type = 'button';
+    btn.className = 'chat-btn key-remove';
+    btn.textContent = 'Remove';
+    btn.title = 'Delete ' + k.name + ' from this computer';
+    btn.addEventListener('click', () => removeSavedKey(k, btn));
+    row.append(info, btn);
+    list.appendChild(row);
+  }
+}
+
+async function removeSavedKey(k, btn) {
+  const warn = k.in_use ? ' Your AI provider uses it, so voice commands stop working until you add a key again.' : '';
+  if (!confirm('Remove ' + k.name + ' from this computer?' + warn + ' You can paste it again later.')) return;
+  haptic(10);
+  btn.disabled = true;
+  const status = document.getElementById('saved-keys-status');
+  const show = (ok, text) => {
+    if (!status) return;
+    status.style.display = 'block';
+    status.className = 'status-box ' + (ok ? 'success' : 'error');
+    status.textContent = (ok ? '✓ ' : '✕ ') + text;
+  };
+  try {
+    const r = await fetch('/settings/remove-key', { method: 'POST', headers, body: JSON.stringify({ name: k.name }) });
+    if (checkAuth(r)) return;
+    const res = await r.json();
+    show(res.ok, res.message || res.error || 'Could not remove the key');
+    await loadSettings();
+  } catch (e) {
+    show(false, 'Error: ' + e);
+  } finally {
+    btn.disabled = false;
+  }
+}
 
 if (saveSettingsBtn) {
   saveSettingsBtn.onclick = async () => {
@@ -6029,13 +6076,20 @@ class BridgeHandler(http.server.BaseHTTPRequestHandler):
             return
 
         if path == "/settings/remove-key":
-            from .local_engine import remove_api_key
+            from .local_engine import remove_api_key, remove_saved_key
+            name = str(payload.get("name") or "").strip()
             which = str(payload.get("key") or "").strip().lower()
-            if which not in ("llm", "stt"):
-                self._json({"ok": False, "error": "key must be llm or stt"}, 400)
+            if name:
+                # Any key from the Saved keys list, by its name.
+                ok, message = remove_saved_key(name)
+                which = name
+            elif which in ("llm", "stt"):
+                # A page from before the list, with one button per field.
+                ok, message = remove_api_key(which)
+            else:
+                self._json({"ok": False, "error": "say which key: name, or key llm/stt"}, 400)
                 return
-            ok, message = remove_api_key(which)
-            write_log(f"settings removed the {which} key" if ok else f"error   remove {which} key: {message}")
+            write_log(f"settings removed {which}" if ok else f"error   remove {which}: {message}")
             self._json({"ok": ok, "message": message} if ok else {"ok": False, "error": message})
             return
 
