@@ -84,7 +84,7 @@ Most Linux remote tools are either clunky VNC viewers that eat battery, or singl
 ## 🌟 Highlights
 
 - **📱 Touch Remote Deck (PWA)**: Calibrated for zero-scroll viewport precision across both portrait (e.g. 390×844) and landscape (844×390). Add to iOS or Android Home Screen for an instant fullscreen hardware deck experience with tactile haptic feedback.
-- **⌨️ Direct PC Typing & Always-On Key Bar**: Type directly into whatever browser bar, code editor, or terminal window is focused on your Linux desktop with persistent auxiliary keys (`↵ Enter`, `⌫ Del`, `Tab ⇥`, `📋 Paste`, `Esc`).
+- **⌨️ Direct PC Typing & Always-On Key Bar**: Type directly into whatever browser bar, code editor, or terminal window is focused on your Linux desktop with persistent auxiliary keys (`↵ Enter`, `⌫ Del`, `Tab ⇥`, `Esc`, `All`, `Copy`, `Paste`) and arrow keys you can hold to repeat.
 - **🎙️ Inline Speech Dictation & AI Polish**: Dedicated dictation mic inside the input bar with intelligent Amical-style cleanup (strips filler words like "um", "uh", fixes punctuation, and applies context-aware formatting based on active window class).
 - **🕹️ Hold, Tap, or Hybrid Mic Activation**: Choose between Push-to-talk (hold to speak), Hands-free latch (tap to start/stop), or Both (hybrid tap/hold) with radar pulse and live sound-wave visualizers.
 - **🤖 Universal AI Model Support**: Works with **any** modern LLM provider:

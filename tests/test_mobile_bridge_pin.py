@@ -879,6 +879,22 @@ class MobileBridgePinTests(unittest.TestCase):
         for key in ("enter", "backspace", "tab", "escape", "select_all", "copy", "paste"):
             self.assertIn(f'data-key="{key}"', _PWA_HTML)
 
+    def test_key_row_has_arrow_keys_that_repeat_when_held(self):
+        for key in ("left", "up", "down", "right"):
+            self.assertIn(f'data-key="{key}" data-repeat', _PWA_HTML)
+        # The plain click handler skips them, or a tap would press twice.
+        self.assertIn(".key-chip[data-key]:not([data-repeat])", _PWA_HTML)
+        self.assertIn("stopKeyRepeat", _PWA_HTML)
+
+    def test_arrow_keys_press_the_real_keysyms(self):
+        for key, keysym in (("left", "Left"), ("up", "Up"), ("down", "Down"), ("right", "Right")):
+            with mock.patch("omarchy_voice.mobile_bridge.shutil.which", return_value="/usr/bin/wtype"), \
+                 mock.patch("omarchy_voice.mobile_bridge.subprocess.run",
+                            return_value=SimpleNamespace(returncode=0, stderr="", stdout="")) as run:
+                ok, _ = _press_key(key)
+            self.assertTrue(ok, key)
+            self.assertEqual(run.call_args.args[0][:3], ["wtype", "-k", keysym])
+
     def test_press_key_falls_back_to_hyprctl_when_wtype_fails(self):
         def fake_which(cmd):
             return "/usr/bin/hyprctl" if cmd == "hyprctl" else None
