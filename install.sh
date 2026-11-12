@@ -1,6 +1,21 @@
 #!/usr/bin/env bash
-# omarchy-voice installer. Safe to re-run; every step is idempotent.
+# OmaDeck installer. Safe to re-run; every step is idempotent.
+#
+#   ./install.sh          asks about each part
+#   ./install.sh --quick  just the phone deck: installs what it needs, skips
+#                         the extras, and ends by showing the pairing QR codes
 set -euo pipefail
+
+QUICK=0
+for arg in "$@"; do
+  case "$arg" in
+    -q|--quick) QUICK=1 ;;
+    -h|--help)
+      sed -n '2,6p' "$0" | sed 's/^# \{0,1\}//'
+      exit 0 ;;
+    *) printf 'unknown option: %s (try --help)\n' "$arg" >&2; exit 2 ;;
+  esac
+done
 
 PREFIX="${PREFIX:-$HOME/.local/share/omarchy-voice}"
 BINDIR="${BINDIR:-$HOME/.local/bin}"
@@ -13,6 +28,10 @@ bold() { printf '\033[1m%s\033[0m\n' "$*"; }
 step() { printf '\033[1;34m::\033[0m %s\n' "$*"; }
 warn() { printf '\033[1;33m!!\033[0m %s\n' "$*"; }
 ask()  { read -rp "   $1 [y/N] " reply; [[ "$reply" =~ ^[Yy] ]]; }
+# What the phone deck needs: yes without asking under --quick.
+need() { if (( QUICK )); then echo "   $1 yes (--quick)"; return 0; fi; ask "$1"; }
+# Optional extras: skipped without asking under --quick.
+extra() { if (( QUICK )); then return 1; fi; ask "$1"; }
 
 # Install one package, checking pacman's sync databases first. A fresh or
 # long-idle machine can have no databases at all, and then `pacman -S` fails
@@ -34,6 +53,9 @@ pacman_install() {
 
 bold "OmaDeck installer"
 echo "A phone remote and voice control for Omarchy."
+if (( QUICK )); then
+  echo "Quick install: the phone deck only. Voice and AI can be added later from the deck's Settings."
+fi
 echo
 
 # --- sanity ----------------------------------------------------------------
@@ -73,7 +95,7 @@ if [[ ! -f "$ENVFILE" ]]; then
 # OPENAI_API_KEY=sk-...
 EOF
   chmod 600 "$ENVFILE"
-  echo "   wrote $ENVFILE (mode 600) — put OPENAI_API_KEY here"
+  if (( QUICK )); then echo "   wrote $ENVFILE (mode 600)"; else echo "   wrote $ENVFILE (mode 600) — put OPENAI_API_KEY here"; fi
 else
   chmod 600 "$ENVFILE" 2>/dev/null || true
   echo "   kept your existing $ENVFILE"
@@ -85,6 +107,8 @@ case ":$PATH:" in
 esac
 
 # --- realtime --------------------------------------------------------------
+# Only the voice daemon needs this; the phone deck does not.
+if (( ! QUICK )); then
 echo
 step "OpenAI Realtime"
 if python3 -c "import websockets" 2>/dev/null; then
@@ -105,11 +129,12 @@ else
 fi
 warn "while listening is on, room audio streams continuously to OpenAI."
 warn "Toggling off stops the recorder, so nothing is captured while muted."
+fi
 
 # --- desktop integration ---------------------------------------------------
 echo
 step "desktop integration"
-if [[ -d "$HOME/.config/omarchy" ]] && ask "install the bar widget plugin?"; then
+if [[ -d "$HOME/.config/omarchy" ]] && extra "install the bar widget plugin?"; then
   mkdir -p "$PLUGINDIR"
   cp -r "$SOURCE/plugin/voice.indicator" "$PLUGINDIR/"
   echo "   installed to $PLUGINDIR"
@@ -126,7 +151,7 @@ fi
 # binary — /usr/bin, and therefore root. Without this you still have the
 # `omarchy-voice` command; you just do not get the omarchy-native spelling.
 OMARCHY_BIN=$(dirname "$(command -v omarchy 2>/dev/null || echo /usr/bin/omarchy)")
-if [[ -d $OMARCHY_BIN ]] && ask "also install the 'omarchy voice ...' commands into $OMARCHY_BIN (needs sudo)?"; then
+if [[ -d $OMARCHY_BIN ]] && extra "also install the 'omarchy voice ...' commands into $OMARCHY_BIN (needs sudo)?"; then
   if sudo install -m 755 "$SOURCE"/omarchy/bin/omarchy-voice* "$OMARCHY_BIN/"; then
     echo "   installed. Try: omarchy voice doctor"
   else
@@ -134,7 +159,7 @@ if [[ -d $OMARCHY_BIN ]] && ask "also install the 'omarchy voice ...' commands i
   fi
 fi
 
-if ask "install the systemd user service (starts with your session)?"; then
+if extra "install the voice daemon service (starts with your session)?"; then
   mkdir -p "$UNITDIR"
   cp "$SOURCE/share/omarchy-voice.service" "$UNITDIR/"
   systemctl --user daemon-reload
@@ -146,7 +171,7 @@ fi
 # while the daemon is off, and restarting one should not restart the other.
 OLD_MOBILE_UNIT="$UNITDIR/omarchy-voice-mobile.service"
 if [[ -f "$UNITDIR/omadeck.service" || -f "$OLD_MOBILE_UNIT" ]] \
-   || ask "also serve the phone/LAN page (systemd user service on port 8765)?"; then
+   || need "serve the phone deck (systemd user service on port 8765)?"; then
   # The service was renamed. Stop the old one, or it would keep holding the port.
   if [[ -f "$OLD_MOBILE_UNIT" ]]; then
     systemctl --user disable --now omarchy-voice-mobile.service 2>/dev/null || true
@@ -158,22 +183,26 @@ if [[ -f "$UNITDIR/omadeck.service" || -f "$OLD_MOBILE_UNIT" ]] \
   systemctl --user enable omadeck.service
   # restart, not start: a re-install has to pick up the new code.
   systemctl --user restart omadeck.service
-  echo "   running. Get your pairing link with: omadeck mobile"
-  if ! command -v qrencode >/dev/null && ask "install qrencode, to show a QR code for pairing?"; then
+  echo "   running"
+  if ! command -v qrencode >/dev/null && need "install qrencode, to show a QR code for pairing?"; then
     pacman_install qrencode || warn "not installed; the pairing link still works without it"
   fi
 fi
 
 # --- keybindings -----------------------------------------------------------
+# The voice toggle key. The quick install has no voice daemon, so it skips this.
+BINDINGS="$HOME/.config/hypr/bindings.lua"
+if (( QUICK )); then
+  :
+else
 echo
 step "keybindings"
-BINDINGS="$HOME/.config/hypr/bindings.lua"
 if [[ ! -f "$BINDINGS" ]]; then
   warn "$BINDINGS does not exist. Add this by hand:"
   sed 's/^/     /' "$SOURCE/share/bindings.lua.snippet"
 elif grep -q 'omarchy-voice' "$BINDINGS"; then
   echo "   already bound in $BINDINGS"
-elif ask "bind SUPER + SHIFT + V in $BINDINGS?"; then
+elif extra "bind SUPER + SHIFT + V in $BINDINGS?"; then
   cp "$BINDINGS" "$BINDINGS.bak-voice"
   cat >> "$BINDINGS" <<'LUA'
 
@@ -193,11 +222,42 @@ LUA
 else
   echo "   skipped. The snippet is at $SOURCE/share/bindings.lua.snippet"
 fi
+fi
+
+# --- pair your phone -------------------------------------------------------
+# End on the one thing a new user wants: the QR codes to scan. Wait for the
+# service to listen first; if it is not up yet, `omadeck mobile` would start
+# a second bridge in the foreground and the installer would never finish.
+deck_listening() {
+  if command -v ss >/dev/null; then
+    ss -Hltn "sport = :8765" 2>/dev/null | grep -q .
+  else
+    (exec 3<>/dev/tcp/127.0.0.1/8765) 2>/dev/null
+  fi
+}
+
+echo
+if [[ -f "$UNITDIR/omadeck.service" ]]; then
+  for _ in $(seq 1 40); do deck_listening && break; sleep 0.25; done
+  if deck_listening; then
+    bold "pair your phone"
+    "$BINDIR/omadeck" mobile || warn "could not print the pairing steps; run: omadeck mobile"
+  else
+    warn "the deck service has not started yet. Check it with: systemctl --user status omadeck"
+    echo "   then run: omadeck mobile"
+  fi
+else
+  echo "   The phone deck service was not installed. Pair a phone with: omadeck mobile"
+fi
 
 echo
 bold "next"
-echo "   edit $ENVFILE                put OPENAI_API_KEY=sk-... in it"
-echo "   omadeck mobile                    get your phone pairing link"
+echo "   omadeck mobile                    show the pairing steps again"
+echo "   omadeck restart                   restart everything (also after an update)"
 echo "   omadeck doctor                    check every moving part"
-echo "   omadeck --dry-run say \"...\"        try a command without a microphone"
-echo "   omadeck restart                   start or restart everything (also after an update)"
+if (( QUICK )); then
+  echo "   ./install.sh                      add voice control and the extras later"
+else
+  echo "   voice control                     pick an AI provider in the deck's Settings,"
+  echo "                                     or put OPENAI_API_KEY=sk-... in $ENVFILE"
+fi

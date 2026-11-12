@@ -31,6 +31,16 @@
 
 </div>
 
+### ⏱️ Try it in 2 minutes
+
+On your Omarchy machine:
+
+```bash
+git clone https://github.com/Mohsintl/omadeck.git && cd omadeck && ./install.sh --quick
+```
+
+It installs just the phone deck and ends by showing two QR codes. Scan them with your phone, and you're in. Tapping and typing work straight away; voice and AI are optional and can be set up later from the deck's Settings.
+
 [🚀 Quick Start](#-quick-start) • [💡 Why OmaDeck?](#-why-omadeck) • [📱 Profiles](#-five-dedicated-touch-profiles) • [⚙️ AI Setup](#️-interactive-settings--ai-configuration) • [🗺️ Roadmap](ROADMAP.md) • [🤝 Contributing](CONTRIBUTING.md)
 
 ---
@@ -112,17 +122,17 @@ Prop your phone or tablet next to your keyboard as a dedicated physical Stream D
 
 ### 1. Installation
 
-Clone and install dependencies on your Omarchy machine:
+Clone and install on your Omarchy machine:
 
 ```bash
 git clone https://github.com/Mohsintl/omadeck.git
 cd omadeck
-./install.sh
+./install.sh --quick
 ```
 
-The installer sets up:
-1. The `omadeck` command and engine.
-2. Background services that start when you log in: one for the phone page, and optionally one for the voice daemon.
+`--quick` sets up just the phone deck without any questions: the `omadeck` command, the phone page as a background service that starts when you log in, and `qrencode` for the pairing QR codes. It then shows the pairing steps.
+
+Run `./install.sh` without `--quick` to choose each part yourself, including the extras: the voice daemon and its service, the bar widget, the `omarchy voice ...` commands, and the SUPER + SHIFT + V keybinding. You can run it again at any time to add them.
 
 ### 2. Connect from Your Phone
 
