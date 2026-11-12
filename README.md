@@ -8,6 +8,7 @@
 [![Linux](https://img.shields.io/badge/Linux-Arch%20%2F%20Omarchy-0f94d2)](#)
 [![Roadmap](https://img.shields.io/badge/Roadmap-View%20Goals-purple)](ROADMAP.md)
 [![e2e community example](https://img.shields.io/badge/e2e-community%20example-b46cff)](https://e2e.com/examples/omadeck)
+[![Mentioned in Awesome Omarchy](https://awesome.re/mentioned-badge.svg)](https://github.com/aorumbayev/awesome-omarchy#development-tools)
 [![CI](https://github.com/Mohsintl/omadeck/actions/workflows/ci.yml/badge.svg)](https://github.com/Mohsintl/omadeck/actions/workflows/ci.yml)
 
 > **Tactile PWA Mobile Remote Deck & Universal AI Voice Companion for Omarchy / Hyprland Linux**
