@@ -1000,6 +1000,9 @@ _PWA_HTML = r"""<!DOCTYPE html>
     transition: background 0.1s, transform 0.08s;
     -webkit-tap-highlight-color: transparent;
   }
+  .arrow-keys { grid-template-columns: repeat(4, 1fr); }
+  .arrow-keys .key-chip { user-select: none; -webkit-user-select: none; -webkit-touch-callout: none; }
+  .arrow-keys svg { width: 15px; height: 15px; fill: none; stroke: currentColor; stroke-width: 2.4; stroke-linecap: round; stroke-linejoin: round; pointer-events: none; }
   .key-chip:hover { background: var(--deck-key-hover); border-color: var(--border-highlight); }
   .key-chip:active { background: var(--deck-key-active); transform: translateY(1.5px); box-shadow: var(--key-shadow-active); }
 
@@ -3341,6 +3344,13 @@ _PWA_HTML = r"""<!DOCTYPE html>
         <button class="key-chip" data-key="copy" title="Copy (Ctrl+Shift+C in a terminal)">Copy</button>
         <button class="key-chip" data-key="paste" title="Paste (Ctrl+Shift+V in a terminal)">Paste</button>
       </div>
+      <!-- Arrow keys: hold one to keep pressing it -->
+      <div class="aux-keys arrow-keys" id="arrow-keys">
+        <button class="key-chip" data-key="left" data-repeat title="Left arrow (hold to repeat)" aria-label="Left arrow"><svg viewBox="0 0 24 24" style="transform: rotate(180deg)"><path d="M5 12h14M13 6l6 6-6 6"/></svg></button>
+        <button class="key-chip" data-key="up" data-repeat title="Up arrow (hold to repeat)" aria-label="Up arrow"><svg viewBox="0 0 24 24" style="transform: rotate(-90deg)"><path d="M5 12h14M13 6l6 6-6 6"/></svg></button>
+        <button class="key-chip" data-key="down" data-repeat title="Down arrow (hold to repeat)" aria-label="Down arrow"><svg viewBox="0 0 24 24" style="transform: rotate(90deg)"><path d="M5 12h14M13 6l6 6-6 6"/></svg></button>
+        <button class="key-chip" data-key="right" data-repeat title="Right arrow (hold to repeat)" aria-label="Right arrow"><svg viewBox="0 0 24 24"><path d="M5 12h14M13 6l6 6-6 6"/></svg></button>
+      </div>
 
       <!-- Mode Toggle -->
       <div class="mode-bar">
@@ -4655,9 +4665,35 @@ async function sendKey(key) {
   } catch(e) {}
 }
 
-document.querySelectorAll('.key-chip[data-key]').forEach(b => {
+document.querySelectorAll('.key-chip[data-key]:not([data-repeat])').forEach(b => {
   b.addEventListener('click', () => sendKey(b.dataset.key));
 });
+
+// Arrow keys press once on touch, then repeat while held, like a keyboard.
+const KEY_REPEAT_DELAY = 400, KEY_REPEAT_EVERY = 110;
+let repeatDelay = null, repeatTimer = null;
+function stopKeyRepeat() {
+  clearTimeout(repeatDelay);
+  clearInterval(repeatTimer);
+  repeatDelay = repeatTimer = null;
+}
+document.querySelectorAll('.key-chip[data-repeat]').forEach(b => {
+  b.addEventListener('pointerdown', (e) => {
+    if (e.button !== 0) return;
+    e.preventDefault();  // keep focus (and the phone keyboard) where it was
+    stopKeyRepeat();
+    sendKey(b.dataset.key);
+    repeatDelay = setTimeout(() => {
+      repeatTimer = setInterval(() => sendKey(b.dataset.key), KEY_REPEAT_EVERY);
+    }, KEY_REPEAT_DELAY);
+  });
+  ['pointerup', 'pointerleave', 'pointercancel'].forEach(t => b.addEventListener(t, stopKeyRepeat));
+  // Enter or Space on a focused button (no pointer involved).
+  b.addEventListener('click', (e) => { if (e.detail === 0) sendKey(b.dataset.key); });
+  b.addEventListener('contextmenu', (e) => e.preventDefault());
+});
+window.addEventListener('blur', stopKeyRepeat);
+document.addEventListener('visibilitychange', () => { if (document.hidden) stopKeyRepeat(); });
 
 if (typeDirectBtn) {
   typeDirectBtn.onclick = () => {
