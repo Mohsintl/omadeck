@@ -871,6 +871,66 @@ def save_env_var(var_name: str, value: str) -> None:
     os.environ[var_name] = clean_value
 
 
+def remove_env_var(var_name: str) -> bool:
+    """Delete `var_name` from the env file and from this process. True if it was set."""
+    if not var_name or not re.match(r"^[A-Z0-9_]+$", var_name):
+        return False
+    was_set = bool(os.environ.pop(var_name, ""))
+    try:
+        lines = ENV_FILE.read_text().splitlines()
+    except OSError:
+        return was_set
+    kept = [line for line in lines
+            if line.strip().startswith("#") or line.partition("=")[0].strip() != var_name]
+    if len(kept) != len(lines):
+        was_set = True
+        ENV_FILE.write_text("\n".join(kept) + "\n")
+        try:
+            ENV_FILE.chmod(0o600)
+        except OSError:
+            pass
+    return was_set
+
+
+def remove_api_key(which: str, config: Config | None = None) -> tuple[bool, str]:
+    """Remove the AI provider's key ("llm") or the speech-to-text key ("stt").
+
+    Returns (ok, message) for the phone to show.
+    """
+    if which == "stt":
+        var = "STT_API_KEY"
+        label = "speech-to-text key"
+    elif which == "llm":
+        status = get_provider_status(config)
+        var = status["api_key_env"]
+        if not var:
+            return False, f"{status['provider']} does not use an API key."
+        label = f"{var}"
+    else:
+        return False, "Unknown key."
+
+    removed = remove_env_var(var)
+    if which == "llm":
+        # An older setup may keep the key in config.toml instead of the env file.
+        from .config import load as load_cfg
+        if str(_local_config(config or load_cfg()).get("api_key") or "").strip():
+            save_local_config({"api_key": ""})
+            removed = True
+    if not removed:
+        return False, f"No {label} was saved."
+
+    still = get_provider_status(config)
+    left = still["stt_api_key_set"] if which == "stt" else still["api_key_set"]
+    if left:
+        return False, (f"Removed {label} from {ENV_FILE}, but it is still set somewhere "
+                       "else (config.toml or the environment).")
+    message = f"Removed {label} from this computer."
+    if which == "llm":
+        message += " Voice commands need a key again, or pick Ollama."
+    message += " If the voice service is running, run omadeck restart so it forgets the key too."
+    return True, message
+
+
 def save_local_config(updates: dict[str, Any]) -> None:
     """Update [local] section in ~/.config/omarchy-voice/config.toml while preserving comments."""
     CONFIG_DIR.mkdir(parents=True, exist_ok=True)

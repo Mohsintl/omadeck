@@ -1454,6 +1454,7 @@ _PWA_HTML = r"""<!DOCTYPE html>
   }
   .chat-btn:hover { background: var(--surface-hover); color: var(--text); }
   .chat-btn:active { background: var(--surface-active); }
+  .chat-btn.key-remove { color: #fca5a5; border-color: #632222; }
   .chat-body {
     flex: 1;
     overflow-y: auto;
@@ -2949,6 +2950,7 @@ _PWA_HTML = r"""<!DOCTYPE html>
           <div style="display: flex; gap: 6px;">
             <input type="password" id="setting-api-key" class="setting-input" placeholder="Paste your API key…" autocomplete="off" spellcheck="false" style="flex: 1;">
             <button type="button" class="chat-btn" id="toggle-key-visibility" title="Show/Hide">View</button>
+            <button type="button" class="chat-btn key-remove" id="remove-api-key" data-remove-key="llm" title="Delete the saved key from this computer" hidden>Remove</button>
           </div>
           <div class="setting-desc" id="setting-key-desc">Saved to ~/.config/omarchy-voice/env (chmod 600)</div>
         </div>
@@ -2987,6 +2989,7 @@ _PWA_HTML = r"""<!DOCTYPE html>
           <div style="display: flex; gap: 6px;">
             <input type="password" id="setting-stt-key" class="setting-input" placeholder="Optional — Groq or OpenAI key for voice…" autocomplete="off" spellcheck="false" style="flex: 1;">
             <button type="button" class="chat-btn" id="toggle-stt-key-visibility" title="Show/Hide">View</button>
+            <button type="button" class="chat-btn key-remove" id="remove-stt-key" data-remove-key="stt" title="Delete the saved key from this computer" hidden>Remove</button>
           </div>
           <div class="setting-desc" id="setting-stt-key-desc">Saved as STT_API_KEY in the same env file. Leave blank to reuse your LLM key.</div>
         </div>
@@ -4411,6 +4414,14 @@ async function loadSettings() {
       settingStt.value = data.stt;
     }
     updateSttUI();
+    const removeSttKey = document.getElementById('remove-stt-key');
+    if (removeSttKey) removeSttKey.hidden = !data.stt_api_key_set;
+    const removeApiKey = document.getElementById('remove-api-key');
+    if (removeApiKey) {
+      removeApiKey.hidden = !data.api_key_set;
+      // The saved provider's key, even if the dropdown has been changed since.
+      removeApiKey.dataset.keyName = data.api_key_env || 'API key';
+    }
     if (settingSttKeyBadge) {
       if (data.stt_api_key_set) {
         settingSttKeyBadge.textContent = '✓ Set (' + data.stt_api_key_masked + ')';
@@ -4448,6 +4459,36 @@ async function loadSettings() {
 }
 
 loadSettings();
+
+// Remove a saved key: deletes it from the env file on the computer.
+document.querySelectorAll('[data-remove-key]').forEach((btn) => {
+  btn.addEventListener('click', async () => {
+    const which = btn.dataset.removeKey;
+    const what = which === 'stt' ? 'the speech-to-text key' : 'the saved ' + (btn.dataset.keyName || 'API key');
+    if (!confirm('Remove ' + what + ' from this computer? You can paste it again later.')) return;
+    haptic(10);
+    btn.disabled = true;
+    try {
+      const r = await fetch('/settings/remove-key', { method: 'POST', headers, body: JSON.stringify({ key: which }) });
+      if (checkAuth(r)) return;
+      const res = await r.json();
+      if (settingsStatus) {
+        settingsStatus.style.display = 'block';
+        settingsStatus.className = 'status-box ' + (res.ok ? 'success' : 'error');
+        settingsStatus.textContent = (res.ok ? '✓ ' : '✕ ') + (res.message || res.error || 'Could not remove the key');
+      }
+      await loadSettings();
+    } catch (e) {
+      if (settingsStatus) {
+        settingsStatus.style.display = 'block';
+        settingsStatus.className = 'status-box error';
+        settingsStatus.textContent = '✕ Error: ' + e;
+      }
+    } finally {
+      btn.disabled = false;
+    }
+  });
+});
 
 if (saveSettingsBtn) {
   saveSettingsBtn.onclick = async () => {
@@ -5949,6 +5990,17 @@ class BridgeHandler(http.server.BaseHTTPRequestHandler):
             if stt_saved:
                 message += " Speech-to-text key saved."
             self._json({"ok": True, "message": message})
+            return
+
+        if path == "/settings/remove-key":
+            from .local_engine import remove_api_key
+            which = str(payload.get("key") or "").strip().lower()
+            if which not in ("llm", "stt"):
+                self._json({"ok": False, "error": "key must be llm or stt"}, 400)
+                return
+            ok, message = remove_api_key(which)
+            write_log(f"settings removed the {which} key" if ok else f"error   remove {which} key: {message}")
+            self._json({"ok": ok, "message": message} if ok else {"ok": False, "error": message})
             return
 
         if path == "/clear":
