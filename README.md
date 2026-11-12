@@ -7,6 +7,8 @@
 [![Compositor](https://img.shields.io/badge/Compositor-Hyprland%20%2F%20Wayland-blueviolet)](#)
 [![Linux](https://img.shields.io/badge/Linux-Arch%20%2F%20Omarchy-0f94d2)](#)
 [![Roadmap](https://img.shields.io/badge/Roadmap-View%20Goals-purple)](ROADMAP.md)
+[![e2e community example](https://img.shields.io/badge/e2e-community%20example-b46cff)](https://e2e.com/examples/omadeck)
+[![CI](https://github.com/Mohsintl/omadeck/actions/workflows/ci.yml/badge.svg)](https://github.com/Mohsintl/omadeck/actions/workflows/ci.yml)
 
 > **Tactile PWA Mobile Remote Deck & Universal AI Voice Companion for Omarchy / Hyprland Linux**
 
@@ -207,6 +209,12 @@ Found a security problem? Please see [SECURITY.md](SECURITY.md).
 Other Hyprland setups and Android Chrome may work but haven't been tested yet. Reports are welcome in the [issue tracker](https://github.com/Mohsintl/omadeck/issues).
 
 **Offline use:** everything works offline with local models, but voice and AI results are less accurate than with a cloud API.
+
+### Tested end to end
+
+The phone deck has end-to-end tests built with [e2e](https://e2e.com). They open the deck in a phone-sized browser, tap the keys, and check what reached the desktop. The desktop is fake: `hyprctl` and `wtype` stand-ins log each call, so the tests run on any machine, and CI runs them on every pull request alongside 400+ unit tests.
+
+OmaDeck is featured as a community example on e2e: **[Testing OmaDeck's phone deck with e2e](https://e2e.com/examples/omadeck)**. To run the tests yourself, see [`e2e/README.md`](e2e/README.md).
 
 ---
 
