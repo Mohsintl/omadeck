@@ -1,0 +1,29 @@
+# Keep the three dependency surfaces current. Grouped so a weekly run opens a
+# handful of reviewable PRs instead of one per crate.
+version: 2
+updates:
+  - package-ecosystem: pip
+    directory: "/"
+    schedule:
+      interval: weekly
+    open-pull-requests-limit: 5
+    groups:
+      python:
+        patterns: ["*"]
+        update-types: ["minor", "patch"]
+
+  - package-ecosystem: npm
+    directory: "/e2e"
+    schedule:
+      interval: weekly
+    open-pull-requests-limit: 5
+    groups:
+      e2e:
+        patterns: ["*"]
+        update-types: ["minor", "patch"]
+
+  - package-ecosystem: github-actions
+    directory: "/"
+    schedule:
+      interval: weekly
+    open-pull-requests-limit: 5
