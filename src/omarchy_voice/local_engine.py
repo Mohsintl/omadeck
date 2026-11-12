@@ -892,6 +892,74 @@ def remove_env_var(var_name: str) -> bool:
     return was_set
 
 
+def _mask(value: str) -> str:
+    value = value.strip()
+    if len(value) > 8:
+        return value[:4] + "••••" + value[-4:]
+    return "••••••••" if value else ""
+
+
+# What a key in the env file is for, when it is a known one.
+_KEY_LABELS = {"STT_API_KEY": "Speech-to-text"}
+
+LEGACY_CONFIG_KEY = "config.toml api_key"
+
+
+def saved_keys(config: Config | None = None) -> list[dict[str, Any]]:
+    """Every key saved on this computer, masked, with what it is for.
+
+    Everything set in the env file, plus an API key an older setup kept in
+    config.toml. The provider in use and the speech-to-text key are marked.
+    """
+    from .config import load as load_cfg
+    lcfg = _local_config(config or load_cfg())
+    in_use = _resolve_provider(lcfg)["api_key_env"]
+    labels = dict(_KEY_LABELS)
+    for preset in PROVIDER_PRESETS.values():
+        if preset.get("api_key_env"):
+            labels.setdefault(preset["api_key_env"], preset.get("name", ""))
+
+    keys: list[dict[str, Any]] = []
+    seen: set[str] = set()
+    try:
+        lines = ENV_FILE.read_text().splitlines()
+    except OSError:
+        lines = []
+    for line in lines:
+        stripped = line.strip()
+        if not stripped or stripped.startswith("#") or "=" not in stripped:
+            continue
+        name, _, value = stripped.partition("=")
+        name, value = name.strip(), value.strip().strip('"').strip("'")
+        if not value or name in seen or not re.match(r"^[A-Z0-9_]+$", name):
+            continue
+        seen.add(name)
+        keys.append({"name": name, "masked": _mask(value), "label": labels.get(name, ""),
+                     "in_use": name == in_use})
+    legacy = str(lcfg.get("api_key") or "").strip()
+    if legacy:
+        keys.append({"name": LEGACY_CONFIG_KEY, "masked": _mask(legacy),
+                     "label": "Older setup", "in_use": not os.environ.get(in_use or "", "")})
+    return keys
+
+
+def remove_saved_key(name: str, config: Config | None = None) -> tuple[bool, str]:
+    """Remove one key listed by saved_keys(). Returns (ok, message) for the phone."""
+    entry = next((k for k in saved_keys(config) if k["name"] == name), None)
+    if entry is None:
+        return False, f"{name} isn't saved on this computer."
+    if name == LEGACY_CONFIG_KEY:
+        save_local_config({"api_key": ""})
+    else:
+        remove_env_var(name)
+    what = f"{entry['label']} key ({name})" if entry["label"] else name
+    message = f"Removed the {what}."
+    if entry["in_use"]:
+        message += " It was the key your AI provider uses: voice commands need a key again, or pick Ollama."
+    message += " If the voice service is running, run omadeck restart so it forgets the key too."
+    return True, message
+
+
 def remove_api_key(which: str, config: Config | None = None) -> tuple[bool, str]:
     """Remove the AI provider's key ("llm") or the speech-to-text key ("stt").
 
@@ -1057,6 +1125,7 @@ def get_provider_status(config: Config | None = None) -> dict[str, Any]:
         "pin_set": pin_configured,
         "has_pin": pin_configured,
         "presets": presets_data,
+        "saved_keys": saved_keys(cfg),
     }
 
 
