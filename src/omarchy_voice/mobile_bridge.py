@@ -260,6 +260,25 @@ _PAIR_HTML = """<!doctype html>
 </body></html>
 """
 
+_TOUCH_ICON_URI: str | None = None
+
+
+def _touch_icon_data_uri() -> str:
+    """The Home Screen icon as a data: URI, written into the page itself.
+
+    Safari shows the icon in the share sheet from the page it has, but iOS
+    creates the Home Screen icon in a separate process that downloads the
+    icon again. That download failed against OmaDeck's own certificate on a
+    phone that trusts it, and the icon came out as a plain letter. With the
+    image in the page there is nothing left to download.
+    """
+    global _TOUCH_ICON_URI
+    if _TOUCH_ICON_URI is None:
+        png = _get_icon_png("/apple-touch-icon.png")
+        _TOUCH_ICON_URI = "data:image/png;base64," + base64.b64encode(png).decode("ascii")
+    return _TOUCH_ICON_URI
+
+
 def _log_install_fetch(handler, path: str, size: int) -> None:
     """One `omadeck log` line per icon or manifest a phone fetches.
 
@@ -6998,6 +7017,8 @@ class BridgeHandler(http.server.BaseHTTPRequestHandler):
             if self._pairs_home_screen_app():
                 html = html.replace('href="/manifest.webmanifest"',
                                     f'href="/manifest.webmanifest?token={quote(self.token, safe="")}"')
+            html = html.replace('rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png"',
+                                f'rel="apple-touch-icon" sizes="180x180" href="{_touch_icon_data_uri()}"')
             self._html(html)
         elif path in ("/ca.pem", "/ca.crt", "/oma-remote-ca.crt"):
             # Served without the token: the phone's browser has to fetch this
@@ -8564,7 +8585,11 @@ class BridgeServer(http.server.ThreadingHTTPServer):
                 if is_tls:
                     try:
                         sock = self.tls_context.wrap_socket(sock, server_side=True)
-                    except (OSError, ssl.SSLError):
+                    except (OSError, ssl.SSLError) as exc:
+                        # Logged: a device that doesn't trust the certificate
+                        # fails here, before any request reaches the log.
+                        write_log(f"warn    secure connection from {client_ip} failed: "
+                                  f"{brief(getattr(exc, 'reason', None) or exc, 160)}")
                         self.shutdown_request(sock)
                         return
                 try:

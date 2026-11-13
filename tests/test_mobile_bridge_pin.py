@@ -1,9 +1,12 @@
 """Tests for OmaDeck mobile remote PIN lock and session security."""
 
+import base64
 import contextlib
 import io
 import json
+import re
 import ssl
+import struct
 import sys
 import tempfile
 import time
@@ -1186,8 +1189,14 @@ class MobileBridgePinTests(unittest.TestCase):
         status, body = self._get_bytes("/")
         page = body.decode("utf-8")
         self.assertIn('<meta name="apple-mobile-web-app-title" content="OmaDeck">', page)
-        self.assertIn('rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png"', page)
         self.assertIn("<title>OmaDeck</title>", page)
+        # The icon is in the page: iOS makes the Home Screen icon in another
+        # process that would otherwise download it again.
+        m = re.search(r'rel="apple-touch-icon" sizes="180x180" href="data:image/png;base64,([^"]+)"', page)
+        self.assertIsNotNone(m)
+        icon = base64.b64decode(m.group(1))
+        self.assertTrue(icon.startswith(b"\x89PNG"))
+        self.assertEqual(struct.unpack(">II", icon[16:24]), (180, 180))
 
     def test_the_icon_paths_ios_tries_by_itself_serve_the_logo(self):
         for path in ("/apple-touch-icon.png", "/apple-touch-icon-precomposed.png",
