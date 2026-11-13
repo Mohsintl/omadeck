@@ -1278,6 +1278,140 @@ _PWA_HTML = r"""<!DOCTYPE html>
   }
   .notice a { color: #93c5fd; }
 
+
+  /* =========================================================================
+     Cleaner deck: plain-word tiles, one workspace row, a menu behind the
+     dots, a reply bubble at the dock, bigger quick keys and Edit deck.
+     ========================================================================= */
+  .chip .label {
+    text-transform: none;
+    letter-spacing: 0;
+    font-size: 0.74rem;
+    font-weight: 600;
+    color: var(--text);
+    opacity: 0.86;
+    white-space: normal;
+    line-height: 1.15;
+  }
+  .section-badge { display: none; }
+  .section-title {
+    text-transform: none;
+    letter-spacing: 0.01em;
+    font-size: 0.74rem;
+    font-weight: 600;
+  }
+  /* Tiles take the height their content needs instead of stretching to fill. */
+  .profile-view { justify-content: flex-start; }
+  .control-section { flex: 0 0 auto; justify-content: flex-start; gap: 6px; }
+  .btn-grid-4, .btn-grid-5 { flex: 0 0 auto; grid-auto-rows: minmax(62px, auto); }
+  .chip { gap: 6px; padding: 8px 4px; }
+
+  /* One workspace row; holding a key moves the window there. */
+  .ws-key { position: relative; overflow: hidden; z-index: 0; user-select: none; -webkit-user-select: none; -webkit-touch-callout: none; }
+  .ws-key::after {
+    content: ""; position: absolute; inset: 0; background: var(--active-bg);
+    transform: scaleX(0); transform-origin: left; pointer-events: none; z-index: -1;
+  }
+  .ws-key.holding::after { transform: scaleX(1); transition: transform 0.5s linear; }
+  .ws-hint {
+    display: flex; align-items: center; justify-content: space-between; gap: 8px;
+    font-size: 0.72rem; color: var(--text-muted); padding: 0 2px; flex-shrink: 0;
+  }
+  .ws-hint[hidden] { display: none; }
+  .ws-hint b { color: var(--text); font-weight: 600; }
+  .ws-hint button { background: none; border: 0; color: var(--text-muted); font-size: 1rem; cursor: pointer; padding: 0 4px; }
+
+  /* The menu behind the dots */
+  header { position: relative; }
+  .more-menu {
+    position: absolute; right: 0; top: calc(100% + 6px); z-index: 60; min-width: 190px;
+    display: flex; flex-direction: column; gap: 2px; padding: 6px;
+    background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-md);
+    box-shadow: 0 14px 34px rgba(0, 0, 0, 0.55);
+  }
+  .more-menu[hidden] { display: none; }
+  .more-menu .icon-chip {
+    width: 100%; justify-content: flex-start; gap: 10px; padding: 9px 10px; min-height: 38px;
+    border: 0; background: transparent; box-shadow: none; font-size: 0.82rem; color: var(--text);
+  }
+  .more-menu .icon-chip:hover { background: var(--surface-hover); }
+  .more-menu .icon-chip span { display: inline !important; }
+  .more-menu [data-menu-label]::after { content: attr(data-menu-label); }
+  .more-menu #sound-toggle::after { content: "Sound: on"; }
+  .more-menu #sound-toggle.muted::after { content: "Sound: off"; }
+
+  /* Replies: a bubble just above the dock, fading after a moment. */
+  .deck-controls-dock { position: relative; }
+  .deck-controls-dock .reply-strip {
+    position: absolute; left: 0; right: 0; bottom: calc(100% + 8px); z-index: 40;
+    height: auto; min-height: 36px; padding: 8px 12px;
+    background: var(--surface-active); border-color: var(--active-border);
+    border-radius: var(--radius-md); box-shadow: 0 12px 30px rgba(0, 0, 0, 0.5);
+    transition: opacity 0.2s, transform 0.2s;
+  }
+  .deck-controls-dock .reply-strip .reply-text { white-space: normal; line-height: 1.35; }
+  .deck-controls-dock .reply-strip.faded { opacity: 0; transform: translateY(6px); pointer-events: none; }
+
+  /* Bigger quick keys and arrows. */
+  .aux-keys { height: 40px; gap: 5px; }
+  #aux-keys { grid-template-columns: 1.45fr 1.2fr 1.15fr repeat(4, 1fr); }
+  .key-chip { font-size: 0.72rem; white-space: nowrap; }
+  .aux-keys .key-chip.key-off { display: none; }
+  .aux-keys[hidden] { display: none; }
+
+  /* Type panel: one Send, with Enter afterwards as a switch. */
+  #type-direct-btn { display: none !important; }
+  .enter-switch {
+    display: none; align-self: flex-start; align-items: center; gap: 8px;
+    background: none; border: 0; color: var(--text); font-size: 0.78rem; cursor: pointer; padding: 2px 0;
+  }
+  #controls-dock[data-panel="type"] .enter-switch { display: flex; }
+  .enter-switch .track {
+    width: 36px; height: 20px; border-radius: 999px; background: var(--deck-key);
+    border: 1px solid var(--border); position: relative; transition: background 0.15s;
+  }
+  .enter-switch .track::after {
+    content: ""; position: absolute; top: 2px; left: 2px; width: 14px; height: 14px; border-radius: 50%;
+    background: var(--text-muted); transition: transform 0.15s, background 0.15s;
+  }
+  .enter-switch[aria-checked="true"] .track { background: var(--active-bg); border-color: var(--status-info); }
+  .enter-switch[aria-checked="true"] .track::after { transform: translateX(16px); background: var(--status-info); }
+
+  /* Edit deck: hide and reorder keys on this phone. */
+  .edit-bar {
+    display: flex; flex-direction: column; gap: 8px; flex-shrink: 0;
+    background: var(--chassis); border: 1px dashed var(--active-border); border-radius: var(--radius-md); padding: 8px 10px;
+    font-size: 0.78rem; color: var(--text);
+  }
+  .edit-bar[hidden] { display: none; }
+  .edit-bar-top { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+  .edit-bar button.done {
+    background: var(--btn-bg); color: var(--btn-fg); border: 0; border-radius: var(--radius-sm);
+    font-weight: 700; padding: 6px 14px; cursor: pointer;
+  }
+  .edit-row { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
+  .edit-row > span { color: var(--text-muted); margin-right: 2px; }
+  .edit-row button {
+    background: var(--deck-key); border: 1px dashed var(--border); color: var(--text); border-radius: 999px;
+    font-size: 0.74rem; padding: 5px 10px; cursor: pointer;
+  }
+  .edit-row button[aria-pressed="true"] { border-style: solid; border-color: var(--status-info); }
+  .edit-row button.reset { border: 0; background: none; color: var(--text-muted); text-decoration: underline; padding: 5px 0; }
+  .chip.chip-hidden { display: none; }
+  body.editing-deck .profile-view .chip { border-style: dashed; }
+  body.editing-deck .profile-view .chip .label,
+  body.editing-deck .profile-view .chip .icon { opacity: 0.7; }
+  .chip-tools { display: none; }
+  body.editing-deck .chip-tools { display: block; position: absolute; inset: 0; }
+  .chip-tools button {
+    position: absolute; width: 24px; height: 24px; border-radius: 50%; display: grid; place-items: center;
+    background: var(--surface-active); border: 1px solid var(--active-border); color: var(--text);
+    font-size: 11px; line-height: 1; cursor: pointer; padding: 0;
+  }
+  .chip-tools .t-hide { top: 3px; right: 3px; color: var(--status-danger); }
+  .chip-tools .t-left { bottom: 3px; left: 3px; }
+  .chip-tools .t-right { bottom: 3px; right: 3px; }
+
   /* =========================================================================
      LANDSCAPE MODE: Ergonomic Split-Deck Architecture
      ========================================================================= */
@@ -1411,6 +1545,12 @@ _PWA_HTML = r"""<!DOCTYPE html>
       padding: 6px;
       gap: 4px;
     }
+    .aux-keys { height: 32px; }
+    .btn-grid-4, .btn-grid-5 { flex: 1; grid-auto-rows: auto; }
+    .control-section { flex: 1; }
+    .chip { gap: 3px; padding: 2px; }
+    .chip .label { font-size: 0.66rem; white-space: nowrap; }
+    .ws-hint { display: none; }
 
     /* Right Deck Action Bank */
     .deck-bank {
@@ -3406,6 +3546,12 @@ _PWA_HTML = r"""<!DOCTYPE html>
       </div>
       <div class="header-right">
         <div id="status-badge" class="idle">READY</div>
+        <button class="icon-chip more-toggle" id="more-toggle" aria-label="More" aria-haspopup="true" aria-expanded="false" aria-controls="more-menu" title="Logs, sound, settings and layout">
+          <svg class="icon-svg" style="width:15px;height:15px;" viewBox="0 0 24 24"><circle cx="5" cy="12" r="1.4"></circle><circle cx="12" cy="12" r="1.4"></circle><circle cx="19" cy="12" r="1.4"></circle></svg>
+        </button>
+      </div>
+      <!-- Logs, sound, settings and lock live here, out of the header's way. -->
+      <div class="more-menu" id="more-menu" role="menu" hidden>
         <button class="icon-chip" id="sound-toggle" title="Toggle OmaDeck Voice Sound">
           <svg class="icon-svg" style="width:13px;height:13px;" viewBox="0 0 24 24"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"></polygon><path d="M15.54 8.46a5 5 0 0 1 0 7.07"></path><path d="M19.07 4.93a10 10 0 0 1 0 14.14"></path></svg>
         </button>
@@ -3413,20 +3559,19 @@ _PWA_HTML = r"""<!DOCTYPE html>
           <svg class="icon-svg" style="width:13px;height:13px;" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"></circle><polyline points="12 6 12 12 16 14"></polyline></svg>
           <span>Logs</span>
         </button>
-        <button class="icon-chip" id="settings-toggle" title="AI Settings">
+        <button class="icon-chip" id="settings-toggle" title="AI Settings" data-menu-label="Settings">
           <svg class="icon-svg" style="width:13px;height:13px;" viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"></circle><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"></path></svg>
         </button>
-        <button class="icon-chip" id="app-lock-btn" title="Lock Deck" style="display:none;">
+        <button class="icon-chip" id="app-lock-btn" title="Lock Deck" data-menu-label="Lock deck" style="display:none;">
           <svg class="icon-svg" style="width:13px;height:13px;" viewBox="0 0 24 24"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect><path d="M7 11V7a5 5 0 0 1 10 0v4"></path></svg>
+        </button>
+        <button class="icon-chip" id="edit-deck-btn" title="Hide and reorder deck keys on this phone">
+          <svg class="icon-svg" style="width:13px;height:13px;" viewBox="0 0 24 24"><path d="M12 20h9"></path><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4z"></path></svg>
+          <span>Edit deck</span>
         </button>
       </div>
     </header>
 
-    <!-- Feedback Strip -->
-    <div class="reply-strip" id="reply-strip" title="Tap to view logs">
-      <svg class="reply-icon" viewBox="0 0 24 24"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"></polyline></svg>
-      <span class="reply-text" id="latest-reply">Ready. Tap key or speak command.</span>
-    </div>
 
     <div class="notice" id="mic-note" hidden></div>
     <div id="transcript" style="display:none;"></div>
@@ -3434,6 +3579,11 @@ _PWA_HTML = r"""<!DOCTYPE html>
 
     <!-- Controls Dock: Ask · Mic · Type. Ask and Type open the panel above it. -->
     <div class="deck-controls-dock" id="controls-dock">
+      <!-- Replies: a bubble just above the dock that fades after a moment; tap for the logs -->
+      <div class="reply-strip" id="reply-strip" title="Tap to view logs">
+        <svg class="reply-icon" viewBox="0 0 24 24"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"></polyline></svg>
+        <span class="reply-text" id="latest-reply">Ready. Tap key or speak command.</span>
+      </div>
       <div class="dock-panel" id="dock-panel" hidden>
         <div class="dock-panel-head">
           <span class="dock-panel-title" id="dock-panel-title">Ask OmaDeck</span>
@@ -3449,6 +3599,10 @@ _PWA_HTML = r"""<!DOCTYPE html>
           <button id="type-direct-btn" class="cmd-action-btn" title="Type into PC">Type</button>
           <button id="cmd-send" class="cmd-action-btn">Send</button>
         </div>
+        <!-- Type only: one Send, with Enter afterwards as a remembered switch -->
+        <button type="button" class="enter-switch" id="enter-after" role="switch" aria-checked="true">
+          <span class="track"></span>Press ↵ after
+        </button>
       </div>
 
       <!-- Quick keys and arrows: always visible, just above the dock -->
@@ -3493,23 +3647,20 @@ _PWA_HTML = r"""<!DOCTYPE html>
 
     <!-- Workspace Switcher Row (Always Available Above the 4 Profiles) -->
     <div class="workspace-row">
-      <button class="ws-key" data-cmd="go to workspace 1">1</button>
-      <button class="ws-key" data-cmd="go to workspace 2">2</button>
-      <button class="ws-key" data-cmd="go to workspace 3">3</button>
-      <button class="ws-key" data-cmd="go to workspace 4">4</button>
-      <button class="ws-key" data-cmd="go to workspace 5">5</button>
-      <button class="ws-key scratch-key" data-cmd="toggle scratchpad" title="Toggle Scratchpad Terminal">Scratch</button>
+      <button class="ws-key" data-cmd="go to workspace 1" data-hold-cmd="move window to workspace 1">1</button>
+      <button class="ws-key" data-cmd="go to workspace 2" data-hold-cmd="move window to workspace 2">2</button>
+      <button class="ws-key" data-cmd="go to workspace 3" data-hold-cmd="move window to workspace 3">3</button>
+      <button class="ws-key" data-cmd="go to workspace 4" data-hold-cmd="move window to workspace 4">4</button>
+      <button class="ws-key" data-cmd="go to workspace 5" data-hold-cmd="move window to workspace 5">5</button>
+      <button class="ws-key scratch-key" data-cmd="toggle scratchpad" data-hold-cmd="move window to scratchpad" title="Toggle Scratchpad Terminal">Scratch</button>
     </div>
 
     <!-- Move Active Window to Workspace / Scratchpad (Always Available Above the 4 Profiles) -->
-    <div class="move-to-row">
-      <button class="ws-key move-btn" data-cmd="move window to workspace 1" title="Send window to WS 1">➔ 1</button>
-      <button class="ws-key move-btn" data-cmd="move window to workspace 2" title="Send window to WS 2">➔ 2</button>
-      <button class="ws-key move-btn" data-cmd="move window to workspace 3" title="Send window to WS 3">➔ 3</button>
-      <button class="ws-key move-btn" data-cmd="move window to workspace 4" title="Send window to WS 4">➔ 4</button>
-      <button class="ws-key move-btn" data-cmd="move window to workspace 5" title="Send window to WS 5">➔ 5</button>
-      <button class="ws-key move-btn scratch-key" data-cmd="move window to scratchpad" title="Send window to Scratchpad">➔ Scratch</button>
+    <div class="ws-hint" id="ws-hint" hidden>
+      <span><b>Tap</b> to go there · <b>hold</b> to move the window there</span>
+      <button type="button" id="ws-hint-close" aria-label="Dismiss hint">×</button>
     </div>
+    <div class="edit-bar" id="edit-bar" hidden></div>
 
     <!-- Top Hardware Profile Switcher Bar (5 Profiles: Desk, Code, Media, Web, Custom) -->
     <div class="deck-profile-bar" id="deck-profile-bar">
@@ -3546,7 +3697,7 @@ _PWA_HTML = r"""<!DOCTYPE html>
         <div class="btn-grid-4">
           <button class="chip" data-cmd="toggle fullscreen" title="Fullscreen">
             <svg class="icon icon-svg" viewBox="0 0 24 24"><polyline points="15 3 21 3 21 9"></polyline><polyline points="9 21 3 21 3 15"></polyline><polyline points="21 15 21 21 15 21"></polyline><polyline points="3 9 3 3 9 3"></polyline></svg>
-            <span class="label">Fullscr</span>
+            <span class="label">Fullscreen</span>
           </button>
           <button class="chip" data-cmd="toggle float" title="Float / Tile">
             <svg class="icon icon-svg" viewBox="0 0 24 24"><rect x="3" y="3" width="18" height="18" rx="2"></rect><rect x="8" y="8" width="13" height="13" rx="2"></rect></svg>
@@ -3554,39 +3705,39 @@ _PWA_HTML = r"""<!DOCTYPE html>
           </button>
           <button class="chip" data-cmd="toggle split" title="Toggle Split (H/V)">
             <svg class="icon icon-svg" viewBox="0 0 24 24"><line x1="12" y1="3" x2="12" y2="21"></line><rect x="3" y="3" width="18" height="18" rx="2"></rect></svg>
-            <span class="label">Split H/V</span>
+            <span class="label">Split</span>
           </button>
           <button class="chip" data-cmd="swap window left" title="Swap Window Left (Super+Shift+Left)">
             <svg class="icon icon-svg" viewBox="0 0 24 24"><line x1="19" y1="12" x2="5" y2="12"></line><polyline points="12 19 5 12 12 5"></polyline></svg>
-            <span class="label">Swap ←</span>
+            <span class="label">Swap left</span>
           </button>
         </div>
         <div class="btn-grid-4">
           <button class="chip" data-cmd="previous window" title="Previous Window">
             <svg class="icon icon-svg" viewBox="0 0 24 24"><rect x="3" y="3" width="18" height="18" rx="2"></rect><polyline points="13 8 9 12 13 16"></polyline></svg>
-            <span class="label">Prev Win</span>
+            <span class="label">Previous</span>
           </button>
           <button class="chip" data-cmd="next window" title="Next Window">
             <svg class="icon icon-svg" viewBox="0 0 24 24"><rect x="3" y="3" width="18" height="18" rx="2"></rect><polyline points="11 8 15 12 11 16"></polyline></svg>
-            <span class="label">Next Win</span>
+            <span class="label">Next</span>
           </button>
           <button class="chip" data-cmd="swap window right" title="Swap Window Right (Super+Shift+Right)">
             <svg class="icon icon-svg" viewBox="0 0 24 24"><line x1="5" y1="12" x2="19" y2="12"></line><polyline points="12 5 19 12 12 19"></polyline></svg>
-            <span class="label">Swap →</span>
+            <span class="label">Swap right</span>
           </button>
           <button class="chip chip-danger" data-cmd="close the active window" title="Close Window">
             <svg class="icon icon-svg" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"></circle><line x1="15" y1="9" x2="9" y2="15"></line><line x1="9" y1="9" x2="15" y2="15"></line></svg>
-            <span class="label">Close Win</span>
+            <span class="label">Close window</span>
           </button>
         </div>
         <div class="btn-grid-4">
           <button class="chip" data-cmd="brightness down" title="Brightness Down">
             <svg class="icon icon-svg" viewBox="0 0 24 24"><circle cx="12" cy="12" r="4"></circle><line x1="12" y1="2" x2="12" y2="4"></line><line x1="12" y1="20" x2="12" y2="22"></line><line x1="2" y1="12" x2="4" y2="12"></line><line x1="20" y1="12" x2="22" y2="12"></line></svg>
-            <span class="label">Dim</span>
+            <span class="label">Dimmer</span>
           </button>
           <button class="chip" data-cmd="brightness up" title="Brightness Up">
             <svg class="icon icon-svg" viewBox="0 0 24 24"><circle cx="12" cy="12" r="5"></circle><line x1="12" y1="1" x2="12" y2="3"></line><line x1="12" y1="21" x2="12" y2="23"></line><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"></line><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"></line><line x1="1" y1="12" x2="3" y2="12"></line><line x1="21" y1="12" x2="23" y2="12"></line><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"></line><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"></line></svg>
-            <span class="label">Bright</span>
+            <span class="label">Brighter</span>
           </button>
           <button class="chip" data-cmd="lock screen" title="Lock Screen">
             <svg class="icon icon-svg" viewBox="0 0 24 24"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect><path d="M7 11V7a5 5 0 0 1 10 0v4"></path></svg>
@@ -3633,11 +3784,11 @@ _PWA_HTML = r"""<!DOCTYPE html>
         <div class="btn-grid-5">
           <button class="chip chip-danger" data-cmd="kill port 3000" title="Kill process on port 3000">
             <svg class="icon icon-svg" viewBox="0 0 24 24"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"></polygon></svg>
-            <span class="label">:3000</span>
+            <span class="label">Kill :3000</span>
           </button>
           <button class="chip chip-danger" data-cmd="kill port 8000" title="Kill process on port 8000">
             <svg class="icon icon-svg" viewBox="0 0 24 24"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"></polygon></svg>
-            <span class="label">:8000</span>
+            <span class="label">Kill :8000</span>
           </button>
           <button class="chip chip-danger" data-key="ctrl+c" title="Interrupt Process (Ctrl+C)">
             <svg class="icon icon-svg" viewBox="0 0 24 24"><rect x="6" y="6" width="12" height="12" rx="1"></rect></svg>
@@ -3645,7 +3796,7 @@ _PWA_HTML = r"""<!DOCTYPE html>
           </button>
           <button class="chip" data-key="ctrl+z" title="Suspend Process (Ctrl+Z). It stays in memory and keeps its port.">
             <svg class="icon icon-svg" viewBox="0 0 24 24"><rect x="6" y="5" width="4" height="14" rx="1"></rect><rect x="14" y="5" width="4" height="14" rx="1"></rect></svg>
-            <span class="label">Ctrl+Z</span>
+            <span class="label">Suspend</span>
           </button>
           <button class="chip" data-key="ctrl+l" title="Clear Terminal (Ctrl+L)">
             <svg class="icon icon-svg" viewBox="0 0 24 24"><polyline points="23 4 23 10 17 10"></polyline><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"></path></svg>
@@ -3660,11 +3811,11 @@ _PWA_HTML = r"""<!DOCTYPE html>
         <div class="btn-grid-4">
           <button class="chip" data-cmd="run tests" title="Run Test Suite in Terminal">
             <svg class="icon icon-svg" viewBox="0 0 24 24"><polyline points="9 11 12 14 22 4"></polyline><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"></path></svg>
-            <span class="label">Test</span>
+            <span class="label">Run tests</span>
           </button>
           <button class="chip" data-cmd="open a new terminal" title="Open New Terminal">
             <svg class="icon icon-svg" viewBox="0 0 24 24"><polyline points="4 17 10 11 4 5"></polyline><line x1="12" y1="19" x2="20" y2="19"></line></svg>
-            <span class="label">New Term</span>
+            <span class="label">New terminal</span>
           </button>
           <button class="chip" data-key="ctrl+shift+c" title="Terminal Copy (Ctrl+Shift+C)">
             <svg class="icon icon-svg" viewBox="0 0 24 24"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path></svg>
@@ -3688,7 +3839,7 @@ _PWA_HTML = r"""<!DOCTYPE html>
         <div class="btn-grid-4">
           <button class="chip" data-cmd="previous track" title="Previous Track">
             <svg class="icon icon-svg" viewBox="0 0 24 24"><polygon points="19 20 9 12 19 4 19 20"></polygon><line x1="5" y1="19" x2="5" y2="5"></line></svg>
-            <span class="label">Prev</span>
+            <span class="label">Previous</span>
           </button>
           <button class="chip" data-cmd="media play pause" title="Play / Pause">
             <svg class="icon icon-svg" viewBox="0 0 24 24"><polygon points="5 3 19 12 5 21 5 3"></polygon></svg>
@@ -3711,11 +3862,11 @@ _PWA_HTML = r"""<!DOCTYPE html>
         <div class="btn-grid-4">
           <button class="chip" data-cmd="volume down" title="Volume Down">
             <svg class="icon icon-svg" viewBox="0 0 24 24"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"></polygon><line x1="15" y1="12" x2="19" y2="12"></line></svg>
-            <span class="label">Vol −</span>
+            <span class="label">Volume −</span>
           </button>
           <button class="chip" data-cmd="volume up" title="Volume Up">
             <svg class="icon icon-svg" viewBox="0 0 24 24"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"></polygon><path d="M15.54 8.46a5 5 0 0 1 0 7.07"></path><path d="M19.07 4.93a10 10 0 0 1 0 14.14"></path></svg>
-            <span class="label">Vol +</span>
+            <span class="label">Volume +</span>
           </button>
           <button class="chip" data-cmd="mute audio" title="Mute Desktop Speakers">
             <svg class="icon icon-svg" viewBox="0 0 24 24"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"></polygon><line x1="23" y1="9" x2="17" y2="15"></line><line x1="17" y1="9" x2="23" y2="15"></line></svg>
@@ -3723,7 +3874,7 @@ _PWA_HTML = r"""<!DOCTYPE html>
           </button>
           <button class="chip" data-cmd="toggle audio sink" title="Switch Output Sink (Headphones / Speakers)">
             <svg class="icon icon-svg" viewBox="0 0 24 24"><path d="M3 18v-6a9 9 0 0 1 18 0v6"></path><path d="M21 19a2 2 0 0 1-2 2h-1a2 2 0 0 1-2-2v-3a2 2 0 0 1 2-2h3zM3 19a2 2 0 0 0 2 2h1a2 2 0 0 0 2-2v-3a2 2 0 0 0-2-2H3z"></path></svg>
-            <span class="label">Sink</span>
+            <span class="label">Output</span>
           </button>
         </div>
 
@@ -3734,7 +3885,7 @@ _PWA_HTML = r"""<!DOCTYPE html>
         <div class="btn-grid-4">
           <button class="chip" data-cmd="toggle mic mute" title="Hardware PC Mic Mute Toggle">
             <svg class="icon icon-svg" viewBox="0 0 24 24"><line x1="1" y1="1" x2="23" y2="23"></line><path d="M9 9v3a3 3 0 0 0 5.12 2.12M15 9.34V4a3 3 0 0 0-5.94-.6"></path><path d="M17 16.95A7 7 0 0 1 5 12v-2m14 0v2a7 7 0 0 1-.11 1.23"></path><line x1="12" y1="19" x2="12" y2="23"></line><line x1="8" y1="23" x2="16" y2="23"></line></svg>
-            <span class="label">PC Mic</span>
+            <span class="label">Mic mute</span>
           </button>
           <button class="chip" id="speak-toggle" title="Toggle Phone Voice TTS">
             <svg class="icon icon-svg" viewBox="0 0 24 24"><path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3z"></path><path d="M19 10v2a7 7 0 0 1-14 0v-2"></path><line x1="12" y1="19" x2="12" y2="22"></line></svg>
@@ -3742,11 +3893,11 @@ _PWA_HTML = r"""<!DOCTYPE html>
           </button>
           <button class="chip" data-cmd="take screenshot" title="Capture Screenshot">
             <svg class="icon icon-svg" viewBox="0 0 24 24"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"></path><circle cx="12" cy="13" r="4"></circle></svg>
-            <span class="label">Shot</span>
+            <span class="label">Screenshot</span>
           </button>
           <button class="chip" data-cmd="open menu" title="App Menu Launcher">
             <svg class="icon icon-svg" viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="7"></rect><rect x="14" y="3" width="7" height="7"></rect><rect x="14" y="14" width="7" height="7"></rect><rect x="3" y="14" width="7" height="7"></rect></svg>
-            <span class="label">Menu</span>
+            <span class="label">App menu</span>
           </button>
         </div>
       </section>
@@ -3770,11 +3921,11 @@ _PWA_HTML = r"""<!DOCTYPE html>
           </button>
           <button class="chip" data-cmd="swipe up" title="Scroll Up">
             <svg class="icon icon-svg" viewBox="0 0 24 24"><polyline points="18 15 12 9 6 15"></polyline></svg>
-            <span class="label">Scroll Up</span>
+            <span class="label">Scroll up</span>
           </button>
           <button class="chip" data-cmd="swipe down" title="Scroll Down">
             <svg class="icon icon-svg" viewBox="0 0 24 24"><polyline points="6 9 12 15 18 9"></polyline></svg>
-            <span class="label">Scroll Dn</span>
+            <span class="label">Scroll down</span>
           </button>
         </div>
 
@@ -3785,19 +3936,19 @@ _PWA_HTML = r"""<!DOCTYPE html>
         <div class="btn-grid-4">
           <button class="chip" data-cmd="previous tab" title="Previous Tab (Ctrl+Shift+Tab)">
             <svg class="icon icon-svg" viewBox="0 0 24 24"><rect x="3" y="3" width="18" height="18" rx="2"></rect><polyline points="13 8 9 12 13 16"></polyline></svg>
-            <span class="label">Prev Tab</span>
+            <span class="label">Prev tab</span>
           </button>
           <button class="chip" data-cmd="next tab" title="Next Tab (Ctrl+Tab)">
             <svg class="icon icon-svg" viewBox="0 0 24 24"><rect x="3" y="3" width="18" height="18" rx="2"></rect><polyline points="11 8 15 12 11 16"></polyline></svg>
-            <span class="label">Next Tab</span>
+            <span class="label">Next tab</span>
           </button>
           <button class="chip" data-cmd="new tab" title="New Tab (Ctrl+T)">
             <svg class="icon icon-svg" viewBox="0 0 24 24"><rect x="3" y="3" width="18" height="18" rx="2"></rect><line x1="12" y1="8" x2="12" y2="16"></line><line x1="8" y1="12" x2="16" y2="12"></line></svg>
-            <span class="label">New Tab</span>
+            <span class="label">New tab</span>
           </button>
           <button class="chip chip-danger" data-cmd="close the active tab" title="Close Tab (Ctrl+W)">
             <svg class="icon icon-svg" viewBox="0 0 24 24"><rect x="3" y="3" width="18" height="18" rx="2"></rect><line x1="9" y1="9" x2="15" y2="15"></line><line x1="15" y1="9" x2="9" y2="15"></line></svg>
-            <span class="label">Close Tab</span>
+            <span class="label">Close tab</span>
           </button>
         </div>
 
@@ -3808,7 +3959,7 @@ _PWA_HTML = r"""<!DOCTYPE html>
         <div class="btn-grid-4">
           <button class="chip" data-cmd="address bar" title="Address Bar (Ctrl+L)">
             <svg class="icon icon-svg" viewBox="0 0 24 24"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"></path><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"></path></svg>
-            <span class="label">URL Bar</span>
+            <span class="label">Address</span>
           </button>
           <button class="chip" data-cmd="reload page" title="Reload (Ctrl+R)">
             <svg class="icon icon-svg" viewBox="0 0 24 24"><polyline points="23 4 23 10 17 10"></polyline><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"></path></svg>
@@ -3816,11 +3967,11 @@ _PWA_HTML = r"""<!DOCTYPE html>
           </button>
           <button class="chip" data-cmd="zoom in" title="Zoom In (Ctrl +)">
             <svg class="icon icon-svg" viewBox="0 0 24 24"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line><line x1="11" y1="8" x2="11" y2="14"></line><line x1="8" y1="11" x2="14" y2="11"></line></svg>
-            <span class="label">Zoom +</span>
+            <span class="label">Zoom in</span>
           </button>
           <button class="chip" data-cmd="zoom out" title="Zoom Out (Ctrl -)">
             <svg class="icon icon-svg" viewBox="0 0 24 24"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line><line x1="8" y1="11" x2="14" y2="11"></line></svg>
-            <span class="label">Zoom −</span>
+            <span class="label">Zoom out</span>
           </button>
         </div>
       </section>
@@ -3836,15 +3987,15 @@ _PWA_HTML = r"""<!DOCTYPE html>
         <div class="btn-grid-4">
           <button class="chip" data-cmd="open btop" title="Btop Hardware & Task Manager (CPU, RAM, Disks, Network, Processes)">
             <svg class="icon icon-svg" viewBox="0 0 24 24"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"></polyline></svg>
-            <span class="label">Btop</span>
+            <span class="label">btop</span>
           </button>
           <button class="chip" data-cmd="open t3 dashboard" title="Open T3 Code Workspace Dashboard (Port 3773)">
             <svg class="icon icon-svg" viewBox="0 0 24 24"><rect x="2" y="3" width="20" height="14" rx="2" ry="2"></rect><line x1="8" y1="21" x2="16" y2="21"></line><line x1="12" y1="17" x2="12" y2="21"></line></svg>
-            <span class="label">T3 Dash</span>
+            <span class="label">T3 Code</span>
           </button>
           <button class="chip" data-cmd="open inspector" title="Open Ports, Devices & Servers Inspector GUI">
             <svg class="icon icon-svg" viewBox="0 0 24 24"><rect x="2" y="2" width="20" height="8" rx="2"></rect><rect x="2" y="14" width="20" height="8" rx="2"></rect><line x1="6" y1="6" x2="6.01" y2="6"></line><line x1="6" y1="18" x2="6.01" y2="18"></line></svg>
-            <span class="label">Devices</span>
+            <span class="label">Inspector</span>
           </button>
           <button class="chip" data-cmd="open lazygit" title="Lazygit: Terminal UI for git — stage, commit, branch, rebase">
             <svg class="icon icon-svg" viewBox="0 0 24 24"><circle cx="6" cy="6" r="3"></circle><circle cx="6" cy="18" r="3"></circle><path d="M6 9v6"></path><path d="M18 9a9 9 0 0 1-9 9"></path><circle cx="18" cy="6" r="3"></circle></svg>
@@ -3852,7 +4003,7 @@ _PWA_HTML = r"""<!DOCTYPE html>
           </button>
           <button class="chip" data-cmd="kill app" title="Kill App: Click crosshair on any stuck window to terminate it">
             <svg class="icon icon-svg" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"></circle><line x1="22" y1="12" x2="18" y2="12"></line><line x1="6" y1="12" x2="2" y2="12"></line><line x1="12" y1="6" x2="12" y2="2"></line><line x1="12" y1="22" x2="12" y2="18"></line></svg>
-            <span class="label">Kill App</span>
+            <span class="label">Kill app</span>
           </button>
           <button class="chip" data-cmd="open opencode" title="OpenCode: AI coding agent terminal">
             <svg class="icon icon-svg" viewBox="0 0 24 24"><polyline points="16 18 22 12 16 6"></polyline><polyline points="8 6 2 12 8 18"></polyline></svg>
@@ -3860,7 +4011,7 @@ _PWA_HTML = r"""<!DOCTYPE html>
           </button>
           <button class="chip" data-cmd="toggle zen mode" title="Zen Mode: Toggle top bar on/off for distraction-free view">
             <svg class="icon icon-svg" viewBox="0 0 24 24"><path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"></path><line x1="1" y1="1" x2="23" y2="23"></line></svg>
-            <span class="label">Zen Mode</span>
+            <span class="label">Zen mode</span>
           </button>
           <button class="chip" data-cmd="toggle caffeine" title="Caffeine: Keep laptop display awake (inhibit sleep)">
             <svg class="icon icon-svg" viewBox="0 0 24 24"><path d="M18 8h1a4 4 0 0 1 0 8h-1"></path><path d="M2 8h16v9a4 4 0 0 1-4 4H6a4 4 0 0 1-4-4V8z"></path><line x1="6" y1="1" x2="6" y2="4"></line><line x1="10" y1="1" x2="10" y2="4"></line><line x1="14" y1="1" x2="14" y2="4"></line></svg>
@@ -3868,7 +4019,7 @@ _PWA_HTML = r"""<!DOCTYPE html>
           </button>
           <button class="chip" data-cmd="toggle nightlight" title="Night Light: Warm screen color temperature">
             <svg class="icon icon-svg" viewBox="0 0 24 24"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"></path></svg>
-            <span class="label">Night Light</span>
+            <span class="label">Night light</span>
           </button>
           <button class="chip" data-cmd="open docker tui" title="Docker: Open lazydocker to inspect containers, images and logs">
             <svg class="icon icon-svg" viewBox="0 0 24 24"><path d="M21 8v13H3V8"></path><path d="M1 3h22v5H1z"></path><line x1="10" y1="12" x2="14" y2="12"></line><line x1="12" y1="12" x2="12" y2="16"></line></svg>
@@ -3880,7 +4031,7 @@ _PWA_HTML = r"""<!DOCTYPE html>
           </button>
           <button class="chip" data-cmd="system menu" title="System Menu: Toggle Omarchy system settings menu">
             <svg class="icon icon-svg" viewBox="0 0 24 24"><line x1="4" y1="21" x2="4" y2="14"></line><line x1="4" y1="10" x2="4" y2="3"></line><line x1="12" y1="21" x2="12" y2="12"></line><line x1="12" y1="8" x2="12" y2="3"></line><line x1="20" y1="21" x2="20" y2="16"></line><line x1="20" y1="12" x2="20" y2="3"></line><line x1="1" y1="14" x2="7" y2="14"></line><line x1="9" y1="8" x2="15" y2="8"></line><line x1="17" y1="16" x2="23" y2="16"></line></svg>
-            <span class="label">Sys Menu</span>
+            <span class="label">System menu</span>
           </button>
         </div>
       </section>
@@ -4728,6 +4879,9 @@ async function sendCmd(text, fromVoice, logYou) {
 
 // --- direct typing & mode switching ---
 let activeMode = 'cmd'; // 'cmd' or 'type'
+// Type panel: press Enter after the text? Remembered on this phone.
+let enterAfter = true;
+try { enterAfter = localStorage.getItem('omadeck_enter_after') !== '0'; } catch (e) {}
 const modeCmdBtn = document.getElementById('mode-cmd');
 const modeTypeBtn = document.getElementById('mode-type');
 const auxKeys = document.getElementById('aux-keys');
@@ -4749,7 +4903,7 @@ function setMode(mode) {
     cmdInput.focus();
   }
   if (cmdSend) {
-    cmdSend.textContent = (mode === 'type') ? 'Type ↵' : 'Send';
+    cmdSend.textContent = (mode === 'type') ? (enterAfter ? 'Send ↵' : 'Send') : 'Send';
   }
 }
 
@@ -4885,7 +5039,7 @@ if (cmdSend) {
     const val = cmdInput.value;
     if (!val) return;
     if (activeMode === 'type') {
-      directType(val, true);
+      directType(val, enterAfter);
     } else {
       sendCmd(val);
     }
@@ -4930,9 +5084,241 @@ document.querySelectorAll('.chip[data-cmd]').forEach(c => {
 document.querySelectorAll('.chip[data-key]').forEach(c => {
   c.addEventListener('click', () => sendKey(c.dataset.key));
 });
+const WS_HOLD_MS = 500;
 document.querySelectorAll('.ws-key[data-cmd]').forEach(c => {
-  c.addEventListener('click', () => sendCmd(c.dataset.cmd));
+  let holdTimer = null, held = false;
+  const cancel = () => {
+    c.classList.remove('holding');
+    if (holdTimer) { clearTimeout(holdTimer); holdTimer = null; }
+  };
+  if (c.dataset.holdCmd) {
+    c.addEventListener('pointerdown', (e) => {
+      if (e.button > 0) return;
+      held = false;
+      c.classList.add('holding');
+      holdTimer = setTimeout(() => {
+        holdTimer = null;
+        held = true;
+        c.classList.remove('holding');
+        haptic(18);
+        sendCmd(c.dataset.holdCmd);
+      }, WS_HOLD_MS);
+    });
+    ['pointerup', 'pointerleave', 'pointercancel'].forEach(t => c.addEventListener(t, cancel));
+    c.addEventListener('contextmenu', e => e.preventDefault());
+  }
+  c.addEventListener('click', () => {
+    if (held) { held = false; return; }  // the hold already moved the window
+    sendCmd(c.dataset.cmd);
+  });
 });
+
+// --- cleaner deck: menu, workspace hint, reply bubble, Enter switch, Edit deck ---
+const moreToggle = document.getElementById('more-toggle');
+const moreMenu = document.getElementById('more-menu');
+function closeMoreMenu() {
+  if (!moreMenu || moreMenu.hidden) return;
+  moreMenu.hidden = true;
+  if (moreToggle) moreToggle.setAttribute('aria-expanded', 'false');
+}
+if (moreToggle && moreMenu) {
+  moreToggle.addEventListener('click', (e) => {
+    e.stopPropagation();
+    haptic(8);
+    moreMenu.hidden = !moreMenu.hidden;
+    moreToggle.setAttribute('aria-expanded', String(!moreMenu.hidden));
+  });
+  // Any item closes the menu after its own handler ran.
+  moreMenu.addEventListener('click', () => setTimeout(closeMoreMenu, 0));
+  document.addEventListener('click', (e) => {
+    if (!moreMenu.hidden && !moreMenu.contains(e.target) && e.target !== moreToggle) closeMoreMenu();
+  });
+  document.addEventListener('keydown', (e) => { if (e.key === 'Escape') closeMoreMenu(); });
+}
+
+const wsHint = document.getElementById('ws-hint');
+const wsHintClose = document.getElementById('ws-hint-close');
+try { if (wsHint) wsHint.hidden = localStorage.getItem('omadeck_ws_hint') === '0'; } catch (e) {}
+if (wsHintClose) wsHintClose.onclick = () => {
+  if (wsHint) wsHint.hidden = true;
+  try { localStorage.setItem('omadeck_ws_hint', '0'); } catch (e) {}
+};
+
+// Replies show in a bubble above the dock, then fade. Tapping it opens the logs.
+if (replyStrip && latestReply && window.MutationObserver) {
+  let fadeTimer = null;
+  const showReply = () => {
+    replyStrip.classList.remove('faded');
+    clearTimeout(fadeTimer);
+    fadeTimer = setTimeout(() => replyStrip.classList.add('faded'), 3500);
+  };
+  new MutationObserver(showReply).observe(latestReply, {childList: true, characterData: true, subtree: true});
+  fadeTimer = setTimeout(() => replyStrip.classList.add('faded'), 3500);
+}
+
+const enterSwitch = document.getElementById('enter-after');
+function paintEnterSwitch() {
+  if (enterSwitch) enterSwitch.setAttribute('aria-checked', String(enterAfter));
+  if (cmdSend && activeMode === 'type') cmdSend.textContent = enterAfter ? 'Send ↵' : 'Send';
+}
+if (enterSwitch) enterSwitch.onclick = () => {
+  haptic(8);
+  enterAfter = !enterAfter;
+  try { localStorage.setItem('omadeck_enter_after', enterAfter ? '1' : '0'); } catch (e) {}
+  paintEnterSwitch();
+  if (cmdInput) cmdInput.focus();
+};
+paintEnterSwitch();
+
+// Edit deck: hide and reorder keys, and pick the quick keys. Saved on this phone only.
+const LAYOUT_KEY = 'omadeck_layout';
+const QUICK_KEYS = [
+  ['enter', 'Enter'], ['backspace', 'Del'], ['tab', 'Tab'], ['escape', 'Esc'],
+  ['select_all', 'All'], ['copy', 'Copy'], ['paste', 'Paste'],
+];
+let layout = {hidden: {}, order: {}, keysOff: [], arrows: true};
+try { Object.assign(layout, JSON.parse(localStorage.getItem(LAYOUT_KEY) || '{}')); } catch (e) {}
+const saveLayout = () => { try { localStorage.setItem(LAYOUT_KEY, JSON.stringify(layout)); } catch (e) {} };
+let editingDeck = false;
+const editBar = document.getElementById('edit-bar');
+
+const chipId = (c) => c.dataset.cmd || (c.dataset.key ? 'key:' + c.dataset.key : '') || c.id ||
+  ((c.querySelector('.label') || c).textContent || '').trim();
+const chipLabel = (c) => ((c.querySelector('.label') || c).textContent || '').trim();
+function deckGrids() {
+  const out = [];
+  document.querySelectorAll('.profile-view').forEach(view => {
+    view.querySelectorAll('.btn-grid-4, .btn-grid-5').forEach((g, i) => out.push([view.dataset.profileSection + ':' + i, g, view]));
+  });
+  return out;
+}
+
+function applyLayout() {
+  deckGrids().forEach(([gid, grid]) => {
+    const chips = [...grid.querySelectorAll(':scope > .chip')];
+    const order = layout.order[gid];
+    if (order) {
+      const byId = new Map(chips.map(c => [chipId(c), c]));
+      order.forEach(id => { const c = byId.get(id); if (c) { grid.appendChild(c); byId.delete(id); } });
+      byId.forEach(c => grid.appendChild(c));
+    }
+    chips.forEach(c => c.classList.toggle('chip-hidden', !!layout.hidden[chipId(c)]));
+  });
+  document.querySelectorAll('#aux-keys .key-chip').forEach(k => k.classList.toggle('key-off', layout.keysOff.includes(k.dataset.key)));
+  const arrows = document.getElementById('arrow-keys');
+  if (arrows) arrows.hidden = !layout.arrows;
+}
+
+function moveChip(chip, dir) {
+  const grid = chip.parentElement;
+  const visible = [...grid.querySelectorAll(':scope > .chip:not(.chip-hidden)')];
+  const i = visible.indexOf(chip), j = i + dir;
+  if (j < 0 || j >= visible.length) return;
+  if (dir < 0) grid.insertBefore(chip, visible[j]); else grid.insertBefore(visible[j], chip);
+  const gid = deckGrids().find(([, g]) => g === grid)[0];
+  layout.order[gid] = [...grid.querySelectorAll(':scope > .chip')].map(chipId);
+  saveLayout();
+  renderEditing();
+}
+
+function renderEditing() {
+  document.body.classList.toggle('editing-deck', editingDeck);
+  document.querySelectorAll('.chip-tools').forEach(t => t.remove());
+  if (!editBar) return;
+  editBar.hidden = !editingDeck;
+  if (!editingDeck) { editBar.innerHTML = ''; return; }
+  const view = [...document.querySelectorAll('.profile-view')].find(v => v.style.display !== 'none') || null;
+  if (view) {
+    view.querySelectorAll('.btn-grid-4, .btn-grid-5').forEach(grid => {
+      const visible = [...grid.querySelectorAll(':scope > .chip:not(.chip-hidden)')];
+      visible.forEach((c, i) => {
+        const tools = document.createElement('div');
+        tools.className = 'chip-tools';
+        const tool = (cls, text, label, fn) => {
+          const b = document.createElement('button');
+          b.type = 'button'; b.className = cls; b.textContent = text; b.setAttribute('aria-label', label);
+          b.dataset.tool = '1';
+          b.addEventListener('click', (e) => { e.stopPropagation(); fn(); });
+          tools.appendChild(b);
+        };
+        tool('t-hide', '✕', 'Hide ' + chipLabel(c), () => {
+          layout.hidden[chipId(c)] = true; saveLayout(); applyLayout(); renderEditing();
+        });
+        if (i > 0) tool('t-left', '◀', 'Move ' + chipLabel(c) + ' earlier', () => moveChip(c, -1));
+        if (i < visible.length - 1) tool('t-right', '▶', 'Move ' + chipLabel(c) + ' later', () => moveChip(c, 1));
+        c.appendChild(tools);
+      });
+    });
+  }
+  editBar.innerHTML = '';
+  const top = document.createElement('div');
+  top.className = 'edit-bar-top';
+  top.innerHTML = '<span>Editing this page: ✕ hides a key, ◀ ▶ moves it.</span>';
+  const done = document.createElement('button');
+  done.type = 'button'; done.className = 'done'; done.textContent = 'Done';
+  done.onclick = () => { editingDeck = false; renderEditing(); if (latestReply) latestReply.textContent = '✓ Saved your layout on this phone.'; };
+  top.appendChild(done);
+  editBar.appendChild(top);
+
+  const hiddenRow = document.createElement('div');
+  hiddenRow.className = 'edit-row';
+  const hiddenChips = view ? [...view.querySelectorAll('.chip.chip-hidden')] : [];
+  if (hiddenChips.length) {
+    hiddenRow.innerHTML = '<span>Hidden:</span>';
+    hiddenChips.forEach(c => {
+      const b = document.createElement('button');
+      b.type = 'button'; b.textContent = '+ ' + chipLabel(c);
+      b.onclick = () => { delete layout.hidden[chipId(c)]; saveLayout(); applyLayout(); renderEditing(); };
+      hiddenRow.appendChild(b);
+    });
+    editBar.appendChild(hiddenRow);
+  }
+
+  const keysRow = document.createElement('div');
+  keysRow.className = 'edit-row';
+  keysRow.innerHTML = '<span>Quick keys:</span>';
+  QUICK_KEYS.forEach(([key, label]) => {
+    const b = document.createElement('button');
+    b.type = 'button'; b.textContent = label;
+    b.setAttribute('aria-pressed', String(!layout.keysOff.includes(key)));
+    b.onclick = () => {
+      layout.keysOff = layout.keysOff.includes(key) ? layout.keysOff.filter(k => k !== key) : layout.keysOff.concat(key);
+      saveLayout(); applyLayout(); renderEditing();
+    };
+    keysRow.appendChild(b);
+  });
+  const arrowsBtn = document.createElement('button');
+  arrowsBtn.type = 'button'; arrowsBtn.textContent = 'Arrows';
+  arrowsBtn.setAttribute('aria-pressed', String(layout.arrows));
+  arrowsBtn.onclick = () => { layout.arrows = !layout.arrows; saveLayout(); applyLayout(); renderEditing(); };
+  keysRow.appendChild(arrowsBtn);
+  const reset = document.createElement('button');
+  reset.type = 'button'; reset.className = 'reset'; reset.textContent = 'Reset layout';
+  reset.onclick = () => { layout = {hidden: {}, order: {}, keysOff: [], arrows: true}; saveLayout(); applyLayout(); renderEditing(); };
+  keysRow.appendChild(reset);
+  editBar.appendChild(keysRow);
+}
+
+// While editing, a tap on a key edits it instead of sending it to the PC.
+document.addEventListener('click', (e) => {
+  if (!editingDeck) return;
+  const chip = e.target.closest && e.target.closest('.profile-view .chip');
+  if (!chip || e.target.closest('[data-tool]')) return;
+  e.preventDefault();
+  e.stopImmediatePropagation();
+}, true);
+
+const editDeckBtn = document.getElementById('edit-deck-btn');
+if (editDeckBtn) editDeckBtn.onclick = () => {
+  editingDeck = true;
+  if (typeof closeDockPanel === 'function') closeDockPanel();
+  renderEditing();
+  const bank = document.querySelector('.deck-bank');
+  if (bank) bank.scrollTop = 0;
+};
+// Switching pages while editing shows that page's tools.
+document.querySelectorAll('.profile-pill').forEach(p => p.addEventListener('click', () => { if (editingDeck) renderEditing(); }));
+applyLayout();
 
 // --- spoken replies ---
 let speakOn = localStorage.getItem('oma-speak') !== '0';
