@@ -1437,6 +1437,11 @@ def _misused_change_id(expr: str) -> str | None:
             'hl.dsp.focus({ workspace = "N" }) instead.')
 
 
+def _log(line: str) -> None:
+    from .feedback import write_log
+    write_log(line)
+
+
 class Executor:
     """Runs tool calls against the real desktop (or narrates them, in dry-run)."""
 
@@ -1472,6 +1477,7 @@ class Executor:
                 raise NeedsConfirmation(description)
         except Denied as exc:
             self.transcript.append(f"DENIED  {description} ({exc})")
+            _log(f"denied  {description} ({exc})")
             return Result(False, f"refused: {exc}. Tell the user you will not do that.")
         except NeedsConfirmation:
             if self.pending:
@@ -1482,6 +1488,7 @@ class Executor:
                               "Confirm or cancel it first; do not try a second gated action.")
             self.pending = (name, args)
             self.transcript.append(f"HOLD    {description}")
+            _log(f"hold    {description}: waiting for spoken confirmation")
             return Result(False,
                           "This action needs spoken confirmation. Stop here and ask the user "
                           "to confirm out loud; do not try another route around it.")
@@ -1501,6 +1508,7 @@ class Executor:
         try:
             result = handler(**args)
         except TypeError as exc:
+            _log(f"error   {name}: bad arguments: {exc}")
             return Result(False, f"bad arguments: {exc}")
         if result.ok and (name in UNTRUSTED_OUTPUT_TOOLS
                           or (name == "clipboard" and args.get("action") != "write")):
@@ -1646,6 +1654,26 @@ class Executor:
     @staticmethod
     def _shell(cmd: list[str], timeout: float = 20.0, grace: float | None = None,
                limit: int = OUTPUT_LIMIT) -> Result:
+        """_run_command, with the command and its outcome in `omadeck log`.
+
+        Voice and phone actions log what they meant to do; this is the line
+        that says what actually ran on the PC and how it went.
+        """
+        from .feedback import brief, write_log
+        started = time.monotonic()
+        result = Executor._run_command(cmd, timeout, grace, limit)
+        took = int((time.monotonic() - started) * 1000)
+        line = f"exec    {shlex.join(str(c) for c in cmd)} -> "
+        line += "ok" if result.ok else "failed"
+        line += f" ({took} ms)"
+        if not result.ok and result.output:
+            line += f": {brief(result.output, 200)}"
+        write_log(line)
+        return result
+
+    @staticmethod
+    def _run_command(cmd: list[str], timeout: float = 20.0, grace: float | None = None,
+                     limit: int = OUTPUT_LIMIT) -> Result:
         """Run a command and read its result.
 
         `grace` is for commands that start an application. `omarchy launch

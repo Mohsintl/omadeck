@@ -9,6 +9,7 @@ Three channels, all optional and all cheap:
 from __future__ import annotations
 
 import json
+import os
 import shlex
 import shutil
 import subprocess
@@ -124,7 +125,10 @@ def write_log(line: str) -> None:
     stamp = time.strftime("%Y-%m-%d %H:%M:%S")
     try:
         LOG_FILE.parent.mkdir(parents=True, exist_ok=True)
-        with LOG_FILE.open("a") as fh:
+        # Owner-only from the first byte: the log names apps, windows and
+        # commands, which other accounts on the machine have no need to read.
+        fd = os.open(LOG_FILE, os.O_WRONLY | os.O_APPEND | os.O_CREAT, 0o600)
+        with os.fdopen(fd, "a") as fh:
             fh.write(f"{stamp}  {line}\n")
     except OSError:
         pass
