@@ -1012,6 +1012,53 @@ class MobileBridgePinTests(unittest.TestCase):
         call.assert_called_once_with("launch_app", {"app": "google-chrome:new-window",
                                                     "workspace": "2"})
 
+    def _media(self, phrase, installed, media_plugin=False):
+        from omarchy_voice.mobile_bridge import _quick_command
+        plugins = json.dumps([{"id": "omarchy.media", "enabled": media_plugin}])
+
+        def fake_run(argv, **kwargs):
+            out = plugins if argv[1:] == ["shell", "listPlugins"] else ""
+            return SimpleNamespace(returncode=0, stdout=out, stderr="")
+
+        which = lambda name: f"/usr/bin/{name}" if name in installed else None
+        with mock.patch("omarchy_voice.mobile_bridge.shutil.which", side_effect=which), \
+             mock.patch("omarchy_voice.mobile_bridge.subprocess.run",
+                        side_effect=fake_run) as run, \
+             mock.patch("omarchy_voice.tools.Executor.call",
+                        return_value=SimpleNamespace(ok=True, output="ok")) as key:
+            reply = _quick_command(phrase)
+        actions = [c.args[0] for c in run.call_args_list
+                   if c.args[0][1:] != ["shell", "listPlugins"]]
+        return reply, actions, key
+
+    def test_media_buttons_use_omarchys_media_plugin_like_the_media_keys(self):
+        everything = {"omarchy-shell", "swayosd-client", "playerctl"}
+        for phrase, action in (("media play pause", "playPause"),
+                               ("media next", "next"),
+                               ("media prev", "previous"),
+                               ("media stop", "pause")):
+            _, actions, key = self._media(phrase, everything, media_plugin=True)
+            self.assertEqual(actions, [["omarchy-shell", "media", action]])
+            key.assert_not_called()
+
+    def test_a_disabled_media_plugin_is_skipped_for_swayosd(self):
+        _, actions, key = self._media("media prev",
+                                      {"omarchy-shell", "swayosd-client"})
+        self.assertEqual(actions, [["swayosd-client", "--playerctl", "prev"]])
+        key.assert_not_called()
+
+    def test_media_uses_playerctl_without_omarchy_or_swayosd(self):
+        _, actions, key = self._media("media prev", {"playerctl"})
+        self.assertEqual(actions, [["playerctl", "previous"]])
+        key.assert_not_called()
+
+    def test_media_falls_back_to_the_key_with_none_of_them(self):
+        reply, actions, key = self._media("media play pause", set())
+        self.assertEqual(reply, "Toggled playback.")
+        self.assertEqual(actions, [])
+        self.assertEqual(key.call_args.args[:2],
+                         ("send_shortcut", {"mods": "", "key": "XF86AudioPlay"}))
+
     def test_the_phone_button_uses_kill_port(self):
         from omarchy_voice.mobile_bridge import _quick_command
         with mock.patch("omarchy_voice.mobile_bridge.kill_port",
