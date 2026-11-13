@@ -6262,6 +6262,69 @@ def _shell_plugin_enabled(plugin: str) -> bool:
         return False
 
 
+_MPRIS_PATH = "/org/mpris/MediaPlayer2"
+_MPRIS_PLAYER = "org.mpris.MediaPlayer2.Player"
+
+
+def _mpris_players() -> list[tuple[str, str]]:
+    """Every MPRIS player on the session bus, with its PlaybackStatus."""
+    res = _run(["busctl", "--user", "list", "--acquired", "--no-legend"],
+               capture_output=True, text=True, timeout=3)
+    if res.returncode != 0:
+        return []
+    names = [line.split()[0] for line in (res.stdout or "").splitlines()
+             if line.startswith("org.mpris.MediaPlayer2.")]
+    players = []
+    for name in names:
+        got = _run(["busctl", "--user", "get-property", name, _MPRIS_PATH,
+                    _MPRIS_PLAYER, "PlaybackStatus"],
+                   capture_output=True, text=True, timeout=3)
+        status = (got.stdout or "").strip().split(" ", 1)[-1].strip('"')             if got.returncode == 0 else "Unknown"
+        players.append((name, status))
+    return players
+
+
+def _mpris_control(action: str) -> str | None:
+    """Act on the player that is actually playing, over MPRIS.
+
+    `omarchy-shell media playPause` toggles one player it picks itself. With a
+    second player open (another tab, a paused app) it could start YouTube but
+    never pause it again. Asking each player whether it is playing first means
+    play/pause pauses everything that is playing, and only resumes when
+    nothing is. None when there is no bus or no player: try the next route.
+    """
+    if not shutil.which("busctl"):
+        return None
+    try:
+        players = _mpris_players()
+    except (OSError, subprocess.SubprocessError):
+        return None
+    if not players:
+        return None
+    write_log("media   players " + ", ".join(
+        f"{name.removeprefix('org.mpris.MediaPlayer2.')}={status}"
+        for name, status in players))
+    playing = [n for n, s in players if s == "Playing"]
+    paused = [n for n, s in players if s == "Paused"]
+
+    def call(name: str, method: str) -> bool:
+        return _run(["busctl", "--user", "call", name, _MPRIS_PATH,
+                     _MPRIS_PLAYER, method],
+                    capture_output=True, text=True, timeout=3).returncode == 0
+
+    if action in ("play-pause", "stop"):
+        if playing:
+            done = [call(n, "Pause") for n in playing]
+            return "Paused." if all(done) else None
+        if action == "stop":
+            return "Nothing is playing."
+        target = (paused or [players[0][0]])[0]
+        return "Playing." if call(target, "Play") else None
+    method = "Next" if action == "next" else "Previous"
+    target = (playing or paused or [players[0][0]])[0]
+    return {"Next": "Next track.", "Previous": "Previous track."}[method]         if call(target, method) else None
+
+
 # Each media action, as Omarchy's shell, swayosd and playerctl spell it.
 _MEDIA_ACTIONS = {
     "play-pause": ("playPause", "play-pause", "play-pause"),
@@ -6281,6 +6344,12 @@ def _media_control(action: str, keysym: str, run) -> tuple[bool, str]:
     first, then swayosd-client and playerctl for older setups. The key is the
     last resort.
     """
+    try:
+        said = _mpris_control(action)
+    except (OSError, subprocess.SubprocessError):
+        said = None
+    if said:
+        return True, said
     shell_name, osd_name, ctl_name = _MEDIA_ACTIONS[action]
     # Every route is logged with why it was skipped: the reply alone cannot
     # say whether a player heard it or the key went nowhere.
@@ -6316,7 +6385,7 @@ def _media_control(action: str, keysym: str, run) -> tuple[bool, str]:
     if not ok:
         ok, err = _press_key(keysym)
         out = "" if ok else (out or err)
-    return ok, out
+    return ok, ("" if ok else out)
 
 
 def _quick_command(text: str, voice: bool = False) -> str | None:
@@ -6774,7 +6843,7 @@ def _quick_command(text: str, voice: bool = False) -> str | None:
     for phrases, (action, keysym, done, failed) in media.items():
         if t in phrases:
             ok, out = _media_control(action, keysym, run)
-            return done if ok else f"{failed}: {out}"
+            return (out or done) if ok else f"{failed}: {out}"
 
     # --- browser navigation (back / forward / reload / new tab) ----------
     if t in ("browser back", "go back", "back", "navigate back", "history back"):
