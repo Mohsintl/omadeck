@@ -1914,9 +1914,12 @@ _PWA_HTML = r"""<!DOCTYPE html>
     max-width: 240px;
     margin-top: 4px;
   }
+  /* Digits sit on the deck's own key colour. They were on --btn-bg, the accent
+     Unlock uses, which is light in most themes: light digits on it vanished. */
   .pin-key {
-    background: var(--btn-bg);
+    background: var(--deck-key);
     border: 1px solid var(--border);
+    box-shadow: var(--key-shadow);
     border-radius: var(--radius-md);
     color: var(--text);
     font-size: 1.3rem;
@@ -1929,8 +1932,10 @@ _PWA_HTML = r"""<!DOCTYPE html>
     align-items: center;
     justify-content: center;
   }
+  .pin-key:hover { background: var(--deck-key-hover); }
   .pin-key:active {
-    background: var(--btn-active);
+    background: var(--deck-key-active);
+    box-shadow: var(--key-shadow-active);
     transform: scale(0.96);
   }
   .pin-key.action-key {

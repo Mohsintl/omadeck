@@ -1437,6 +1437,49 @@ def _misused_change_id(expr: str) -> str | None:
             'hl.dsp.focus({ workspace = "N" }) instead.')
 
 
+_SANDBOXED: bool | None = None
+
+
+def _in_service_sandbox() -> bool:
+    """Whether this process runs with no_new_privs, as the systemd service does.
+
+    omadeck.service sets NoNewPrivileges, and the kernel passes that flag to
+    every child for good. An app the service starts itself, a terminal above
+    all, then cannot use sudo: "The 'no new privileges' flag is set".
+    """
+    global _SANDBOXED
+    if _SANDBOXED is None:
+        _SANDBOXED = False
+        try:
+            with open("/proc/self/status", encoding="ascii", errors="replace") as fh:
+                for line in fh:
+                    if line.startswith("NoNewPrivs:"):
+                        _SANDBOXED = line.split()[1:2] == ["1"]
+                        break
+        except OSError:
+            pass
+    return _SANDBOXED
+
+
+def _launch_in_session(cmd: list[str]) -> Result | None:
+    """Have Hyprland start an app, so it runs as the session, not as our child.
+
+    Only under the service sandbox; outside it the app is started directly as
+    before. None means "start it yourself": Hyprland is missing or refused, and
+    a sandboxed terminal is still better than no terminal.
+    """
+    if not _in_service_sandbox() or not shutil.which("hyprctl"):
+        return None
+    lua = f"hl.exec_cmd({json.dumps(shlex.join(cmd), ensure_ascii=False)})"
+    try:
+        r = subprocess.run(["hyprctl", "eval", lua], capture_output=True, text=True, timeout=5)
+    except (OSError, subprocess.SubprocessError):
+        return None
+    if r.returncode == 0 and r.stdout.strip().lower() == "ok":
+        return Result(True, "started")
+    return None
+
+
 def _log(line: str) -> None:
     from .feedback import write_log
     write_log(line)
@@ -1692,6 +1735,10 @@ class Executor:
         under 0.35 s. The 1.2 s it used to wait was 0.85 s of silence added to
         every launch, and composition pays that per pane.
         """
+        if grace is not None:
+            handed = _launch_in_session(cmd)
+            if handed is not None:
+                return handed
         try:
             proc = subprocess.Popen(cmd, stdout=subprocess.PIPE,
                                     stderr=subprocess.PIPE, text=True)
