@@ -1059,6 +1059,49 @@ class MobileBridgePinTests(unittest.TestCase):
         self.assertEqual(key.call_args.args[:2],
                          ("send_shortcut", {"mods": "", "key": "XF86AudioPlay"}))
 
+    def _mpris(self, phrase, statuses):
+        """Run a media phrase against fake MPRIS players; return (reply, calls)."""
+        from omarchy_voice.mobile_bridge import _quick_command
+        prefix = "org.mpris.MediaPlayer2."
+        calls = []
+
+        def fake_run(argv, **kwargs):
+            out = ""
+            if argv[:3] == ["busctl", "--user", "list"]:
+                out = "".join(f"{prefix}{n} 100 x user :1.{i} - - -\n"
+                              for i, n in enumerate(statuses))
+            elif argv[2] == "get-property":
+                out = f's "{statuses[argv[3].removeprefix(prefix)]}"\n'
+            elif argv[2] == "call":
+                calls.append((argv[3].removeprefix(prefix), argv[6]))
+            return SimpleNamespace(returncode=0, stdout=out, stderr="")
+
+        with mock.patch("omarchy_voice.mobile_bridge.shutil.which",
+                        side_effect=lambda n: "/usr/bin/busctl" if n == "busctl" else None), \
+             mock.patch("omarchy_voice.mobile_bridge.subprocess.run", side_effect=fake_run), \
+             mock.patch("omarchy_voice.tools.Executor.call") as key:
+            reply = _quick_command(phrase)
+        key.assert_not_called()
+        return reply, calls
+
+    def test_play_pause_pauses_youtube_even_with_another_player_paused(self):
+        reply, calls = self._mpris("media play pause",
+                                   {"spotify": "Paused", "chromium.instance42": "Playing"})
+        self.assertEqual(reply, "Paused.")
+        self.assertEqual(calls, [("chromium.instance42", "Pause")])
+
+    def test_play_pause_resumes_a_paused_player_when_nothing_plays(self):
+        reply, calls = self._mpris("media play pause",
+                                   {"chromium.instance42": "Paused", "mpv": "Stopped"})
+        self.assertEqual(reply, "Playing.")
+        self.assertEqual(calls, [("chromium.instance42", "Play")])
+
+    def test_next_skips_on_the_player_that_is_playing(self):
+        reply, calls = self._mpris("media next",
+                                   {"spotify": "Paused", "chromium.instance42": "Playing"})
+        self.assertEqual(reply, "Next track.")
+        self.assertEqual(calls, [("chromium.instance42", "Next")])
+
     def test_the_phone_button_uses_kill_port(self):
         from omarchy_voice.mobile_bridge import _quick_command
         with mock.patch("omarchy_voice.mobile_bridge.kill_port",
