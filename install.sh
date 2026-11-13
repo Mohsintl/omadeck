@@ -4,14 +4,18 @@
 #   ./install.sh          asks about each part
 #   ./install.sh --quick  just the phone deck: installs what it needs, skips
 #                         the extras, and ends by showing the pairing QR codes
+#   ./install.sh --update copy in new code and refresh what is already
+#                         installed, without asking (omadeck update runs this)
 set -euo pipefail
 
 QUICK=0
+UPDATE=0
 for arg in "$@"; do
   case "$arg" in
     -q|--quick) QUICK=1 ;;
+    -u|--update) UPDATE=1 ;;
     -h|--help)
-      sed -n '2,6p' "$0" | sed 's/^# \{0,1\}//'
+      sed -n '2,8p' "$0" | sed 's/^# \{0,1\}//'
       exit 0 ;;
     *) printf 'unknown option: %s (try --help)\n' "$arg" >&2; exit 2 ;;
   esac
@@ -51,8 +55,12 @@ pacman_install() {
   sudo pacman -S --needed --noconfirm "$pkg"
 }
 
-bold "OmaDeck installer"
-echo "A phone remote and voice control for Omarchy."
+if (( UPDATE )); then
+  bold "OmaDeck update"
+else
+  bold "OmaDeck installer"
+  echo "A phone remote and voice control for Omarchy."
+fi
 if (( QUICK )); then
   echo "Quick install: the phone deck only. Voice and AI can be added later from the deck's Settings."
 fi
@@ -77,6 +85,8 @@ chmod +x "$PREFIX/bin/omarchy-voice"
 ln -sf "$PREFIX/bin/omarchy-voice" "$BINDIR/omarchy-voice"
 ln -sf "$PREFIX/bin/omarchy-voice" "$BINDIR/omadeck"
 echo "   omadeck -> $BINDIR/omadeck (omarchy-voice also works)"
+# Where this copy came from, so `omadeck update` can pull and reinstall.
+printf '%s\n' "$SOURCE" > "$PREFIX/source"
 
 if [[ ! -f "$CONFIGDIR/config.toml" ]]; then
   cp "$SOURCE/share/config.example.toml" "$CONFIGDIR/config.toml"
@@ -105,6 +115,37 @@ case ":$PATH:" in
   *":$BINDIR:"*) ;;
   *) warn "$BINDIR is not on your PATH — add it, or the keybindings will not work." ;;
 esac
+
+# --- update: refresh only what is already installed, ask nothing ----------
+if (( UPDATE )); then
+  if [[ -d "$PLUGINDIR/voice.indicator" ]]; then
+    rm -rf "$PLUGINDIR/voice.indicator"
+    cp -r "$SOURCE/plugin/voice.indicator" "$PLUGINDIR/"
+    echo "   refreshed the bar widget"
+  fi
+  refreshed=0
+  for unit in omarchy-voice.service omadeck.service; do
+    if [[ -f "$UNITDIR/$unit" ]]; then
+      cp "$SOURCE/share/$unit" "$UNITDIR/"
+      refreshed=1
+    fi
+  done
+  if (( refreshed )) && command -v systemctl >/dev/null; then
+    systemctl --user daemon-reload
+    echo "   refreshed the systemd services"
+  fi
+  OMARCHY_BIN=$(dirname "$(command -v omarchy 2>/dev/null || echo /usr/bin/omarchy)")
+  for cmd in "$SOURCE"/omarchy/bin/omarchy-voice*; do
+    installed="$OMARCHY_BIN/$(basename "$cmd")"
+    if [[ -f "$installed" ]] && ! cmp -s "$cmd" "$installed"; then
+      warn "the 'omarchy voice ...' commands changed. They need sudo, so update them with ./install.sh"
+      break
+    fi
+  done
+  echo
+  bold "installed. Restart to use it: omadeck restart"
+  exit 0
+fi
 
 # --- realtime --------------------------------------------------------------
 # Only the voice daemon needs this; the phone deck does not.
@@ -253,7 +294,8 @@ fi
 echo
 bold "next"
 echo "   omadeck mobile                    show the pairing steps again"
-echo "   omadeck restart                   restart everything (also after an update)"
+echo "   omadeck update                    pull the latest OmaDeck, reinstall and restart"
+echo "   omadeck restart                   restart everything"
 echo "   omadeck doctor                    check every moving part"
 if (( QUICK )); then
   echo "   ./install.sh                      add voice control and the extras later"
