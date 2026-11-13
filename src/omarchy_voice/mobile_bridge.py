@@ -1198,6 +1198,72 @@ _PWA_HTML = r"""<!DOCTYPE html>
   }
   #cmd-send:hover { filter: brightness(1.1); }
 
+  /* Command dock: Ask · Mic · Type. The mic is the biggest key, in the middle;
+     Ask and Type open one panel above the dock, never both. */
+  .dock-panel {
+    display: flex;
+    flex-direction: column;
+    gap: 5px;
+    padding: 8px;
+    background: var(--chassis);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-md);
+  }
+  .dock-panel[hidden] { display: none; }
+  .dock-panel-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    min-height: 22px;
+  }
+  .dock-panel-title {
+    font-size: 0.70rem;
+    font-weight: 700;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    color: var(--text);
+  }
+  .dock-close {
+    background: none;
+    border: 0;
+    color: var(--text-muted);
+    font-size: 0.72rem;
+    padding: 2px 6px;
+    cursor: pointer;
+    touch-action: manipulation;
+  }
+  .dock-close:hover { color: var(--text); }
+  /* Ask runs a command, so the typing keys and plain Type stay out of it. */
+  #controls-dock[data-panel="cmd"] .aux-keys,
+  #controls-dock[data-panel="cmd"] #type-direct-btn { display: none; }
+  .mode-bar.dock-bar {
+    height: 48px;
+    gap: 8px;
+    align-items: stretch;
+  }
+  .dock-bar .mode-pill {
+    font-size: 0.74rem;
+    gap: 7px;
+  }
+  .dock-bar .mode-pill[aria-expanded="true"] {
+    background: var(--active-bg);
+    border-color: var(--text-muted);
+    color: var(--text);
+    box-shadow: inset 0 0 0 1px var(--text-muted);
+  }
+  .dock-mic-wrap {
+    flex: 0 0 64px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+  .dock-mic-wrap #mic-btn {
+    width: 58px;
+    height: 58px;
+    border-radius: 50%;
+  }
+  .dock-mic-wrap #mic-btn .icon-svg { width: 24px; height: 24px; }
+
   /* Notice Banner */
   .notice {
     width: 100%;
@@ -1329,6 +1395,20 @@ _PWA_HTML = r"""<!DOCTYPE html>
     #mic-btn {
       width: 32px;
       height: 32px;
+    }
+    .mode-bar.dock-bar {
+      height: 40px;
+      gap: 6px;
+    }
+    .dock-bar .mode-pill { font-size: 0.66rem; }
+    .dock-mic-wrap { flex-basis: 52px; }
+    .dock-mic-wrap #mic-btn {
+      width: 46px;
+      height: 46px;
+    }
+    .dock-panel {
+      padding: 6px;
+      gap: 4px;
     }
 
     /* Right Deck Action Bank */
@@ -3351,51 +3431,55 @@ _PWA_HTML = r"""<!DOCTYPE html>
     <div id="transcript" style="display:none;"></div>
     <div id="mic-hint" style="display:none;"></div>
 
-    <!-- Controls Dock (Mic, Input, Mode) -->
-    <div class="deck-controls-dock">
-      <!-- Aux Keys for Typing (Always Visible) -->
-      <div class="aux-keys" id="aux-keys">
-        <button class="key-chip" data-key="enter" title="Send Enter to PC">↵ Enter</button>
-        <button class="key-chip" data-key="backspace" title="Send Backspace to PC">⌫ Del</button>
-        <button class="key-chip" data-key="tab" title="Send Tab to PC">Tab ⇥</button>
-        <button class="key-chip" data-key="escape" title="Send Escape to PC">Esc</button>
-        <button class="key-chip" data-key="select_all" title="Select all (Ctrl+A)">All</button>
-        <button class="key-chip" data-key="copy" title="Copy (Ctrl+Shift+C in a terminal)">Copy</button>
-        <button class="key-chip" data-key="paste" title="Paste (Ctrl+Shift+V in a terminal)">Paste</button>
-      </div>
-      <!-- Arrow keys: hold one to keep pressing it -->
-      <div class="aux-keys arrow-keys" id="arrow-keys">
-        <button class="key-chip" data-key="left" data-repeat title="Left arrow (hold to repeat)" aria-label="Left arrow"><svg viewBox="0 0 24 24" style="transform: rotate(180deg)"><path d="M5 12h14M13 6l6 6-6 6"/></svg></button>
-        <button class="key-chip" data-key="up" data-repeat title="Up arrow (hold to repeat)" aria-label="Up arrow"><svg viewBox="0 0 24 24" style="transform: rotate(-90deg)"><path d="M5 12h14M13 6l6 6-6 6"/></svg></button>
-        <button class="key-chip" data-key="down" data-repeat title="Down arrow (hold to repeat)" aria-label="Down arrow"><svg viewBox="0 0 24 24" style="transform: rotate(90deg)"><path d="M5 12h14M13 6l6 6-6 6"/></svg></button>
-        <button class="key-chip" data-key="right" data-repeat title="Right arrow (hold to repeat)" aria-label="Right arrow"><svg viewBox="0 0 24 24"><path d="M5 12h14M13 6l6 6-6 6"/></svg></button>
+    <!-- Controls Dock: Ask · Mic · Type. Ask and Type open the panel above it. -->
+    <div class="deck-controls-dock" id="controls-dock">
+      <div class="dock-panel" id="dock-panel" hidden>
+        <div class="dock-panel-head">
+          <span class="dock-panel-title" id="dock-panel-title">Ask OmaDeck</span>
+          <button class="dock-close" id="dock-close" type="button">Close</button>
+        </div>
+        <div class="aux-keys" id="aux-keys">
+          <button class="key-chip" data-key="enter" title="Send Enter to PC">↵ Enter</button>
+          <button class="key-chip" data-key="backspace" title="Send Backspace to PC">⌫ Del</button>
+          <button class="key-chip" data-key="tab" title="Send Tab to PC">Tab ⇥</button>
+          <button class="key-chip" data-key="escape" title="Send Escape to PC">Esc</button>
+          <button class="key-chip" data-key="select_all" title="Select all (Ctrl+A)">All</button>
+          <button class="key-chip" data-key="copy" title="Copy (Ctrl+Shift+C in a terminal)">Copy</button>
+          <button class="key-chip" data-key="paste" title="Paste (Ctrl+Shift+V in a terminal)">Paste</button>
+        </div>
+        <!-- Arrow keys: hold one to keep pressing it -->
+        <div class="aux-keys arrow-keys" id="arrow-keys">
+          <button class="key-chip" data-key="left" data-repeat title="Left arrow (hold to repeat)" aria-label="Left arrow"><svg viewBox="0 0 24 24" style="transform: rotate(180deg)"><path d="M5 12h14M13 6l6 6-6 6"/></svg></button>
+          <button class="key-chip" data-key="up" data-repeat title="Up arrow (hold to repeat)" aria-label="Up arrow"><svg viewBox="0 0 24 24" style="transform: rotate(-90deg)"><path d="M5 12h14M13 6l6 6-6 6"/></svg></button>
+          <button class="key-chip" data-key="down" data-repeat title="Down arrow (hold to repeat)" aria-label="Down arrow"><svg viewBox="0 0 24 24" style="transform: rotate(90deg)"><path d="M5 12h14M13 6l6 6-6 6"/></svg></button>
+          <button class="key-chip" data-key="right" data-repeat title="Right arrow (hold to repeat)" aria-label="Right arrow"><svg viewBox="0 0 24 24"><path d="M5 12h14M13 6l6 6-6 6"/></svg></button>
+        </div>
+        <div class="cmd-bar">
+          <div class="cmd-input-wrap">
+            <input id="cmd-input" type="text" placeholder="Type a command…" autocomplete="off" autocorrect="off">
+            <button id="dictate-btn" class="input-inline-btn" title="Dictate speech into input box">
+              <svg class="icon-svg" viewBox="0 0 24 24"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path><line x1="8" y1="9" x2="16" y2="9"></line><line x1="8" y1="13" x2="13" y2="13"></line></svg>
+            </button>
+          </div>
+          <button id="type-direct-btn" class="cmd-action-btn" title="Type into PC">Type</button>
+          <button id="cmd-send" class="cmd-action-btn">Send</button>
+        </div>
       </div>
 
-      <!-- Mode Toggle -->
-      <div class="mode-bar">
-        <button class="mode-pill active" id="mode-cmd" title="Instant voice & desktop commands">
-          <svg class="icon-svg" style="width:13px;height:13px;" viewBox="0 0 24 24"><polyline points="4 17 10 11 4 5"></polyline><line x1="12" y1="19" x2="20" y2="19"></line></svg>
-          <span>Command</span>
+      <!-- The dock itself: always visible, under the thumb -->
+      <div class="mode-bar dock-bar">
+        <button class="mode-pill" id="mode-cmd" aria-label="Ask a command" aria-expanded="false" aria-controls="dock-panel" title="Type a command for OmaDeck to run">
+          <svg class="icon-svg" style="width:15px;height:15px;" viewBox="0 0 24 24"><path d="M12 3l1.8 5.2L19 10l-5.2 1.8L12 17l-1.8-5.2L5 10l5.2-1.8z"></path></svg>
+          <span>Ask</span>
         </button>
-        <span class="mode-sep">(or)</span>
-        <button class="mode-pill" id="mode-type" title="Direct keystrokes into active PC window">
-          <svg class="icon-svg" style="width:13px;height:13px;" viewBox="0 0 24 24"><rect x="2" y="4" width="20" height="16" rx="2"></rect><line x1="6" y1="8" x2="6" y2="8"></line><line x1="10" y1="8" x2="10" y2="8"></line><line x1="14" y1="8" x2="14" y2="8"></line><line x1="18" y1="8" x2="18" y2="8"></line><line x1="6" y1="12" x2="6" y2="12"></line><line x1="10" y1="12" x2="10" y2="12"></line><line x1="14" y1="12" x2="14" y2="12"></line><line x1="18" y1="12" x2="18" y2="12"></line><line x1="7" y1="16" x2="17" y2="16"></line></svg>
-          <span>Direct Type</span>
-        </button>
-      </div>
-
-      <!-- Command Bar with Inline Dictation Mic -->
-      <div class="cmd-bar">
-        <div class="cmd-input-wrap">
-          <input id="cmd-input" type="text" placeholder="Type a command…" autocomplete="off" autocorrect="off">
-          <button id="dictate-btn" class="input-inline-btn" title="Dictate speech into input box">
-            <svg class="icon-svg" viewBox="0 0 24 24"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path><line x1="8" y1="9" x2="16" y2="9"></line><line x1="8" y1="13" x2="13" y2="13"></line></svg>
+        <div class="dock-mic-wrap">
+          <button id="mic-btn" title="Voice command (Hold or Tap)">
+            <svg class="icon-svg" viewBox="0 0 24 24"><path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"></path><path d="M19 10v2a7 7 0 0 1-14 0v-2"></path><line x1="12" y1="19" x2="12" y2="23"></line><line x1="8" y1="23" x2="16" y2="23"></line></svg>
           </button>
         </div>
-        <button id="type-direct-btn" class="cmd-action-btn" title="Type into PC">Type</button>
-        <button id="cmd-send" class="cmd-action-btn">Send</button>
-        <button id="mic-btn" title="Voice command (Hold or Tap)">
-          <svg class="icon-svg" viewBox="0 0 24 24"><path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"></path><path d="M19 10v2a7 7 0 0 1-14 0v-2"></path><line x1="12" y1="19" x2="12" y2="23"></line><line x1="8" y1="23" x2="16" y2="23"></line></svg>
+        <button class="mode-pill" id="mode-type" aria-label="Direct Type" aria-expanded="false" aria-controls="dock-panel" title="Type text straight into the active PC window">
+          <svg class="icon-svg" style="width:15px;height:15px;" viewBox="0 0 24 24"><rect x="2" y="4" width="20" height="16" rx="2"></rect><line x1="6" y1="8" x2="6" y2="8"></line><line x1="10" y1="8" x2="10" y2="8"></line><line x1="14" y1="8" x2="14" y2="8"></line><line x1="18" y1="8" x2="18" y2="8"></line><line x1="6" y1="12" x2="6" y2="12"></line><line x1="10" y1="12" x2="10" y2="12"></line><line x1="14" y1="12" x2="14" y2="12"></line><line x1="18" y1="12" x2="18" y2="12"></line><line x1="7" y1="16" x2="17" y2="16"></line></svg>
+          <span>Type</span>
         </button>
       </div>
     </div>
@@ -4666,8 +4750,48 @@ function setMode(mode) {
   }
 }
 
-if (modeCmdBtn) modeCmdBtn.onclick = () => setMode('cmd');
-if (modeTypeBtn) modeTypeBtn.onclick = () => setMode('type');
+// Ask and Type open the panel above the dock; tapping the open one again
+// closes it. setMode still decides what Send and the placeholder do.
+const controlsDock = document.getElementById('controls-dock');
+const dockPanel = document.getElementById('dock-panel');
+const dockTitle = document.getElementById('dock-panel-title');
+const dockClose = document.getElementById('dock-close');
+
+function closeDockPanel() {
+  if (!controlsDock || !dockPanel) return;
+  delete controlsDock.dataset.panel;
+  dockPanel.hidden = true;
+  [modeCmdBtn, modeTypeBtn].forEach(b => {
+    if (b) { b.setAttribute('aria-expanded', 'false'); b.classList.remove('active'); }
+  });
+  // With the Type panel open the big mic types what you say, as Direct Type
+  // always did. Closed, it goes back to running commands.
+  activeMode = 'cmd';
+  if (cmdInput) cmdInput.placeholder = 'Type a command…';
+  if (cmdSend) cmdSend.textContent = 'Send';
+}
+
+function openDockPanel(mode) {
+  if (!controlsDock || !dockPanel) { setMode(mode); return; }
+  if (controlsDock.dataset.panel === mode && !dockPanel.hidden) {
+    haptic(8);
+    closeDockPanel();
+    return;
+  }
+  controlsDock.dataset.panel = mode;
+  dockPanel.hidden = false;
+  if (dockTitle) dockTitle.textContent = (mode === 'type') ? 'Typing into your PC' : 'Ask OmaDeck';
+  if (modeCmdBtn) modeCmdBtn.setAttribute('aria-expanded', String(mode === 'cmd'));
+  if (modeTypeBtn) modeTypeBtn.setAttribute('aria-expanded', String(mode === 'type'));
+  setMode(mode);
+}
+
+if (modeCmdBtn) modeCmdBtn.onclick = () => openDockPanel('cmd');
+if (modeTypeBtn) modeTypeBtn.onclick = () => openDockPanel('type');
+if (dockClose) dockClose.onclick = () => { haptic(8); closeDockPanel(); };
+document.addEventListener('keydown', (e) => {
+  if (e.key === 'Escape' && dockPanel && !dockPanel.hidden) closeDockPanel();
+});
 
 async function directType(text, enter) {
   if (!text) return;
