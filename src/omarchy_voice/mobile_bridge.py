@@ -29,6 +29,7 @@ import ipaddress
 import json
 import os
 import secrets
+import shlex
 import shutil
 import socket
 import socketserver
@@ -5111,17 +5112,60 @@ window.addEventListener('blur', () => {
 """
 
 
+def _shown(argv) -> str:
+    """A command as the log shows it. Typed text is counted, not copied:
+    it can be a password typed from the phone."""
+    argv = [str(a) for a in argv]
+    if argv and argv[0] == "wtype" and "--" in argv:
+        cut = argv.index("--") + 1
+        typed = sum(len(a) for a in argv[cut:])
+        argv = argv[:cut] + [f"<{typed} chars>"]
+    return shlex.join(argv)
+
+
+def _run(argv, **kwargs):
+    """subprocess.run, with the command and its outcome in `omadeck log`."""
+    started = time.monotonic()
+    try:
+        res = subprocess.run(argv, **kwargs)
+    except Exception as exc:
+        write_log(f"exec    {_shown(argv)} -> {type(exc).__name__}: {brief(exc, 200)}")
+        raise
+    took = int((time.monotonic() - started) * 1000)
+    code = getattr(res, "returncode", 0)
+    line = f"exec    {_shown(argv)} -> exit {code} ({took} ms)"
+    if code:
+        out = getattr(res, "stderr", "") or getattr(res, "stdout", "") or ""
+        if isinstance(out, bytes):
+            out = out.decode(errors="replace")
+        if out.strip():
+            line += f": {brief(out, 200)}"
+    write_log(line)
+    return res
+
+
+def _popen(argv, **kwargs):
+    """subprocess.Popen for apps the deck starts, logged like _run."""
+    try:
+        proc = subprocess.Popen(argv, **kwargs)
+    except Exception as exc:
+        write_log(f"exec    {_shown(argv)} -> {type(exc).__name__}: {brief(exc, 200)}")
+        raise
+    write_log(f"exec    {_shown(argv)} -> started")
+    return proc
+
+
 def _type_text(text: str, enter: bool = False) -> tuple[bool, str]:
     """Type text directly into whatever input/window is currently focused on PC."""
     if not shutil.which("wtype"):
         return False, "wtype is not installed"
     try:
-        res = subprocess.run(["wtype", "--", text], capture_output=True, text=True, timeout=5)
+        res = _run(["wtype", "--", text], capture_output=True, text=True, timeout=5)
         if res.returncode != 0:
             return False, res.stderr.strip() or "wtype typing failed"
         if enter:
             time.sleep(0.04)
-            subprocess.run(["wtype", "-k", "Return"], capture_output=True, timeout=5)
+            _run(["wtype", "-k", "Return"], capture_output=True, timeout=5)
         return True, ""
     except Exception as exc:
         return False, str(exc)
@@ -5141,7 +5185,7 @@ def _port_listeners(port: int) -> tuple[list[tuple[int, str]], bool] | None:
     if not shutil.which("ss"):
         return None
     try:
-        res = subprocess.run(["ss", "-Hltnp", f"sport = :{port}"],
+        res = _run(["ss", "-Hltnp", f"sport = :{port}"],
                              capture_output=True, text=True, timeout=3)
     except Exception:
         return None
@@ -5186,7 +5230,7 @@ def _kill_port_via_hyprland(port: int) -> str:
                 "it. Stop it from a terminal.")
     lua = f'hl.exec_cmd({json.dumps(f"{launcher} kill-port {int(port)}", ensure_ascii=False)})'
     try:
-        r = subprocess.run(["hyprctl", "eval", lua], capture_output=True, text=True, timeout=3)
+        r = _run(["hyprctl", "eval", lua], capture_output=True, text=True, timeout=3)
         started = r.returncode == 0 and r.stdout.strip().lower() == "ok"
     except Exception:
         started = False
@@ -5212,12 +5256,12 @@ def kill_port(port: int, hand_off: bool = True) -> str:
     if listeners is None:
         # No ss: fall back to fuser, which at least covers IPv4.
         try:
-            check = subprocess.run(["fuser", f"{port}/tcp"], capture_output=True, timeout=2)
+            check = _run(["fuser", f"{port}/tcp"], capture_output=True, timeout=2)
         except FileNotFoundError:
             return "Couldn't check the port: neither ss nor fuser is installed."
         if check.returncode != 0:
             return f"No process was listening on port {port}."
-        subprocess.run(["fuser", "-k", f"{port}/tcp"], capture_output=True, timeout=2)
+        _run(["fuser", "-k", f"{port}/tcp"], capture_output=True, timeout=2)
         return f"Killed process on port {port}."
 
     procs, unnamed = listeners
@@ -5346,7 +5390,7 @@ def _hypr_shortcut(mods: str, key: str) -> tuple[bool, str]:
     lua = (f"hl.dsp.send_shortcut({{ mods = {json.dumps(mods)}, key = {json.dumps(key)}, "
            'window = "activewindow" })')
     try:
-        res = subprocess.run(["hyprctl", "dispatch", lua],
+        res = _run(["hyprctl", "dispatch", lua],
                              capture_output=True, text=True, timeout=5)
     except Exception as exc:
         return False, str(exc)
@@ -5461,7 +5505,7 @@ def _press_key(key: str) -> tuple[bool, str]:
             return False, "hyprctl is not installed"
         try:
             lua = f'hl.dsp.send_shortcut({{ mods = {json.dumps(m_str)}, key = {json.dumps(k_sym)}, window = "activewindow" }})'
-            res = subprocess.run(["hyprctl", "dispatch", lua], capture_output=True, text=True, timeout=5)
+            res = _run(["hyprctl", "dispatch", lua], capture_output=True, text=True, timeout=5)
             if res.returncode == 0 and "not found" not in res.stdout.lower() and "error" not in res.stdout.lower():
                 return True, ""
             return False, res.stderr.strip() or res.stdout.strip() or "hyprctl dispatch failed"
@@ -5485,7 +5529,7 @@ def _press_key(key: str) -> tuple[bool, str]:
                     wtype_args.extend(["-m", m])
 
                 try:
-                    res = subprocess.run(wtype_args, capture_output=True, text=True, timeout=5)
+                    res = _run(wtype_args, capture_output=True, text=True, timeout=5)
                     if res.returncode == 0:
                         return True, ""
                 except Exception:
@@ -5501,7 +5545,7 @@ def _press_key(key: str) -> tuple[bool, str]:
     k = key_map.get(k_lower, k_raw)
     if shutil.which("wtype"):
         try:
-            res = subprocess.run(["wtype", "-k", k], capture_output=True, text=True, timeout=5)
+            res = _run(["wtype", "-k", k], capture_output=True, text=True, timeout=5)
             if res.returncode == 0:
                 return True, ""
         except Exception:
@@ -6208,7 +6252,7 @@ def _shell_plugin_enabled(plugin: str) -> bool:
     if not shutil.which("omarchy-shell"):
         return False
     try:
-        r = subprocess.run(["omarchy-shell", "shell", "listPlugins"],
+        r = _run(["omarchy-shell", "shell", "listPlugins"],
                            capture_output=True, text=True, timeout=3)
         if r.returncode != 0:
             return False
@@ -6238,20 +6282,36 @@ def _media_control(action: str, keysym: str, run) -> tuple[bool, str]:
     last resort.
     """
     shell_name, osd_name, ctl_name = _MEDIA_ACTIONS[action]
+    # Every route is logged with why it was skipped: the reply alone cannot
+    # say whether a player heard it or the key went nowhere.
+    tried = []
     commands = []
     if _shell_plugin_enabled("omarchy.media"):
         commands.append(["omarchy-shell", "media", shell_name])
+    elif shutil.which("omarchy-shell"):
+        tried.append("omarchy-shell: media plugin off")
+    else:
+        tried.append("omarchy-shell: not on PATH")
     commands += [["swayosd-client", "--playerctl", osd_name],
                  ["playerctl", ctl_name]]
     for argv in commands:
         if not shutil.which(argv[0]):
+            if argv[0] != "omarchy-shell":
+                tried.append(f"{argv[0]}: not on PATH")
             continue
         try:
-            res = subprocess.run(argv, capture_output=True, text=True, timeout=5)
-        except (OSError, subprocess.SubprocessError):
+            res = _run(argv, capture_output=True, text=True, timeout=5)
+        except (OSError, subprocess.SubprocessError) as exc:
+            tried.append(f"{argv[0]}: {exc}")
             continue
         if res.returncode == 0:
+            write_log(f"media   {' '.join(argv)}"
+                      + (f" ({'; '.join(tried)})" if tried else ""))
             return True, ""
+        tried.append(f"{argv[0]}: exit {res.returncode} "
+                     f"{brief(res.stderr or res.stdout, 120)}".rstrip())
+    write_log(f"media   key {keysym}; players may ignore it "
+              f"({'; '.join(tried)}; PATH={os.environ.get('PATH', '')})")
     ok, out = run("send_shortcut", {"mods": "", "key": keysym})
     if not ok:
         ok, err = _press_key(keysym)
@@ -6287,12 +6347,16 @@ def _quick_command(text: str, voice: bool = False) -> str | None:
         return None  # no tools available: let the planner report the problem
 
     def run(name: str, args: dict) -> tuple[bool, str]:
+        write_log(f"action  {name}({json.dumps(args)})")
         try:
             result = executor.call(name, args)
         except Exception as exc:
+            write_log(f"error   {name}: {exc}")
             return False, str(exc)
         ok = bool(getattr(result, "ok", True))
         out = (getattr(result, "output", "") or "").strip()
+        write_log(f"result  {name}: {'ok' if ok else 'failed'}"
+                  + (f": {brief(out)}" if out else ""))
         return ok, out.splitlines()[0] if out else ""
 
     # --- workspaces -------------------------------------------------------
@@ -6563,7 +6627,7 @@ def _quick_command(text: str, voice: bool = False) -> str | None:
         if not ok:
             ok, out = run("send_shortcut", {"mods": "super+alt", "key": "s"})
         if not ok:
-            res = subprocess.run(["hyprctl", "dispatch", "movetoworkspacesilent", "special:scratchpad"],
+            res = _run(["hyprctl", "dispatch", "movetoworkspacesilent", "special:scratchpad"],
                                  capture_output=True, text=True)
             ok = res.returncode == 0
             out = res.stderr.strip() if not ok else ""
@@ -6581,7 +6645,7 @@ def _quick_command(text: str, voice: bool = False) -> str | None:
         if not ok:
             ok, out = run("send_shortcut", {"mods": "super", "key": "s"})
         if not ok:
-            res = subprocess.run(["hyprctl", "dispatch", "togglespecialworkspace", "scratchpad"],
+            res = _run(["hyprctl", "dispatch", "togglespecialworkspace", "scratchpad"],
                                  capture_output=True, text=True)
             ok = res.returncode == 0
             out = res.stderr.strip() if not ok else ""
@@ -6589,10 +6653,10 @@ def _quick_command(text: str, voice: bool = False) -> str | None:
 
     # --- dev & process killers -------------------------------------------
     if t in ("kill local llm", "kill ollama", "kill llama", "kill llama server", "stop ollama", "stop local llm"):
-        subprocess.run(["fuser", "-k", "8080/tcp"], capture_output=True, timeout=2)
-        subprocess.run(["pkill", "-f", "llama-server"], capture_output=True, timeout=2)
-        subprocess.run(["fuser", "-k", "11434/tcp"], capture_output=True, timeout=2)
-        subprocess.run(["systemctl", "stop", "ollama", "--no-ask-password"], capture_output=True, timeout=2)
+        _run(["fuser", "-k", "8080/tcp"], capture_output=True, timeout=2)
+        _run(["pkill", "-f", "llama-server"], capture_output=True, timeout=2)
+        _run(["fuser", "-k", "11434/tcp"], capture_output=True, timeout=2)
+        _run(["systemctl", "stop", "ollama", "--no-ask-password"], capture_output=True, timeout=2)
         return "Terminated Local LLM services (ports 11434 & 8080)."
 
     if t in ("kill t3 dashboard", "kill t3", "kill dashboard", "stop t3 dashboard", "stop t3"):
@@ -6604,7 +6668,7 @@ def _quick_command(text: str, voice: bool = False) -> str | None:
         port_num = int(port)
         if 1 <= port_num <= 65535:
             if port == "11434":
-                subprocess.run(["systemctl", "stop", "ollama", "--no-ask-password"], capture_output=True, timeout=2)
+                _run(["systemctl", "stop", "ollama", "--no-ask-password"], capture_output=True, timeout=2)
             return kill_port(port_num)
 
     if t in ("git status", "git diff", "git pull", "git push", "run tests"):
@@ -6618,13 +6682,13 @@ def _quick_command(text: str, voice: bool = False) -> str | None:
 
     # --- audio sink & hardware mic mute ----------------------------------
     if t in ("toggle mic mute", "mic mute", "mute mic", "mute microphone", "unmute mic"):
-        res = subprocess.run(["wpctl", "set-mute", "@DEFAULT_AUDIO_SOURCE@", "toggle"],
+        res = _run(["wpctl", "set-mute", "@DEFAULT_AUDIO_SOURCE@", "toggle"],
                              capture_output=True, text=True)
         return "Toggled PC microphone mute." if res.returncode == 0 else f"Mic mute error: {res.stderr.strip()}"
 
     if t in ("toggle audio sink", "switch audio sink", "switch output", "switch audio"):
         try:
-            res = subprocess.run(["wpctl", "status"], capture_output=True, text=True, timeout=3)
+            res = _run(["wpctl", "status"], capture_output=True, text=True, timeout=3)
             lines = res.stdout.splitlines()
             in_sinks = False
             sinks = []
@@ -6649,7 +6713,7 @@ def _quick_command(text: str, voice: bool = False) -> str | None:
             curr_idx = next((i for i, s in enumerate(sinks) if s[1]), 0)
             next_idx = (curr_idx + 1) % len(sinks)
             target = sinks[next_idx]
-            subprocess.run(["wpctl", "set-default", str(target[0])], check=True, timeout=3)
+            _run(["wpctl", "set-default", str(target[0])], check=True, timeout=3)
             return f"Switched default audio output to {target[2]}."
         except Exception as exc:
             return f"Audio sink switch error: {exc}"
@@ -6816,14 +6880,14 @@ def _quick_command(text: str, voice: bool = False) -> str | None:
     if t in ("open btop", "btop", "system monitor", "task manager", "open task manager", "device monitor"):
         ok, out = run("omarchy_cli", {"command": "launch terminal btop"})
         if not ok:
-            res = subprocess.Popen(["foot", "btop"],
+            res = _popen(["foot", "btop"],
                                    stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, start_new_session=True)
         return "Launched btop system & device manager."
 
     if t in ("open t3 dashboard", "t3 dashboard", "t3 code", "open t3", "open dashboard"):
         ok, out = run("launch_url", {"url": "http://127.0.0.1:3773"})
         if not ok:
-            res = subprocess.Popen(["xdg-open", "http://127.0.0.1:3773"],
+            res = _popen(["xdg-open", "http://127.0.0.1:3773"],
                                    stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, start_new_session=True)
         return "Opened T3 Dashboard."
 
@@ -6845,7 +6909,7 @@ def _quick_command(text: str, voice: bool = False) -> str | None:
 
         launched = False
         try:
-            r = subprocess.run(
+            r = _run(
                 ["hyprctl", "eval", f'hl.exec_cmd("{inspector_bin}")'],
                 capture_output=True, text=True, timeout=3,
             )
@@ -6855,7 +6919,7 @@ def _quick_command(text: str, voice: bool = False) -> str | None:
 
         if not launched:
             try:
-                proc = subprocess.Popen(
+                proc = _popen(
                     [inspector_bin],
                     stdout=subprocess.DEVNULL,
                     stderr=subprocess.DEVNULL,
@@ -6869,7 +6933,7 @@ def _quick_command(text: str, voice: bool = False) -> str | None:
 
     if t in ("kill app", "kill active app", "force kill", "xkill", "kill window", "force close"):
         try:
-            res = subprocess.run(["hyprctl", "kill"], capture_output=True, text=True, timeout=3)
+            res = _run(["hyprctl", "kill"], capture_output=True, text=True, timeout=3)
             if res.returncode == 0:
                 return "Kill mode active: Click any window on screen to terminate it."
         except Exception:
@@ -6883,7 +6947,7 @@ def _quick_command(text: str, voice: bool = False) -> str | None:
         # while nothing opens.
         panel_enabled = False
         try:
-            r = subprocess.run(["omarchy-shell", "shell", "listPlugins"],
+            r = _run(["omarchy-shell", "shell", "listPlugins"],
                                capture_output=True, text=True, timeout=3)
             if r.returncode == 0:
                 plugins = json.loads(r.stdout or "[]")
@@ -6896,7 +6960,7 @@ def _quick_command(text: str, voice: bool = False) -> str | None:
 
         if panel_enabled:
             try:
-                r = subprocess.run(["omarchy-shell", "shell", "toggle", "omarchy.tailscale"],
+                r = _run(["omarchy-shell", "shell", "toggle", "omarchy.tailscale"],
                                    capture_output=True, text=True, timeout=3)
                 if r.returncode == 0:
                     return "Toggled Tailscale panel."
@@ -6912,7 +6976,7 @@ def _quick_command(text: str, voice: bool = False) -> str | None:
                 if not shutil.which(name):
                     continue
                 try:
-                    r = subprocess.run([name, admin_url], capture_output=True, text=True, timeout=5)
+                    r = _run([name, admin_url], capture_output=True, text=True, timeout=5)
                     if r.returncode == 0:
                         return True
                 except Exception:
@@ -6922,7 +6986,7 @@ def _quick_command(text: str, voice: bool = False) -> str | None:
         # No native panel: report the CLI status if Tailscale is actually installed.
         if shutil.which("tailscale"):
             try:
-                res = subprocess.run(["tailscale", "status"], capture_output=True, text=True, timeout=3)
+                res = _run(["tailscale", "status"], capture_output=True, text=True, timeout=3)
                 first = next((line.strip() for line in res.stdout.splitlines() if line.strip()), "")
                 if res.returncode == 0 and first:
                     return f"Tailscale: {first}"
@@ -6946,7 +7010,7 @@ def _quick_command(text: str, voice: bool = False) -> str | None:
 
     if t in ("zen mode", "toggle zen mode", "toggle bar", "hide bar", "show bar", "zen"):
         try:
-            subprocess.run(["omarchy-toggle-bar"], capture_output=True, text=True, timeout=3)
+            _run(["omarchy-toggle-bar"], capture_output=True, text=True, timeout=3)
         except Exception:
             pass
         bar_off = os.path.exists(os.path.expanduser("~/.local/state/omarchy/toggles/bar-off"))
@@ -6955,7 +7019,7 @@ def _quick_command(text: str, voice: bool = False) -> str | None:
 
     if t in ("toggle caffeine", "caffeine", "stay awake", "keep awake", "toggle idle", "disable idle"):
         try:
-            res = subprocess.run(["omarchy-toggle-idle"], capture_output=True, text=True, timeout=3)
+            res = _run(["omarchy-toggle-idle"], capture_output=True, text=True, timeout=3)
             out = (res.stdout or "").strip()
             state = "on (stay awake enabled)" if out == "disabled" else "off (normal sleep enabled)"
         except Exception:
@@ -6964,8 +7028,8 @@ def _quick_command(text: str, voice: bool = False) -> str | None:
 
     if t in ("toggle nightlight", "night light", "nightlight", "toggle night light", "warm screen"):
         try:
-            subprocess.run(["omarchy-toggle-nightlight"], capture_output=True, text=True, timeout=3)
-            res = subprocess.run(["omarchy-toggle-nightlight", "--status"], capture_output=True, text=True, timeout=2)
+            _run(["omarchy-toggle-nightlight"], capture_output=True, text=True, timeout=3)
+            res = _run(["omarchy-toggle-nightlight", "--status"], capture_output=True, text=True, timeout=2)
             data = json.loads(res.stdout)
             state = f"on ({data.get('temperature', 4000)}K warm)" if data.get("enabled") else "off (6500K normal)"
         except Exception:
@@ -6976,7 +7040,7 @@ def _quick_command(text: str, voice: bool = False) -> str | None:
         ok, out = run("omarchy_cli", {"command": "launch tui opencode"})
         if not ok:
             try:
-                subprocess.Popen(
+                _popen(
                     ["hyprctl", "dispatch", "exec", "[float] omarchy-launch-tui opencode"],
                     stdout=subprocess.DEVNULL,
                     stderr=subprocess.DEVNULL,
@@ -6998,7 +7062,7 @@ def _quick_command(text: str, voice: bool = False) -> str | None:
             ok, out = run("omarchy_cli", {"command": "launch tui lazydocker"})
         if not ok:
             try:
-                subprocess.Popen(
+                _popen(
                     ["hyprctl", "dispatch", "exec", "[float] omarchy-launch-tui lazydocker"],
                     stdout=subprocess.DEVNULL,
                     stderr=subprocess.DEVNULL,
@@ -7011,7 +7075,7 @@ def _quick_command(text: str, voice: bool = False) -> str | None:
 
     if t in ("system menu", "open system menu", "omarchy menu", "sys menu", "settings menu"):
         try:
-            subprocess.run(["omarchy", "menu", "toggle", "system"], capture_output=True, text=True, timeout=3)
+            _run(["omarchy", "menu", "toggle", "system"], capture_output=True, text=True, timeout=3)
             return "Opened system menu."
         except Exception:
             return "Could not open system menu."
