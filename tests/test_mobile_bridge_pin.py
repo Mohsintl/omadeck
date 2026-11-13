@@ -1167,23 +1167,31 @@ class MobileBridgePinTests(unittest.TestCase):
             _print_pairing_guide("http://10.0.0.5:8765", https_url, "secret-token")
         return out.getvalue(), run
 
-    def test_pairing_guide_puts_the_certificate_before_the_https_link(self):
-        text, _ = self._pairing_guide_output("https://10.0.0.5:8765")
-        cert = text.index("http://10.0.0.5:8765/ca.crt")
-        link = text.index("https://10.0.0.5:8765/?token=secret-token")
-        home = text.index("Add to Home Screen")
-        self.assertLess(cert, link)
-        self.assertLess(link, home)
-        self.assertIn("Certificate Trust Settings", text)
-        self.assertIn("AA:BB", text)
-        self.assertIn("sudo pacman -S qrencode", text)
-
-    def test_only_the_second_qr_code_carries_the_token(self):
+    def test_pairing_guide_is_one_qr_code_to_the_setup_page(self):
         text, run = self._pairing_guide_output("https://10.0.0.5:8765", qrencode="/usr/bin/qrencode")
         targets = [call.args[0][-1] for call in run.call_args_list]
-        self.assertEqual(targets, ["http://10.0.0.5:8765/ca.crt",
-                                   "https://10.0.0.5:8765/?token=secret-token"])
+        # The token rides after the #, which the phone never sends over the network.
+        self.assertEqual(targets, ["http://10.0.0.5:8765/pair#token=secret-token"])
+        self.assertIn("AA:BB", text)
+        self.assertIn("Install app", text)
+        self.assertIn("https://10.0.0.5:8765/?token=secret-token", text)
         self.assertNotIn("Install qrencode", text)
+
+    def test_pairing_guide_offers_qrencode_when_missing(self):
+        text, _ = self._pairing_guide_output("https://10.0.0.5:8765")
+        self.assertIn("sudo pacman -S qrencode", text)
+        self.assertIn("http://10.0.0.5:8765/pair#token=secret-token", text)
+
+    def test_the_setup_page_carries_no_secret_and_checks_the_certificate(self):
+        with mock.patch("omarchy_voice.mobile_bridge._ca_fingerprint", return_value="AA:BB"):
+            status, body = self._get_bytes("/pair")
+        page = body.decode("utf-8")
+        self.assertIn("200", status)
+        self.assertNotIn(BridgeHandler.token, page)
+        self.assertIn("AA:BB", page)
+        self.assertIn("/ca.crt", page)
+        self.assertIn("Certificate Trust Settings", page)
+        self.assertIn("Install app", page)
 
     def test_pairing_guide_without_https_says_the_mic_will_not_work(self):
         text, _ = self._pairing_guide_output("")
