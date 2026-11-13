@@ -184,7 +184,7 @@ class MobileBridgePinTests(unittest.TestCase):
         self.assertEqual({i["purpose"] for i in icons}, {"any", "maskable"})
         for icon in icons:
             self.assertIn(icon["src"], ICON_FILES)
-        self.assertIn('rel="apple-touch-icon" href="/apple-touch-icon.png"', _PWA_HTML)
+        self.assertIn('rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png"', _PWA_HTML)
 
     def _start_url(self, path: str) -> str:
         return json.loads(self._page(path).partition("\r\n\r\n")[2])["start_url"]
@@ -1181,6 +1181,38 @@ class MobileBridgePinTests(unittest.TestCase):
         text, _ = self._pairing_guide_output("https://10.0.0.5:8765")
         self.assertIn("sudo pacman -S qrencode", text)
         self.assertIn("http://10.0.0.5:8765/pair#token=secret-token", text)
+
+    def test_home_screen_name_and_icon_are_set_for_ios(self):
+        status, body = self._get_bytes("/")
+        page = body.decode("utf-8")
+        self.assertIn('<meta name="apple-mobile-web-app-title" content="OmaDeck">', page)
+        self.assertIn('rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png"', page)
+        self.assertIn("<title>OmaDeck</title>", page)
+
+    def test_the_icon_paths_ios_tries_by_itself_serve_the_logo(self):
+        for path in ("/apple-touch-icon.png", "/apple-touch-icon-precomposed.png",
+                     "/apple-touch-icon-180x180.png"):
+            status, body = self._get_bytes(path)
+            self.assertIn("200", status, path)
+            self.assertTrue(body.startswith(b"\x89PNG"), path)
+
+    def test_icon_fetches_are_logged_with_the_device(self):
+        lines = []
+        with mock.patch("omarchy_voice.mobile_bridge.write_log", side_effect=lines.append):
+            wfile = io.BytesIO()
+            handler = BridgeHandler.__new__(BridgeHandler)
+            handler.rfile = io.BytesIO()
+            handler.wfile = wfile
+            handler.headers = {"Host": "127.0.0.1:8765",
+                               "User-Agent": "Mozilla/5.0 (iPhone; CPU iPhone OS 18_0 like Mac OS X)"}
+            handler.path = "/apple-touch-icon.png"
+            handler.command = "GET"
+            handler.requestline = "GET /apple-touch-icon.png HTTP/1.1"
+            handler.request_version = "HTTP/1.1"
+            handler.log_message = lambda *args: None
+            handler.do_GET()
+        self.assertEqual(len(lines), 1)
+        self.assertRegex(lines[0], r"^web     iPhone fetched /apple-touch-icon.png over \S+ \(\d+ bytes\)$")
 
     def test_the_setup_page_carries_no_secret_and_checks_the_certificate(self):
         with mock.patch("omarchy_voice.mobile_bridge._ca_fingerprint", return_value="AA:BB"):

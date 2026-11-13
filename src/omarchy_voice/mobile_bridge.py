@@ -94,6 +94,8 @@ ICON_FILES = {
     "/icon-512.png": "icon-512.png",
     "/icon-maskable-512.png": "icon-maskable-512.png",
     "/apple-touch-icon.png": "apple-touch-icon.png",
+    "/apple-touch-icon-precomposed.png": "apple-touch-icon.png",
+    "/apple-touch-icon-180x180.png": "apple-touch-icon.png",
 }
 _ICON_CACHE: dict[str, bytes] = {}
 
@@ -175,7 +177,8 @@ _PAIR_HTML = """<!doctype html>
     </ol>
     <ol id="steps-android" hidden>
       <li>Open <b>Settings</b> and search for <b>CA certificate</b> (often under <b>Security</b> › <b>Encryption &amp; credentials</b> › <b>Install a certificate</b>).</li>
-      <li>Choose <b>CA certificate</b>, tap <b>Install anyway</b>, and pick <b>oma-remote-ca.crt</b> from Downloads.</li>
+      <li>Choose <b>CA certificate</b> (not VPN &amp; app or Wi-Fi), tap <b>Install anyway</b>, and pick <b>oma-remote-ca.crt</b> from Downloads.</li>
+      <li>If Chrome ever showed <b>Your connection is not private</b>, don't tap <b>Proceed</b>: that skips the check and stops Install app from appearing.</li>
       <li>Come back here.</li>
     </ol>
     <p class="fp" id="fp">Fingerprint: FINGERPRINT_PLACEHOLDER</p>
@@ -196,7 +199,7 @@ _PAIR_HTML = """<!doctype html>
     <ol id="home-android" hidden>
       <li>In the deck, tap Chrome's <b>⋮</b> menu › <b>Install app</b>.</li>
       <li>Not <b>Add to Home screen</b>: that makes a shortcut that opens in Chrome instead of full screen.</li>
-      <li>No <b>Install app</b>? The certificate in step 1 isn't trusted yet.</li>
+      <li>No <b>Install app</b>? Tap the icon left of the address. It must say <b>Connection is secure</b>. If it says <b>Not secure</b>, the certificate isn't trusted: Chrome is using an old <b>Proceed</b> you tapped on a warning. Clear it in <b>⋮</b> › <b>Settings</b> › <b>Site settings</b> › <b>All sites</b> › this PC › <b>Clear &amp; reset</b>, then install the certificate as a <b>CA certificate</b>.</li>
     </ol>
     <ol id="home-other" hidden>
       <li>Use your browser's <b>Add to Home Screen</b> or <b>Install app</b>.</li>
@@ -229,6 +232,8 @@ _PAIR_HTML = """<!doctype html>
     $('cert-status').textContent = ok
       ? 'This phone trusts the certificate.'
       : 'Not trusted yet. Install it, then tap Check again.';
+    // A Proceed tapped on a warning page also lets this request through.
+    if (ok && android) $('cert-status').textContent += ' If Chrome still says Not secure by the address, see step 3.';
     $('recheck').hidden = ok;
     $('cert-link').hidden = ok;
     const link = $('open-link');
@@ -254,6 +259,22 @@ _PAIR_HTML = """<!doctype html>
 </script>
 </body></html>
 """
+
+def _log_install_fetch(handler, path: str, size: int) -> None:
+    """One `omadeck log` line per icon or manifest a phone fetches.
+
+    Adding the deck to a Home Screen fetches these; when the icon comes out
+    as a plain letter, the log shows whether the request arrived at all.
+    """
+    try:
+        secure = "https" if isinstance(handler.connection, ssl.SSLSocket) else "http"
+    except AttributeError:
+        secure = "?"
+    agent = (handler.headers.get("User-Agent", "") or "")
+    device = ("iPhone" if "iPhone" in agent else "iPad" if "iPad" in agent
+              else "Android" if "Android" in agent else "browser")
+    write_log(f"web     {device} fetched {path} over {secure} ({size} bytes)")
+
 
 def _manifest_json(start_url: str = "/") -> bytes:
     return json.dumps({
@@ -572,8 +593,10 @@ _PWA_HTML = r"""<!DOCTYPE html>
 </script>
 <link rel="manifest" href="/manifest.webmanifest">
 <link rel="icon" href="/icon.png" type="image/png">
-<link rel="apple-touch-icon" href="/apple-touch-icon.png">
-<title>Oma Deck</title>
+<link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png">
+<meta name="apple-mobile-web-app-title" content="OmaDeck">
+<meta name="application-name" content="OmaDeck">
+<title>OmaDeck</title>
 <style>
   :root {
     --bg: #09090c;
@@ -7002,6 +7025,7 @@ class BridgeHandler(http.server.BaseHTTPRequestHandler):
             # to the server; the page already reads it from there.
             start_url = f"/#token={quote(self.token, safe='')}" if self._pairs_home_screen_app() else "/"
             manifest = _manifest_json(start_url)
+            _log_install_fetch(self, path, len(manifest))
             self.send_response(200)
             self.send_header("Content-Type", "application/manifest+json")
             self.send_header("Content-Length", str(len(manifest)))
@@ -7011,6 +7035,7 @@ class BridgeHandler(http.server.BaseHTTPRequestHandler):
             self.wfile.write(manifest)
         elif path in ICON_FILES:
             icon = _get_icon_png(path)
+            _log_install_fetch(self, path, len(icon))
             self.send_response(200)
             self.send_header("Content-Type", "image/png")
             self.send_header("Content-Length", str(len(icon)))
@@ -8457,7 +8482,7 @@ def _local_think(text: str) -> str:
 # ---------------------------------------------------------------------------
 
 MAX_CONCURRENT_CONNECTIONS = 32
-MAX_CONNECTIONS_PER_IP = 8
+MAX_CONNECTIONS_PER_IP = 16
 _CONNECTION_SEMAPHORE = threading.Semaphore(MAX_CONCURRENT_CONNECTIONS)
 _IP_CONNECTIONS: dict[str, int] = {}
 _IP_LOCK = threading.Lock()
@@ -8496,6 +8521,8 @@ class BridgeServer(http.server.ThreadingHTTPServer):
         with _IP_LOCK:
             active = _IP_CONNECTIONS.get(client_ip, 0)
             if active >= MAX_CONNECTIONS_PER_IP:
+                write_log(f"warn    refused a connection from {client_ip}: "
+                          f"{active} already open (limit {MAX_CONNECTIONS_PER_IP})")
                 try:
                     request.settimeout(2.0)
                     request.sendall(b"HTTP/1.1 429 Too Many Requests\r\nContent-Type: text/plain\r\nConnection: close\r\n\r\nToo many connections from your IP\r\n")
@@ -8504,6 +8531,7 @@ class BridgeServer(http.server.ThreadingHTTPServer):
                 self.shutdown_request(request)
                 return
             if not _CONNECTION_SEMAPHORE.acquire(blocking=False):
+                write_log(f"warn    refused a connection from {client_ip}: server busy")
                 try:
                     request.settimeout(2.0)
                     request.sendall(b"HTTP/1.1 503 Service Unavailable\r\nContent-Type: text/plain\r\nConnection: close\r\n\r\nServer busy\r\n")
