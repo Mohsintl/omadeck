@@ -6343,6 +6343,48 @@ _MEDIA_ACTIONS = {
 }
 
 
+# YouTube's own keys, sent to its window: k toggles, Shift+N and Shift+P skip.
+_YOUTUBE_KEYS = {
+    "play-pause": ("", "k"),
+    "next": ("shift", "n"),
+    "previous": ("shift", "p"),
+}
+
+
+def _youtube_window() -> str | None:
+    """The address of a window showing YouTube, the focused one first."""
+    try:
+        res = _run(["hyprctl", "-j", "clients"], capture_output=True, text=True, timeout=3)
+        clients = json.loads(res.stdout or "[]") if res.returncode == 0 else []
+    except (OSError, subprocess.SubprocessError, ValueError):
+        return None
+    tubes = [c for c in clients if "youtube" in str(c.get("title", "")).lower()]
+    if not tubes:
+        return None
+    tubes.sort(key=lambda c: c.get("focusHistoryID", 99))
+    return tubes[0].get("address")
+
+
+def _youtube_key(action: str, run) -> str | None:
+    """Press YouTube's own shortcut in the YouTube window, wherever focus is.
+
+    Chromium's MPRIS player reports "Stopped" while YouTube plays, so neither
+    omarchy-shell nor PlayPause could pause it reliably. YouTube's k always
+    toggles the video, as long as the key reaches its window, so it goes to
+    that window by address instead of to whatever is focused.
+    """
+    keys = _YOUTUBE_KEYS.get(action)
+    address = _youtube_window() if keys else None
+    if not address:
+        return None
+    mods, key = keys
+    ok, _ = run("send_shortcut", {"mods": mods, "key": key, "window": f"address:{address}"})
+    if not ok:
+        return None
+    return {"play-pause": "Toggled YouTube.", "next": "Next video.",
+            "previous": "Previous video."}[action]
+
+
 def _media_control(action: str, keysym: str, run) -> tuple[bool, str]:
     """Play, pause or skip whatever is playing, wherever it is.
 
@@ -6353,6 +6395,9 @@ def _media_control(action: str, keysym: str, run) -> tuple[bool, str]:
     first, then swayosd-client and playerctl for older setups. The key is the
     last resort.
     """
+    said = _youtube_key(action, run)
+    if said:
+        return True, said
     try:
         said = _mpris_control(action)
     except (OSError, subprocess.SubprocessError):
