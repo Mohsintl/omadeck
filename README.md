@@ -284,13 +284,21 @@ omadeck say "go to workspace 2"
 ### Updating
 
 ```bash
+omadeck update
+```
+
+This pulls the folder you installed from, copies the new code into place and restarts OmaDeck, without asking the installer's questions again. Your settings, keys and pairing stay. It stops without changing anything if that folder has changes you haven't committed.
+
+The services run a copy of the code, so `git pull` on its own changes nothing. If you installed before `omadeck update` existed, update the long way once:
+
+```bash
 cd omadeck
 git pull
 ./install.sh
 omadeck restart
 ```
 
-The installer copies the new code into place and keeps your settings, keys and pairing. Answer **N** to its questions on a re-install.
+Answer **N** to the installer's questions on a re-install. After that, `omadeck update` works.
 
 ---
 

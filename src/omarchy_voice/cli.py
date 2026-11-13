@@ -147,6 +147,62 @@ def cmd_restart(args, config) -> int:
     return 1 if failed else 0
 
 
+def cmd_update(args, config) -> int:
+    """Pull the OmaDeck checkout this was installed from, reinstall, restart.
+
+    The services run a copy under ~/.local/share/omarchy-voice, so a bare
+    `git pull` changed nothing until install.sh ran again, and re-running it
+    asked every question again. This does the three steps in order, and
+    refuses when the checkout has changes of its own rather than mixing them
+    into an update.
+    """
+    prefix = Path(__file__).resolve().parents[2]
+    marker = prefix / "source"
+    if not marker.is_file():
+        print("This install does not know which folder it came from. Run ./install.sh "
+              "once from your OmaDeck folder; after that, omadeck update works.")
+        return 1
+    source = Path(marker.read_text().strip())
+    if not (source / "install.sh").is_file():
+        print(f"error: {source} has no install.sh any more. Run ./install.sh from "
+              "wherever OmaDeck lives now.", file=sys.stderr)
+        return 1
+    git = shutil.which("git")
+    if not git:
+        print("error: git not found", file=sys.stderr)
+        return 1
+
+    def git_out(*argv: str) -> subprocess.CompletedProcess:
+        return subprocess.run([git, "-C", str(source), *argv], capture_output=True, text=True)
+
+    if git_out("rev-parse", "--is-inside-work-tree").returncode != 0:
+        print(f"error: {source} is not a git checkout, so there is nothing to pull.",
+              file=sys.stderr)
+        return 1
+    changed = git_out("status", "--porcelain", "--untracked-files=no").stdout.strip()
+    if changed:
+        print(f"Not updating: {source} has changes that are not committed:")
+        for line in changed.splitlines()[:10]:
+            print(f"    {line}")
+        print("Commit or stash them, then run omadeck update again.")
+        return 1
+
+    branch = git_out("rev-parse", "--abbrev-ref", "HEAD").stdout.strip() or "?"
+    before = git_out("rev-parse", "--short", "HEAD").stdout.strip()
+    print(f"Pulling {branch} in {source}")
+    if subprocess.run([git, "-C", str(source), "pull", "--ff-only"]).returncode != 0:
+        print("error: git pull failed; nothing was installed.", file=sys.stderr)
+        return 1
+    after = git_out("rev-parse", "--short", "HEAD").stdout.strip()
+    print(f"  {before} -> {after}" if before != after else "  already up to date; reinstalling anyway")
+
+    if subprocess.run(["bash", str(source / "install.sh"), "--update"]).returncode != 0:
+        print("error: the install step failed; OmaDeck was not restarted.", file=sys.stderr)
+        return 1
+    # The new copy is in place; restart through it, not through this old process.
+    return subprocess.run([str(prefix / "bin" / "omarchy-voice"), "restart"]).returncode
+
+
 def cmd_kill_port(args, config) -> int:
     """Stop what listens on a port. The phone's Kill buttons run this through
     Hyprland, outside the service sandbox that hides the process."""
@@ -353,6 +409,10 @@ def build_parser() -> argparse.ArgumentParser:
     p = sub.add_parser("restart",
                        help="restart the voice daemon and the phone page, e.g. after an update")
     p.set_defaults(func=cmd_restart)
+
+    p = sub.add_parser("update",
+                       help="pull the latest OmaDeck, reinstall it and restart")
+    p.set_defaults(func=cmd_update)
 
     p = sub.add_parser("kill-port", help="stop whatever is listening on a TCP port")
     p.add_argument("port", type=int)

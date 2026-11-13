@@ -69,6 +69,93 @@ class RestartTests(unittest.TestCase):
         self.assertIs(args.func, cli.cmd_restart)
 
 
+class UpdateTests(unittest.TestCase):
+    """`omadeck update`: pull the source checkout, reinstall, restart."""
+
+    def setUp(self):
+        import tempfile
+        tmp = tempfile.TemporaryDirectory()
+        self.addCleanup(tmp.cleanup)
+        self.prefix = Path(tmp.name) / "prefix"
+        self.source = Path(tmp.name) / "omadeck"
+        (self.prefix / "src" / "omarchy_voice").mkdir(parents=True)
+        self.source.mkdir()
+        (self.source / "install.sh").write_text("#!/bin/sh\n")
+        patcher = mock.patch.object(cli, "__file__", str(self.prefix / "src" / "omarchy_voice" / "cli.py"))
+        patcher.start()
+        self.addCleanup(patcher.stop)
+
+    def _update(self, dirty="", pull_rc=0, install_rc=0, heads=("abc1234", "def5678")):
+        calls = []
+        heads = list(heads)
+
+        def run(argv, **kwargs):
+            calls.append(argv)
+            if argv[0] == "/usr/bin/git":
+                sub = argv[3:]
+                if sub[:1] == ["status"]:
+                    return SimpleNamespace(returncode=0, stdout=dirty, stderr="")
+                if sub == ["rev-parse", "--short", "HEAD"]:
+                    return SimpleNamespace(returncode=0, stdout=heads.pop(0) + "\n", stderr="")
+                if sub == ["rev-parse", "--abbrev-ref", "HEAD"]:
+                    return SimpleNamespace(returncode=0, stdout="main\n", stderr="")
+                if sub[:1] == ["pull"]:
+                    return SimpleNamespace(returncode=pull_rc)
+                return SimpleNamespace(returncode=0, stdout="true\n", stderr="")
+            if argv[0] == "bash":
+                return SimpleNamespace(returncode=install_rc)
+            return SimpleNamespace(returncode=0)
+
+        out = io.StringIO()
+        with mock.patch("omarchy_voice.cli.shutil.which", return_value="/usr/bin/git"), \
+             mock.patch("omarchy_voice.cli.subprocess.run", side_effect=run), \
+             contextlib.redirect_stdout(out), contextlib.redirect_stderr(out):
+            code = cli.cmd_update(SimpleNamespace(), None)
+        return code, out.getvalue(), calls
+
+    def _mark_source(self):
+        (self.prefix / "source").write_text(str(self.source) + "\n")
+
+    def test_it_pulls_reinstalls_and_restarts_in_that_order(self):
+        self._mark_source()
+        code, out, calls = self._update()
+        self.assertEqual(code, 0)
+        steps = [c for c in calls if c[:4] == ["/usr/bin/git", "-C", str(self.source), "pull"]
+                 or c[0] == "bash" or c[-1] == "restart"]
+        self.assertEqual(steps, [
+            ["/usr/bin/git", "-C", str(self.source), "pull", "--ff-only"],
+            ["bash", str(self.source / "install.sh"), "--update"],
+            [str(self.prefix.resolve() / "bin" / "omarchy-voice"), "restart"],
+        ])
+        self.assertIn("abc1234 -> def5678", out)
+
+    def test_uncommitted_changes_stop_it_before_anything_runs(self):
+        self._mark_source()
+        code, out, calls = self._update(dirty=" M src/omarchy_voice/mobile_bridge.py\n")
+        self.assertEqual(code, 1)
+        self.assertIn("not committed", out)
+        self.assertIn("mobile_bridge.py", out)
+        self.assertFalse([c for c in calls if "pull" in c or c[0] == "bash"])
+
+    def test_a_failed_pull_installs_nothing(self):
+        self._mark_source()
+        code, out, calls = self._update(pull_rc=1)
+        self.assertEqual(code, 1)
+        self.assertFalse([c for c in calls if c[0] == "bash" or c[-1] == "restart"])
+
+    def test_a_failed_install_does_not_restart(self):
+        self._mark_source()
+        code, out, calls = self._update(install_rc=1)
+        self.assertEqual(code, 1)
+        self.assertFalse([c for c in calls if c[-1] == "restart"])
+
+    def test_an_install_from_before_this_command_says_to_run_install_once(self):
+        code, out, calls = self._update()
+        self.assertEqual(code, 1)
+        self.assertIn("Run ./install.sh", out)
+        self.assertEqual(calls, [])
+
+
 class KillPortCommandTests(unittest.TestCase):
     """`omadeck kill-port N` is what Hyprland runs for the phone's Kill buttons."""
 
