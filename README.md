@@ -39,7 +39,7 @@ On your Omarchy machine:
 git clone https://github.com/Mohsintl/omadeck.git && cd omadeck && ./install.sh --quick
 ```
 
-It installs just the phone deck and ends by showing two QR codes. Scan them with your phone, and you're in. Tapping and typing work straight away; voice and AI are optional and can be set up later from the deck's Settings.
+It installs just the phone deck and ends by showing a QR code. Scan it with your phone and follow the steps it opens. Tapping and typing work straight away; voice and AI are optional and can be set up later from the deck's Settings.
 
 [🚀 Quick Start](#-quick-start) • [💡 Why OmaDeck?](#-why-omadeck) • [📱 Profiles](#-five-dedicated-touch-profiles) • [⚙️ AI Setup](#️-interactive-settings--ai-configuration) • [🗺️ Roadmap](ROADMAP.md) • [🤝 Contributing](CONTRIBUTING.md)
 
@@ -125,7 +125,7 @@ Prop your phone or tablet next to your keyboard as a dedicated physical Stream D
 - **On the PC:** Omarchy, or Arch with Hyprland, with `hyprctl` and `wtype`. Python 3.11 or newer; the phone deck needs no Python packages of its own.
 - **On the phone:** iPhone or iPad with Safari (tested), or Android with Chrome (should work, not tested yet).
 - **The network:** the phone and the PC on the same Wi-Fi or LAN, or the same Tailscale network. The deck listens on port `8765`.
-- **Optional:** `qrencode` for the pairing QR codes, and an API key (Groq, OpenAI and others) or a local Ollama for voice and AI.
+- **Optional:** `qrencode` for the pairing QR code, and an API key (Groq, OpenAI and others) or a local Ollama for voice and AI.
 
 The installer runs as your user and puts everything under your home folder. It only asks for `sudo` to install packages with pacman, or for the optional `omarchy voice ...` commands. [Uninstalling](#-uninstall) removes all of it.
 
@@ -139,7 +139,7 @@ cd omadeck
 ./install.sh --quick
 ```
 
-`--quick` sets up just the phone deck without any questions: the `omadeck` command, the phone page as a background service that starts when you log in, and `qrencode` for the pairing QR codes. It then shows the pairing steps.
+`--quick` sets up just the phone deck without any questions: the `omadeck` command, the phone page as a background service that starts when you log in, and `qrencode` for the pairing QR code. It then shows the pairing QR code.
 
 Run `./install.sh` without `--quick` to choose each part yourself, including the extras: the voice daemon and its service, the bar widget, the `omarchy voice ...` commands, and the SUPER + SHIFT + V keybinding. You can run it again at any time to add them.
 
@@ -151,26 +151,17 @@ omadeck mobile
 ```
 You will see output similar to:
 ```text
-  Step 1: Install the certificate (once per phone; the mic needs it)
-    Open in Safari or Chrome: http://192.168.1.50:8765/ca.crt
+  Scan this with your phone's camera. It walks you through the rest:
+  the certificate (once per phone), opening the deck, and adding it
+  to your Home Screen.
     [QR code]
-    Fingerprint: 8A:3F:B2:91:...
-    iPhone/iPad: Settings > Profile Downloaded > Install, then
-      Settings > General > About > Certificate Trust Settings,
-      and turn on "Oma Remote CA"
-
-  Step 2: Open OmaDeck over HTTPS
-    https://192.168.1.50:8765/?token=<token>
-    [QR code]
+    http://192.168.1.50:8765/pair#token=<token>
+    Certificate fingerprint: 8A:3F:B2:91:...
     Keep this link private: anyone with it can control your desktop.
-
-  Step 3: Add it to your Home Screen for everyday use
-    iPhone/iPad: in Safari, tap Share > Add to Home Screen
-    Optional: set a PIN in Settings > Security
 ```
-Treat the second link and QR code like a password. The service log deliberately leaves the token out and shows only the certificate fingerprint.
+The QR code opens a setup page on the phone. It downloads the certificate with the steps for iPhone or Android, checks that the phone now trusts it, then opens the deck over HTTPS. The token is after the `#`, which the phone never sends over the network. Still, treat the link and QR code like a password. The service log leaves the token out and shows only the certificate fingerprint.
 
-To get the QR codes, say yes when the installer offers `qrencode`, or install it later with `sudo pacman -S qrencode`. The links work without it.
+To get the QR code, say yes when the installer offers `qrencode`, or install it later with `sudo pacman -S qrencode`. The links work without it.
 
 #### Step-by-Step Connection Guide:
 1. **Install CA Certificate for Encrypted HTTPS & Microphone**:
@@ -183,7 +174,7 @@ To get the QR codes, say yes when the installer offers `qrencode`, or install it
    - Open `https://<your-laptop-lan-ip>:8765/?token=<token>` (or scan the QR code, if `qrencode` is installed).
    - HTTPS ensures your pairing token, PIN, dictation audio, and window commands are fully encrypted across your local network.
 3. **PWA Standalone App**:
-   - In Safari, tap **Share ➔ Add to Home Screen** (or in Chrome, tap **⋮ ➔ Install App / Add to Home Screen**).
+   - In Safari, tap **Share ➔ Add to Home Screen**. In Chrome on Android, tap **⋮ ➔ Install app**. **Add to Home screen** only makes a shortcut that opens in Chrome, and **Install app** only appears once the certificate is trusted.
    - This launches OmaDeck in fullscreen mode without URL address bars, providing an authentic hardware Stream Deck experience with haptic vibrations.
 
 ---

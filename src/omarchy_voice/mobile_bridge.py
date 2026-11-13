@@ -111,6 +111,150 @@ def _get_icon_png(path: str = "/icon.png") -> bytes:
             return _ICON_PNG
     return _ICON_CACHE[name]
 
+# One QR code for setting up a phone. It opens this page over plain HTTP with
+# the token after the #, which the browser never sends anywhere: the page reads
+# it, walks through the certificate, checks that the phone now trusts it, and
+# only then opens the deck over HTTPS. No secret is in the HTML itself.
+_PAIR_HTML = """<!doctype html>
+<html lang="en"><head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="referrer" content="no-referrer">
+<meta name="theme-color" content="#09090c">
+<title>Set up OmaDeck</title>
+<link rel="icon" href="/icon.png" type="image/png">
+<style>
+  :root { --bg: #09090c; --card: #121217; --key: #17171f; --border: #262634; --text: #f2f2f6;
+          --muted: #9a9aab; --ok: #10b981; --warn: #f59e0b; --accent: #e4e4e7; }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--text);
+         font: 15px/1.5 -apple-system, BlinkMacSystemFont, "SF Pro Text", Inter, "Segoe UI", Roboto, sans-serif;
+         padding: max(24px, env(safe-area-inset-top)) max(16px, env(safe-area-inset-right))
+                  max(24px, env(safe-area-inset-bottom)) max(16px, env(safe-area-inset-left)); }
+  main { max-width: 460px; margin: 0 auto; display: flex; flex-direction: column; gap: 14px; }
+  h1 { font-size: 22px; margin: 0; display: flex; align-items: center; gap: 10px; }
+  h1 img { width: 34px; height: 34px; border-radius: 9px; }
+  .lead { color: var(--muted); margin: 0; }
+  .step { background: var(--card); border: 1px solid var(--border); border-radius: 14px; padding: 14px;
+          display: flex; flex-direction: column; gap: 10px; }
+  .step h2 { font-size: 15px; margin: 0; display: flex; align-items: center; gap: 8px; }
+  .n { width: 22px; height: 22px; border-radius: 50%; background: var(--key); border: 1px solid var(--border);
+       display: inline-grid; place-items: center; font-size: 12px; flex: none; }
+  .step.done .n { background: var(--ok); border-color: var(--ok); color: #04140d; }
+  .step.done .n::before { content: "\\2713"; }
+  .step.done .n span { display: none; }
+  ol { margin: 0; padding-left: 20px; color: var(--muted); font-size: 14px; }
+  ol b { color: var(--text); font-weight: 600; }
+  .btn { display: block; text-align: center; text-decoration: none; font-weight: 700; font-size: 15px;
+         padding: 13px; border-radius: 12px; border: 0; cursor: pointer; width: 100%; font-family: inherit; }
+  .btn.primary { background: var(--accent); color: var(--bg); }
+  .btn.quiet { background: var(--key); color: var(--text); border: 1px solid var(--border); }
+  .btn[aria-disabled="true"] { opacity: .45; pointer-events: none; }
+  .status { font-size: 13px; color: var(--muted); }
+  .status.ok { color: var(--ok); }
+  .status.warn { color: var(--warn); }
+  .fp { font-family: ui-monospace, "SF Mono", Menlo, monospace; font-size: 11px; color: var(--muted); word-break: break-all; }
+  .small { font-size: 12px; color: var(--muted); }
+  .small a { color: var(--muted); }
+  [hidden] { display: none !important; }
+</style>
+</head><body><main>
+  <h1><img src="/icon-192.png" alt="">Set up OmaDeck</h1>
+  <p class="lead">Three steps, once per phone. Keep this page private: it carries the key to your desktop.</p>
+
+  <p class="status warn" id="no-token" hidden>This page needs the link from the QR code. Run <b>omadeck mobile</b> on the PC and scan it again.</p>
+
+  <section class="step" id="s-cert">
+    <h2><span class="n"><span>1</span></span>Trust the certificate</h2>
+    <p class="small" style="margin:0">The mic and full-screen app need a secure connection, so the phone has to trust OmaDeck's own certificate.</p>
+    <a class="btn quiet" href="/ca.crt" id="cert-link">Download the certificate</a>
+    <ol id="steps-ios" hidden>
+      <li>Tap <b>Allow</b>, then open <b>Settings</b> › <b>Profile Downloaded</b> › <b>Install</b>.</li>
+      <li>Then <b>Settings</b> › <b>General</b> › <b>About</b> › <b>Certificate Trust Settings</b> and turn on <b>Oma Remote CA</b>.</li>
+      <li>Come back here.</li>
+    </ol>
+    <ol id="steps-android" hidden>
+      <li>Open <b>Settings</b> and search for <b>CA certificate</b> (often under <b>Security</b> › <b>Encryption &amp; credentials</b> › <b>Install a certificate</b>).</li>
+      <li>Choose <b>CA certificate</b>, tap <b>Install anyway</b>, and pick <b>oma-remote-ca.crt</b> from Downloads.</li>
+      <li>Come back here.</li>
+    </ol>
+    <p class="fp" id="fp">Fingerprint: FINGERPRINT_PLACEHOLDER</p>
+    <p class="status" id="cert-status">Checking…</p>
+    <button class="btn quiet" type="button" id="recheck">I've installed it, check again</button>
+  </section>
+
+  <section class="step" id="s-open">
+    <h2><span class="n"><span>2</span></span>Open the deck</h2>
+    <a class="btn primary" id="open-link" href="#" aria-disabled="true">Open OmaDeck</a>
+  </section>
+
+  <section class="step" id="s-home">
+    <h2><span class="n"><span>3</span></span>Add it to your Home Screen</h2>
+    <ol id="home-ios" hidden>
+      <li>In the deck, tap <b>Share</b> › <b>Add to Home Screen</b>.</li>
+    </ol>
+    <ol id="home-android" hidden>
+      <li>In the deck, tap Chrome's <b>⋮</b> menu › <b>Install app</b>.</li>
+      <li>Not <b>Add to Home screen</b>: that makes a shortcut that opens in Chrome instead of full screen.</li>
+      <li>No <b>Install app</b>? The certificate in step 1 isn't trusted yet.</li>
+    </ol>
+    <ol id="home-other" hidden>
+      <li>Use your browser's <b>Add to Home Screen</b> or <b>Install app</b>.</li>
+    </ol>
+  </section>
+
+  <p class="small" id="no-cert-way" hidden>Can't install a certificate? <a id="plain-link" href="#">Open the deck without it</a>. Touch keys work, the mic and full-screen app don't.</p>
+</main>
+<script>
+(() => {
+  const token = new URLSearchParams(location.hash.replace(/^#/, '')).get('token') || '';
+  // Keep the token out of the address bar and history once it is read.
+  if (location.hash) history.replaceState(null, '', location.pathname);
+  const $ = (id) => document.getElementById(id);
+  const ua = navigator.userAgent;
+  const ios = /iPhone|iPad|iPod/.test(ua) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+  const android = /Android/.test(ua);
+  $(ios ? 'steps-ios' : 'steps-android').hidden = false;
+  $(ios ? 'home-ios' : android ? 'home-android' : 'home-other').hidden = false;
+  if (!token) { $('no-token').hidden = false; }
+
+  const httpsOrigin = 'https://' + location.host;
+  const deck = (origin) => origin + '/?token=' + encodeURIComponent(token);
+  $('plain-link').href = deck('http://' + location.host);
+  $('no-cert-way').hidden = !token || location.protocol === 'https:';
+
+  function trusted(ok) {
+    $('s-cert').classList.toggle('done', ok);
+    $('cert-status').className = 'status ' + (ok ? 'ok' : 'warn');
+    $('cert-status').textContent = ok
+      ? 'This phone trusts the certificate.'
+      : 'Not trusted yet. Install it, then tap Check again.';
+    $('recheck').hidden = ok;
+    $('cert-link').hidden = ok;
+    const link = $('open-link');
+    link.href = token ? deck(httpsOrigin) : '#';
+    link.setAttribute('aria-disabled', String(!(ok && token)));
+  }
+  // A request to the HTTPS side only completes once the phone trusts the CA.
+  async function check() {
+    if (location.protocol === 'https:') return trusted(true);
+    $('cert-status').className = 'status';
+    $('cert-status').textContent = 'Checking…';
+    try {
+      await fetch(httpsOrigin + '/icon-192.png?check=' + Date.now(), {mode: 'no-cors', cache: 'no-store'});
+      trusted(true);
+    } catch (e) {
+      trusted(false);
+    }
+  }
+  $('recheck').onclick = check;
+  document.addEventListener('visibilitychange', () => { if (!document.hidden) check(); });
+  check();
+})();
+</script>
+</body></html>
+"""
+
 def _manifest_json(start_url: str = "/") -> bytes:
     return json.dumps({
         "name": "OmaDeck",
@@ -6848,6 +6992,11 @@ class BridgeHandler(http.server.BaseHTTPRequestHandler):
             self.send_header("Connection", "close")
             self.end_headers()
             self.wfile.write(data)
+        elif path == "/pair":
+            # The one-QR setup page. The token rides in the fragment, which
+            # never reaches here, so this page is the same for everyone.
+            page = _PAIR_HTML.replace("FINGERPRINT_PLACEHOLDER", _ca_fingerprint() or "unavailable")
+            self._html(page)
         elif path in ("/manifest.json", "/manifest.webmanifest"):
             # The token goes in the fragment, which the app's launch never sends
             # to the server; the page already reads it from there.
@@ -8492,11 +8641,14 @@ def _print_qr(target: str) -> None:
 
 
 def _print_pairing_guide(url: str, https_url: str, token: str) -> None:
-    """Walk a person through setting up a phone for everyday use.
+    """Walk a person through setting up a phone, with one QR code.
 
-    The certificate comes first and gets its own QR code: a phone that opens
-    the HTTPS link before trusting the CA only gets a certificate warning. That
-    code carries no token, so only the second one needs keeping private.
+    It opens /pair over plain HTTP with the token after the #, which the phone
+    never sends over the network. That page installs and checks the
+    certificate, then opens the deck over HTTPS. There used to be two codes,
+    the certificate first, because a phone that opens the HTTPS link before
+    trusting the CA only gets a certificate warning; the page now does that
+    ordering itself.
     """
     if not https_url:
         print("\n  Open this on your phone. It runs without encryption, and the mic")
@@ -8506,31 +8658,23 @@ def _print_pairing_guide(url: str, https_url: str, token: str) -> None:
         print("  Keep this link private: anyone with it can control your desktop.\n", flush=True)
         return
 
-    print("\n  Step 1: Install the certificate (once per phone; the mic needs it)")
-    print(f"    Open in Safari or Chrome: {url}/ca.crt")
-    _print_qr(f"{url}/ca.crt")
+    setup = f"{url}/pair#token={quote(token, safe='')}"
+    print("\n  Scan this with your phone's camera. It walks you through the rest:")
+    print("  the certificate (once per phone), opening the deck, and adding it")
+    print("  to your Home Screen.")
+    _print_qr(setup)
+    print(f"    {setup}")
     fingerprint = _ca_fingerprint()
     if fingerprint:
-        print(f"    Fingerprint: {fingerprint}")
-    print("    iPhone/iPad: Settings > Profile Downloaded > Install, then")
-    print("      Settings > General > About > Certificate Trust Settings,")
-    print('      and turn on "Oma Remote CA"')
-    print("    Android: Settings > Security > Encryption & credentials >")
-    print("      Install a certificate > CA certificate")
-
-    print("\n  Step 2: Open OmaDeck over HTTPS")
-    print(f"    {https_url}/?token={token}")
-    _print_qr(f"{https_url}/?token={token}")
+        print(f"    Certificate fingerprint: {fingerprint}")
     print("    Keep this link private: anyone with it can control your desktop.")
-
-    print("\n  Step 3: Add it to your Home Screen for everyday use")
-    print("    iPhone/iPad: in Safari, tap Share > Add to Home Screen")
-    print("    Android: in Chrome, tap the menu > Install app")
+    print("    Android: install it with Chrome's menu > Install app, not Add to")
+    print("    Home screen, or it opens in Chrome instead of full screen.")
     print("    Optional: set a PIN in Settings > Security")
 
     if not shutil.which("qrencode"):
-        print("\n  Want QR codes here? Install qrencode: sudo pacman -S qrencode")
-    print(f"\n  No certificate? Touch controls work without it, but the mic won't: {url}/?token={token}\n", flush=True)
+        print("\n  Want a QR code here? Install qrencode: sudo pacman -S qrencode")
+    print(f"\n  Already set up? The deck itself: {https_url}/?token={token}\n", flush=True)
 
 
 def run(config, port: int = DEFAULT_PORT) -> int:

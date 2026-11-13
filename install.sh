@@ -3,7 +3,7 @@
 #
 #   ./install.sh          asks about each part
 #   ./install.sh --quick  just the phone deck: installs what it needs, skips
-#                         the extras, and ends by showing the pairing QR codes
+#                         the extras, and ends by showing the pairing QR code
 #   ./install.sh --update copy in new code and refresh what is already
 #                         installed, without asking (omadeck update runs this)
 set -euo pipefail
@@ -266,7 +266,7 @@ fi
 fi
 
 # --- pair your phone -------------------------------------------------------
-# End on the one thing a new user wants: the QR codes to scan. Wait for the
+# End on the one thing a new user wants: the QR code to scan. Wait for the
 # service to listen first; if it is not up yet, `omadeck mobile` would start
 # a second bridge in the foreground and the installer would never finish.
 deck_listening() {
