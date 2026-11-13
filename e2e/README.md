@@ -30,6 +30,7 @@ await expect.poll(desktopCalls).toContain('hyprctl dispatch hl.dsp.focus({ works
 - Direct Type types text into the focused PC window, then presses Enter
 - the Media profile shows playback and volume keys
 - the phone stays paired after the token leaves the address bar
+- a tab of your own runs the key you made on it
 
 [`tests/agentic.e2e.ts`](tests/agentic.e2e.ts), with the e2e agent: it works
 out which keys to press from a plain-language goal, and each test then checks

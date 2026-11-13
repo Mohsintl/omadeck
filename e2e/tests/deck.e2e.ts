@@ -50,3 +50,22 @@ test('the phone stays paired after the token leaves the address bar', async ({ a
 
   await expect.poll(desktopCalls).toContain('hyprctl dispatch hl.dsp.focus({ workspace = "4" })');
 });
+
+test('a tab of your own runs the key you made on it', async ({ app, screen }) => {
+  await app.open(PAIRING_LINK);
+
+  await screen.getByRole('button', 'Add a tab').click();
+  await screen.getByPlaceholder('Dev').fill('Mine');
+  await screen.getByRole('button', 'Save').click();
+
+  await screen.getByRole('button', 'Add key').click();
+  await screen.getByPlaceholder('Start server').fill('Hello key');
+  await screen.getByRole('button', 'Type text').click();
+  await screen.getByPlaceholder('npm run dev').fill('hello from my key');
+  await screen.getByRole('button', 'Save').click();
+
+  await screen.getByRole('button', 'Hello key').click();
+
+  await expect.poll(desktopCalls).toContain('wtype -- hello from my key');
+  await expect.poll(desktopCalls).toContain('wtype -k Return');
+});

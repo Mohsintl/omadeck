@@ -1412,6 +1412,71 @@ _PWA_HTML = r"""<!DOCTYPE html>
   .chip-tools .t-left { bottom: 3px; left: 3px; }
   .chip-tools .t-right { bottom: 3px; right: 3px; }
 
+  /* Your own tabs: a + at the end of the tab bar, keys you make, Steps. */
+  .deck-profile-bar { overflow-x: auto; scrollbar-width: none; }
+  .deck-profile-bar::-webkit-scrollbar { display: none; }
+  .profile-pill { flex: 1 0 auto; padding: 0 8px; }
+  .profile-pill.custom-pill span::before { content: "★ "; color: var(--status-info); }
+  .profile-pill.add-pill { flex: 0 0 auto; font-size: 1.05rem; color: var(--status-info); padding: 0 12px; }
+  .profile-view[data-custom] .btn-grid-4 { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+  .profile-view[data-custom] .chip { min-width: 0; }
+  .chip.add-key { border-style: dashed; background: transparent; box-shadow: none; }
+  .chip.add-key .label, .chip.add-key .icon { opacity: 0.7; }
+  .chip .chip-kind {
+    font-family: ui-monospace, 'SF Mono', Menlo, monospace; font-size: 0.56rem; color: var(--text-muted);
+    max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; padding: 0 4px; line-height: 1.1;
+  }
+  .custom-empty {
+    border: 1px dashed var(--border); border-radius: var(--radius-md); padding: 14px;
+    text-align: center; color: var(--text-muted); font-size: 0.78rem; line-height: 1.5;
+  }
+  .edit-row button.danger { color: var(--status-danger); border-style: solid; }
+
+  .key-sheet-back {
+    position: fixed; inset: 0; z-index: 200; background: rgba(5, 5, 8, 0.65);
+    display: flex; align-items: flex-end; justify-content: center;
+  }
+  .key-sheet-back[hidden] { display: none; }
+  .key-sheet {
+    width: min(480px, 100%); max-height: calc(100% - 24px); overflow-y: auto;
+    background: var(--chassis); border: 1px solid var(--border); border-bottom: 0; border-radius: 18px 18px 0 0;
+    padding: 16px 16px max(calc(env(safe-area-inset-bottom, 0px) + 16px), 20px);
+    display: flex; flex-direction: column; gap: 12px; color: var(--text);
+    box-shadow: 0 -16px 40px rgba(0, 0, 0, 0.6);
+  }
+  .key-sheet h2 { margin: 0; font-size: 1rem; }
+  .key-sheet .field-label { font-size: 0.72rem; font-weight: 600; color: var(--text-muted); }
+  .key-sheet input[type="text"], .key-sheet select {
+    width: 100%; height: 42px; background: var(--input-bg); border: 1px solid var(--input-border);
+    border-radius: var(--radius-md); color: var(--text); font: inherit; font-size: 0.9rem; padding: 0 10px; min-width: 0;
+  }
+  .key-sheet input[type="text"]:focus, .key-sheet select:focus { outline: none; border-color: var(--input-focus); }
+  .ks-group { display: flex; flex-direction: column; gap: 6px; }
+  .ks-group[hidden] { display: none; }
+  .ks-seg { display: grid; grid-template-columns: repeat(2, 1fr); gap: 4px; background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-md); padding: 3px; }
+  .ks-seg button { background: none; border: 0; color: var(--text-muted); font-size: 0.76rem; font-weight: 600; padding: 9px 4px; border-radius: var(--radius-sm); cursor: pointer; }
+  .ks-seg button[aria-pressed="true"] { background: var(--active-bg); color: var(--text); box-shadow: inset 0 0 0 1px var(--active-border); }
+  .ks-icons { display: grid; grid-template-columns: repeat(8, 1fr); gap: 5px; }
+  .ks-icons button { aspect-ratio: 1; border-radius: var(--radius-sm); border: 1px solid var(--border); background: var(--surface); display: grid; place-items: center; cursor: pointer; padding: 0; }
+  .ks-icons svg { width: 17px; height: 17px; fill: none; stroke: var(--text); stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
+  .ks-icons button[aria-pressed="true"] { border-color: var(--status-info); background: var(--active-bg); }
+  .ks-check { display: flex; align-items: center; gap: 8px; font-size: 0.8rem; color: var(--text); }
+  .ks-check input { width: 17px; height: 17px; }
+  .ks-help { margin: 0; font-size: 0.74rem; color: var(--text-muted); line-height: 1.45; }
+  .ks-steps { display: flex; flex-direction: column; gap: 8px; }
+  .ks-step { display: grid; grid-template-columns: 18px 104px minmax(0, 1fr) 30px; gap: 6px; align-items: center; }
+  .ks-step .n { font-family: ui-monospace, 'SF Mono', Menlo, monospace; font-size: 0.72rem; color: var(--text-muted); text-align: center; }
+  .ks-step input[type="text"], .ks-step select { height: 38px; font-size: 0.8rem; padding: 0 6px; }
+  .ks-step .rm { background: none; border: 0; color: var(--status-danger); font-size: 0.95rem; cursor: pointer; }
+  .ks-step .opt { grid-column: 3 / 5; display: flex; align-items: center; gap: 6px; font-size: 0.74rem; }
+  .ks-add-step { align-self: flex-start; background: none; border: 0; color: var(--status-info); font-weight: 600; font-size: 0.8rem; cursor: pointer; padding: 4px 0; }
+  .ks-actions { display: flex; align-items: center; gap: 8px; }
+  .ks-actions .grow { flex: 1; }
+  .ks-actions button { height: 40px; padding: 0 14px; border-radius: var(--radius-md); font-weight: 700; font-size: 0.85rem; cursor: pointer; border: 0; }
+  .ks-actions .save { background: var(--btn-bg); color: var(--btn-fg); }
+  .ks-actions .cancel { background: none; color: var(--text-muted); }
+  .ks-actions .del { background: none; color: var(--status-danger); padding: 0 4px; }
+
   /* =========================================================================
      LANDSCAPE MODE: Ergonomic Split-Deck Architecture
      ========================================================================= */
@@ -3134,6 +3199,45 @@ _PWA_HTML = r"""<!DOCTYPE html>
 </div>
 
 <!-- Settings Modal -->
+<!-- Make or change a tab or a key of your own -->
+<div class="key-sheet-back" id="key-sheet-back" hidden>
+  <form class="key-sheet" id="key-sheet" aria-labelledby="ks-title">
+    <h2 id="ks-title">New key</h2>
+    <label class="ks-group"><span class="field-label">Name</span>
+      <input type="text" id="ks-name" maxlength="18" autocomplete="off" placeholder="Start server">
+    </label>
+    <div class="ks-group" id="ks-key-fields">
+      <span class="field-label">Icon</span>
+      <div class="ks-icons" id="ks-icons"></div>
+      <span class="field-label" style="margin-top:6px">What it does</span>
+      <div class="ks-seg" id="ks-kind">
+        <button type="button" data-kind="deck" aria-pressed="true">Deck key</button>
+        <button type="button" data-kind="text" aria-pressed="false">Type text</button>
+        <button type="button" data-kind="keys" aria-pressed="false">Press keys</button>
+        <button type="button" data-kind="chain" aria-pressed="false">Steps</button>
+        <button type="button" data-kind="cmd" aria-pressed="false" style="grid-column: 1 / 3">Ask (may use AI)</button>
+      </div>
+      <div class="ks-group" id="ks-single" style="margin-top:6px">
+        <span class="field-label" id="ks-value-label">Deck key</span>
+        <select id="ks-deck" aria-label="Deck key"></select>
+        <input type="text" id="ks-value" autocomplete="off" autocapitalize="off" aria-label="Value">
+        <label class="ks-check" id="ks-enter-wrap"><input type="checkbox" id="ks-enter" checked>Press ↵ after</label>
+      </div>
+      <div class="ks-group" id="ks-chain" hidden style="margin-top:6px">
+        <div class="ks-steps" id="ks-steps"></div>
+        <button type="button" class="ks-add-step" id="ks-add-step">+ Add step</button>
+      </div>
+      <p class="ks-help" id="ks-help"></p>
+    </div>
+    <div class="ks-actions">
+      <button type="button" class="del" id="ks-delete" hidden>Delete</button>
+      <span class="grow"></span>
+      <button type="button" class="cancel" id="ks-cancel">Cancel</button>
+      <button type="submit" class="save">Save</button>
+    </div>
+  </form>
+</div>
+
 <div class="modal-overlay" id="settings-modal" style="display: none;">
   <div class="modal-card" style="height: auto; max-height: 85dvh;">
     <div class="modal-header">
@@ -5058,13 +5162,20 @@ if (cmdInput) {
 
 // --- Deck Profile Switcher Logic ---
 const profileTabs = document.querySelectorAll('.profile-pill');
-const profileSections = document.querySelectorAll('.profile-view');
 
+// Looked up on every switch: tabs of your own are added and removed later.
 function setProfile(profName) {
   haptic(8);
-  localStorage.setItem('oma-deck-profile', profName);
-  profileTabs.forEach(p => p.classList.toggle('active', p.dataset.profile === profName));
-  profileSections.forEach(s => {
+  // A tab of your own that is not built yet (on load) or was deleted shows
+  // Desk without forgetting the saved choice.
+  if (!document.querySelector(`.profile-view[data-profile-section="${CSS.escape(profName)}"]`)) profName = 'desk';
+  else { try { localStorage.setItem('oma-deck-profile', profName); } catch (e) {} }
+  document.querySelectorAll('.profile-pill[data-profile]').forEach(p => {
+    p.classList.toggle('active', p.dataset.profile === profName);
+    // The bar scrolls once you add tabs; keep the open one in view.
+    if (p.dataset.profile === profName && p.scrollIntoView) p.scrollIntoView({inline: 'nearest', block: 'nearest'});
+  });
+  document.querySelectorAll('.profile-view').forEach(s => {
     s.style.display = (s.dataset.profileSection === profName) ? 'flex' : 'none';
   });
 }
@@ -5187,7 +5298,7 @@ const chipId = (c) => c.dataset.cmd || (c.dataset.key ? 'key:' + c.dataset.key :
 const chipLabel = (c) => ((c.querySelector('.label') || c).textContent || '').trim();
 function deckGrids() {
   const out = [];
-  document.querySelectorAll('.profile-view').forEach(view => {
+  document.querySelectorAll('.profile-view:not([data-custom])').forEach(view => {
     view.querySelectorAll('.btn-grid-4, .btn-grid-5').forEach((g, i) => out.push([view.dataset.profileSection + ':' + i, g, view]));
   });
   return out;
@@ -5228,7 +5339,10 @@ function renderEditing() {
   editBar.hidden = !editingDeck;
   if (!editingDeck) { editBar.innerHTML = ''; return; }
   const view = [...document.querySelectorAll('.profile-view')].find(v => v.style.display !== 'none') || null;
-  if (view) {
+  const ownTab = view && view.dataset.custom ? customTabs.find(t => 'c-' + t.id === view.dataset.profileSection) : null;
+  if (ownTab) {
+    renderCustomView(ownTab);
+  } else if (view) {
     view.querySelectorAll('.btn-grid-4, .btn-grid-5').forEach(grid => {
       const visible = [...grid.querySelectorAll(':scope > .chip:not(.chip-hidden)')];
       visible.forEach((c, i) => {
@@ -5253,12 +5367,35 @@ function renderEditing() {
   editBar.innerHTML = '';
   const top = document.createElement('div');
   top.className = 'edit-bar-top';
-  top.innerHTML = '<span>Editing this page: ✕ hides a key, ◀ ▶ moves it.</span>';
+  top.innerHTML = ownTab
+    ? '<span>Editing your tab: tap a key to change it, ✕ deletes it, ◀ ▶ moves it.</span>'
+    : '<span>Editing this page: ✕ hides a key, ◀ ▶ moves it.</span>';
   const done = document.createElement('button');
   done.type = 'button'; done.className = 'done'; done.textContent = 'Done';
   done.onclick = () => { editingDeck = false; renderEditing(); if (latestReply) latestReply.textContent = '✓ Saved your layout on this phone.'; };
   top.appendChild(done);
   editBar.appendChild(top);
+  if (ownTab) {
+    const tabRow = document.createElement('div');
+    tabRow.className = 'edit-row';
+    const ren = document.createElement('button');
+    ren.type = 'button'; ren.textContent = 'Rename tab';
+    ren.onclick = () => openKeySheet({mode: 'tab', tab: ownTab});
+    const del = document.createElement('button');
+    del.type = 'button'; del.className = 'danger'; del.textContent = 'Delete tab';
+    del.onclick = () => {
+      if (!del.dataset.sure) { del.dataset.sure = '1'; del.textContent = 'Tap again to delete'; return; }
+      customTabs = customTabs.filter(t => t !== ownTab);
+      saveCustomTabs();
+      buildCustomTabs();
+      editingDeck = false;
+      setProfile('desk');
+      renderEditing();
+      if (latestReply) latestReply.textContent = '✓ Deleted the ' + ownTab.name + ' tab.';
+    };
+    tabRow.append(ren, del);
+    editBar.appendChild(tabRow);
+  }
 
   const hiddenRow = document.createElement('div');
   hiddenRow.className = 'edit-row';
@@ -5303,7 +5440,7 @@ function renderEditing() {
 document.addEventListener('click', (e) => {
   if (!editingDeck) return;
   const chip = e.target.closest && e.target.closest('.profile-view .chip');
-  if (!chip || e.target.closest('[data-tool]')) return;
+  if (!chip || e.target.closest('[data-tool]') || chip.closest('[data-custom]')) return;
   e.preventDefault();
   e.stopImmediatePropagation();
 }, true);
@@ -5319,6 +5456,387 @@ if (editDeckBtn) editDeckBtn.onclick = () => {
 // Switching pages while editing shows that page's tools.
 document.querySelectorAll('.profile-pill').forEach(p => p.addEventListener('click', () => { if (editingDeck) renderEditing(); }));
 applyLayout();
+
+// --- tabs and keys of your own, saved on this phone ---
+// A key is a deck key (any built-in button: runs on the PC with no AI), text
+// to type, a key combo, a command for Ask, or Steps that run several of these
+// in order. Everything goes through the same sendCmd / directType / sendKey
+// the rest of the deck uses.
+const CUSTOM_KEY = 'omadeck_custom_tabs';
+let customTabs = [];
+try { customTabs = JSON.parse(localStorage.getItem(CUSTOM_KEY) || '[]'); } catch (e) {}
+if (!Array.isArray(customTabs)) customTabs = [];
+const saveCustomTabs = () => { try { localStorage.setItem(CUSTOM_KEY, JSON.stringify(customTabs)); } catch (e) {} };
+const newId = () => Math.random().toString(36).slice(2, 9);
+const MAX_WAIT_S = 30;
+
+const KEY_ICONS = {
+  play: '<path d="M6 4l14 8-14 8z"/>',
+  term: '<path d="M4 17l6-5-6-5M12 19h8"/>',
+  code: '<path d="M8 6l-6 6 6 6M16 6l6 6-6 6"/>',
+  reload: '<path d="M20 11a8 8 0 1 0-2.3 5.7M20 4v7h-7"/>',
+  tab: '<rect x="3" y="6" width="18" height="14" rx="2"/><path d="M3 10h18M8 6v4"/>',
+  git: '<circle cx="6" cy="6" r="2"/><circle cx="6" cy="18" r="2"/><circle cx="18" cy="9" r="2"/><path d="M6 8v8M18 11c0 4-6 3-10 6"/>',
+  kill: '<circle cx="12" cy="12" r="9"/><path d="M5.5 5.5l13 13"/>',
+  box: '<path d="M21 8l-9-5-9 5 9 5 9-5zM3 8v8l9 5 9-5V8M12 13v8"/>',
+  cpu: '<rect x="6" y="6" width="12" height="12" rx="2"/><path d="M9 2v4M15 2v4M9 18v4M15 18v4M2 9h4M2 15h4M18 9h4M18 15h4"/>',
+  globe: '<circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3a14 14 0 0 1 0 18M12 3a14 14 0 0 0 0 18"/>',
+  clip: '<rect x="6" y="4" width="12" height="17" rx="2"/><path d="M9 4h6v3H9z"/>',
+  moon: '<path d="M20 14.5A8 8 0 0 1 9.5 4a8 8 0 1 0 10.5 10.5z"/>',
+  music: '<path d="M9 18V5l12-2v13"/><circle cx="6" cy="18" r="3"/><circle cx="18" cy="16" r="3"/>',
+  shot: '<rect x="3" y="7" width="18" height="13" rx="2"/><circle cx="12" cy="13.5" r="3.5"/><path d="M9 7l1.5-3h3L15 7"/>',
+  gear: '<circle cx="12" cy="12" r="3"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3M5 5l2 2M17 17l2 2M5 19l2-2M17 7l2-2"/>',
+  star: '<path d="M12 3l2.7 5.6 6.1.9-4.4 4.3 1 6.1L12 17l-5.4 2.9 1-6.1L3.2 9.5l6.1-.9z"/>',
+};
+const keyIconSvg = (name) => `<svg class="icon icon-svg" viewBox="0 0 24 24" aria-hidden="true">${KEY_ICONS[name] || KEY_ICONS.star}</svg>`;
+
+// Every built-in button, so a key or a step can reuse one. Read from the page,
+// so a button added to the deck later shows up here without a second list.
+function deckKeyCatalog() {
+  const groups = [];
+  const ws = [];
+  document.querySelectorAll('.ws-key[data-cmd]').forEach(k => {
+    ws.push({v: k.dataset.cmd, label: k.dataset.cmd.replace(/^go to /, 'Go to ').replace(/^toggle /, 'Toggle ')});
+    if (k.dataset.holdCmd) ws.push({v: k.dataset.holdCmd, label: k.dataset.holdCmd.replace(/^move /, 'Move ')});
+  });
+  if (ws.length) groups.push(['Workspaces', ws]);
+  document.querySelectorAll('.profile-pill[data-profile]').forEach(pill => {
+    const view = document.querySelector(`.profile-view[data-profile-section="${CSS.escape(pill.dataset.profile)}"]:not([data-custom])`);
+    if (!view) return;
+    const keys = [];
+    view.querySelectorAll('.chip[data-cmd], .chip[data-key]').forEach(c => {
+      const label = ((c.querySelector('.label') || c).textContent || '').trim();
+      keys.push({v: c.dataset.cmd || ('key:' + c.dataset.key), label});
+    });
+    if (keys.length) groups.push([(pill.textContent || '').trim(), keys]);
+  });
+  return groups;
+}
+function deckKeyLabel(v) {
+  for (const [, keys] of deckKeyCatalog()) { const k = keys.find(x => x.v === v); if (k) return k.label; }
+  return v.startsWith('key:') ? v.slice(4) : v;
+}
+const runDeckValue = (v) => v.startsWith('key:') ? sendKey(v.slice(4)) : sendCmd(v);
+
+const KIND_INFO = {
+  deck: {label: 'Deck key', help: 'Runs one of the deck\u2019s own buttons. These run on the PC with no AI, so they use no tokens.'},
+  text: {label: 'Text', ph: 'npm run dev', help: 'Types this into the window that is focused on the PC.'},
+  keys: {label: 'Keys', ph: 'ctrl+shift+t', help: 'Presses this key combo on the PC, like ctrl+shift+t or super+return.'},
+  cmd: {label: 'Command', ph: 'open firefox on workspace 3', help: 'Runs like a command typed in Ask. Wording OmaDeck knows runs locally; anything else goes to the AI and uses tokens.'},
+  chain: {label: 'Steps', help: 'Runs each step in order. Deck keys use no tokens. Add a wait when an app needs a moment to open.'},
+};
+const STEP_TYPES = [['deck', 'Deck key'], ['text', 'Type text'], ['keys', 'Press keys'], ['wait', 'Wait (s)'], ['cmd', 'Ask (may use AI)']];
+const STEP_PH = {text: 'cd omadeck && omadeck update', keys: 'ctrl+shift+t', wait: '1', cmd: 'open firefox on workspace 3'};
+const sleep = (ms) => new Promise(r => setTimeout(r, ms));
+
+function keySummary(k) {
+  if (k.kind === 'chain') return 'steps: ' + (k.steps || []).length;
+  if (k.kind === 'deck') return 'deck: ' + deckKeyLabel(k.value);
+  return ({text: 'type', keys: 'keys', cmd: 'ask'}[k.kind] || k.kind) + ': ' + k.value;
+}
+
+let chainRunning = false;
+async function runStep(step) {
+  if (step.t === 'deck') return runDeckValue(step.v);
+  if (step.t === 'text') return directType(step.v, !!step.enter);
+  if (step.t === 'keys') return sendKey(step.v);
+  if (step.t === 'cmd') return sendCmd(step.v);
+  if (step.t === 'wait') return sleep(Math.min(MAX_WAIT_S, Math.max(0, parseFloat(step.v) || 0)) * 1000);
+}
+async function runCustomKey(k) {
+  if (k.kind === 'chain') {
+    if (chainRunning) { if (latestReply) latestReply.textContent = '⏳ ' + k.label + ' is still running.'; return; }
+    chainRunning = true;
+    const steps = k.steps || [];
+    try {
+      for (let i = 0; i < steps.length; i++) {
+        if (latestReply && steps[i].t === 'wait') latestReply.textContent = `⏳ ${k.label}: step ${i + 1}/${steps.length}, waiting ${steps[i].v}s`;
+        await runStep(steps[i]);
+      }
+      if (latestReply) latestReply.textContent = `✓ ${k.label}: ran ${steps.length} step${steps.length === 1 ? '' : 's'}.`;
+    } finally {
+      chainRunning = false;
+    }
+    return;
+  }
+  return runStep({t: k.kind, v: k.value, enter: k.enter});
+}
+
+function renderCustomView(tab) {
+  const view = document.querySelector(`.profile-view[data-profile-section="c-${CSS.escape(tab.id)}"]`);
+  if (!view) return;
+  view.innerHTML = '';
+  const section = document.createElement('section');
+  section.className = 'control-section';
+  const header = document.createElement('div');
+  header.className = 'section-header';
+  const title = document.createElement('span');
+  title.className = 'section-title';
+  title.textContent = tab.name;
+  header.appendChild(title);
+  section.appendChild(header);
+  if (!tab.keys.length && !editingDeck) {
+    const empty = document.createElement('div');
+    empty.className = 'custom-empty';
+    empty.textContent = 'No keys yet. Tap + Add key to make one that runs a deck key, types text, presses keys or runs several steps.';
+    section.appendChild(empty);
+  }
+  const chips = tab.keys.map((k, i) => {
+    const b = document.createElement('button');
+    b.type = 'button';
+    b.className = 'chip';
+    b.dataset.customKey = k.id;
+    b.innerHTML = keyIconSvg(k.icon) + '<span class="label"></span><span class="chip-kind"></span>';
+    b.querySelector('.label').textContent = k.label;
+    b.querySelector('.chip-kind').textContent = keySummary(k);
+    b.title = keySummary(k);
+    b.setAttribute('aria-label', k.label);
+    b.addEventListener('click', () => {
+      if (editingDeck) openKeySheet({mode: 'key', tab, key: k});
+      else runCustomKey(k);
+    });
+    if (editingDeck) {
+      const tools = document.createElement('div');
+      tools.className = 'chip-tools';
+      const tool = (cls, text, label, fn) => {
+        const t = document.createElement('button');
+        t.type = 'button'; t.className = cls; t.textContent = text; t.dataset.tool = '1';
+        t.setAttribute('aria-label', label);
+        t.addEventListener('click', (e) => { e.stopPropagation(); fn(); });
+        tools.appendChild(t);
+      };
+      const move = (dir) => {
+        const j = i + dir;
+        [tab.keys[i], tab.keys[j]] = [tab.keys[j], tab.keys[i]];
+        saveCustomTabs(); renderCustomView(tab);
+      };
+      tool('t-hide', '✕', 'Delete ' + k.label, () => { tab.keys.splice(i, 1); saveCustomTabs(); renderCustomView(tab); });
+      if (i > 0) tool('t-left', '◀', 'Move ' + k.label + ' earlier', () => move(-1));
+      if (i < tab.keys.length - 1) tool('t-right', '▶', 'Move ' + k.label + ' later', () => move(1));
+      b.appendChild(tools);
+    }
+    return b;
+  });
+  const add = document.createElement('button');
+  add.type = 'button';
+  add.className = 'chip add-key';
+  add.dataset.tool = '1';
+  add.innerHTML = keyIconSvg('star').replace(KEY_ICONS.star, '<path d="M12 5v14M5 12h14"/>') + '<span class="label">Add key</span>';
+  add.addEventListener('click', () => openKeySheet({mode: 'key', tab}));
+  chips.push(add);
+  for (let i = 0; i < chips.length; i += 4) {
+    const grid = document.createElement('div');
+    grid.className = 'btn-grid-4';
+    chips.slice(i, i + 4).forEach(c => grid.appendChild(c));
+    section.appendChild(grid);
+  }
+  view.appendChild(section);
+}
+
+const profileBar = document.getElementById('deck-profile-bar');
+function buildCustomTabs() {
+  document.querySelectorAll('.profile-pill.custom-pill, .profile-pill.add-pill, .profile-view[data-custom]').forEach(n => n.remove());
+  const builtIn = [...document.querySelectorAll('.profile-view:not([data-custom])')];
+  let after = builtIn[builtIn.length - 1];
+  customTabs.forEach(tab => {
+    const pill = document.createElement('button');
+    pill.className = 'profile-pill custom-pill';
+    pill.dataset.profile = 'c-' + tab.id;
+    pill.innerHTML = '<span></span>';
+    pill.querySelector('span').textContent = tab.name;
+    pill.addEventListener('click', () => { setProfile(pill.dataset.profile); if (editingDeck) renderEditing(); });
+    profileBar.appendChild(pill);
+    const view = document.createElement('div');
+    view.className = 'profile-view';
+    view.dataset.profileSection = 'c-' + tab.id;
+    view.dataset.custom = '1';
+    view.style.display = 'none';
+    after.after(view);
+    after = view;
+    renderCustomView(tab);
+  });
+  const plus = document.createElement('button');
+  plus.className = 'profile-pill add-pill';
+  plus.id = 'add-tab-btn';
+  plus.textContent = '+';
+  plus.title = 'Add a tab of your own';
+  plus.setAttribute('aria-label', 'Add a tab');
+  plus.addEventListener('click', () => openKeySheet({mode: 'tab'}));
+  profileBar.appendChild(plus);
+}
+
+// --- the sheet: new tab, rename tab, new or changed key ---
+const ks = (id) => document.getElementById(id);
+let sheetCtx = null, sheetKind = 'deck', sheetIcon = 'play', sheetSteps = [];
+
+function fillDeckSelect(select, value) {
+  select.innerHTML = '';
+  let found = false;
+  deckKeyCatalog().forEach(([group, keys]) => {
+    const og = document.createElement('optgroup');
+    og.label = group;
+    keys.forEach(k => {
+      const o = document.createElement('option');
+      o.value = k.v; o.textContent = k.label;
+      if (k.v === value) { o.selected = true; found = true; }
+      og.appendChild(o);
+    });
+    select.appendChild(og);
+  });
+  return found ? value : (select.value || '');
+}
+function paintKeyIcons() {
+  const box = ks('ks-icons');
+  box.innerHTML = '';
+  Object.keys(KEY_ICONS).forEach(name => {
+    const b = document.createElement('button');
+    b.type = 'button';
+    b.innerHTML = keyIconSvg(name);
+    b.setAttribute('aria-label', name);
+    b.setAttribute('aria-pressed', String(name === sheetIcon));
+    b.onclick = () => { sheetIcon = name; paintKeyIcons(); };
+    box.appendChild(b);
+  });
+}
+function paintSheetKind() {
+  document.querySelectorAll('#ks-kind button').forEach(b => b.setAttribute('aria-pressed', String(b.dataset.kind === sheetKind)));
+  const info = KIND_INFO[sheetKind];
+  const chain = sheetKind === 'chain';
+  ks('ks-single').hidden = chain;
+  ks('ks-chain').hidden = !chain;
+  ks('ks-value-label').textContent = info.label;
+  ks('ks-deck').hidden = sheetKind !== 'deck';
+  ks('ks-value').hidden = sheetKind === 'deck';
+  ks('ks-value').placeholder = info.ph || '';
+  ks('ks-enter-wrap').hidden = sheetKind !== 'text';
+  ks('ks-help').textContent = info.help;
+  if (chain) {
+    if (!sheetSteps.length) sheetSteps = [{t: 'deck', v: ''}];
+    paintSteps();
+  }
+}
+function paintSteps() {
+  const box = ks('ks-steps');
+  box.innerHTML = '';
+  sheetSteps.forEach((st, i) => {
+    const row = document.createElement('div');
+    row.className = 'ks-step';
+    const n = document.createElement('span');
+    n.className = 'n'; n.textContent = i + 1;
+    const type = document.createElement('select');
+    type.setAttribute('aria-label', `Step ${i + 1} type`);
+    STEP_TYPES.forEach(([v, label]) => {
+      const o = document.createElement('option');
+      o.value = v; o.textContent = label; o.selected = v === st.t;
+      type.appendChild(o);
+    });
+    type.onchange = () => { st.t = type.value; st.v = ''; if (st.t !== 'text') delete st.enter; paintSteps(); };
+    let field;
+    if (st.t === 'deck') {
+      field = document.createElement('select');
+      st.v = fillDeckSelect(field, st.v);
+      field.onchange = () => { st.v = field.value; };
+    } else {
+      field = document.createElement('input');
+      field.type = 'text'; field.value = st.v || ''; field.placeholder = STEP_PH[st.t] || '';
+      field.autocapitalize = 'off'; field.autocomplete = 'off';
+      if (st.t === 'wait') field.inputMode = 'decimal';
+      field.oninput = () => { st.v = field.value; };
+    }
+    field.setAttribute('aria-label', `Step ${i + 1}`);
+    const rm = document.createElement('button');
+    rm.type = 'button'; rm.className = 'rm'; rm.textContent = '✕';
+    rm.setAttribute('aria-label', `Remove step ${i + 1}`);
+    rm.onclick = () => { sheetSteps.splice(i, 1); paintSteps(); };
+    row.append(n, type, field, rm);
+    if (st.t === 'text') {
+      const opt = document.createElement('label');
+      opt.className = 'opt';
+      const cb = document.createElement('input');
+      cb.type = 'checkbox'; cb.checked = !!st.enter;
+      cb.onchange = () => { st.enter = cb.checked; };
+      opt.append(cb, document.createTextNode('Press ↵ after'));
+      row.appendChild(opt);
+    }
+    box.appendChild(row);
+  });
+}
+function openKeySheet(ctx) {
+  sheetCtx = ctx;
+  const isTab = ctx.mode === 'tab';
+  ks('ks-key-fields').hidden = isTab;
+  ks('ks-title').textContent = isTab ? (ctx.tab ? 'Rename tab' : 'New tab') : (ctx.key ? 'Edit key' : 'New key');
+  ks('ks-name').placeholder = isTab ? 'Dev' : 'Start server';
+  ks('ks-name').value = isTab ? (ctx.tab ? ctx.tab.name : '') : (ctx.key ? ctx.key.label : '');
+  ks('ks-delete').hidden = isTab || !ctx.key;
+  if (!isTab) {
+    const k = ctx.key || {};
+    sheetKind = k.kind || 'deck';
+    sheetIcon = k.icon || 'play';
+    sheetSteps = (k.steps || []).map(st => Object.assign({}, st));
+    ks('ks-value').value = (k.kind && k.kind !== 'deck' && k.kind !== 'chain') ? k.value : '';
+    ks('ks-enter').checked = k.kind === 'text' ? !!k.enter : true;
+    fillDeckSelect(ks('ks-deck'), k.kind === 'deck' ? k.value : '');
+    paintKeyIcons();
+    paintSheetKind();
+  }
+  ks('key-sheet-back').hidden = false;
+  setTimeout(() => ks('ks-name').focus(), 50);
+}
+function closeKeySheet() { ks('key-sheet-back').hidden = true; sheetCtx = null; }
+document.querySelectorAll('#ks-kind button').forEach(b => b.onclick = () => { sheetKind = b.dataset.kind; paintSheetKind(); });
+ks('ks-add-step').onclick = () => { sheetSteps.push({t: 'deck', v: ''}); paintSteps(); };
+ks('ks-cancel').onclick = closeKeySheet;
+ks('key-sheet-back').addEventListener('click', (e) => { if (e.target === ks('key-sheet-back')) closeKeySheet(); });
+document.addEventListener('keydown', (e) => { if (e.key === 'Escape' && !ks('key-sheet-back').hidden) closeKeySheet(); });
+ks('ks-delete').onclick = () => {
+  const {tab, key} = sheetCtx;
+  tab.keys = tab.keys.filter(k => k !== key);
+  saveCustomTabs(); closeKeySheet(); renderCustomView(tab);
+  if (latestReply) latestReply.textContent = '✓ Deleted ' + key.label + '.';
+};
+ks('key-sheet').addEventListener('submit', (e) => {
+  e.preventDefault();
+  const name = ks('ks-name').value.trim();
+  if (!name) { ks('ks-name').focus(); return; }
+  if (sheetCtx.mode === 'tab') {
+    let id;
+    if (sheetCtx.tab) { sheetCtx.tab.name = name; id = sheetCtx.tab.id; }
+    else { id = newId(); customTabs.push({id, name, keys: []}); }
+    saveCustomTabs();
+    buildCustomTabs();
+    closeKeySheet();
+    setProfile('c-' + id);
+    if (editingDeck) renderEditing();
+    if (latestReply) latestReply.textContent = '✓ ' + name + ' is ready. Tap + Add key.';
+    return;
+  }
+  let data;
+  if (sheetKind === 'chain') {
+    const steps = sheetSteps.map(st => Object.assign({}, st, {v: String(st.v || '').trim()})).filter(st => st.v);
+    if (!steps.length) { const f = ks('ks-steps').querySelector('input, select'); if (f) f.focus(); return; }
+    data = {kind: 'chain', value: '', steps};
+  } else {
+    const value = sheetKind === 'deck' ? ks('ks-deck').value : ks('ks-value').value.trim();
+    if (!value) { (sheetKind === 'deck' ? ks('ks-deck') : ks('ks-value')).focus(); return; }
+    data = {kind: sheetKind, value, enter: sheetKind === 'text' ? ks('ks-enter').checked : undefined, steps: undefined};
+  }
+  Object.assign(data, {label: name, icon: sheetIcon});
+  const {tab} = sheetCtx;
+  if (sheetCtx.key) Object.assign(sheetCtx.key, data);
+  else tab.keys.push(Object.assign({id: newId()}, data));
+  saveCustomTabs();
+  closeKeySheet();
+  renderCustomView(tab);
+  if (latestReply) latestReply.textContent = '✓ Saved ' + name + '.';
+});
+
+buildCustomTabs();
+{
+  let saved = 'desk';
+  try { saved = localStorage.getItem('oma-deck-profile') || 'desk'; } catch (e) {}
+  if (saved.startsWith('c-')) setProfile(saved);
+}
 
 // --- spoken replies ---
 let speakOn = localStorage.getItem('oma-speak') !== '0';
