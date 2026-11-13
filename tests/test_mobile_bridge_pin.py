@@ -1028,7 +1028,8 @@ class MobileBridgePinTests(unittest.TestCase):
                         return_value=SimpleNamespace(ok=True, output="ok")) as key:
             reply = _quick_command(phrase)
         actions = [c.args[0] for c in run.call_args_list
-                   if c.args[0][1:] != ["shell", "listPlugins"]]
+                   if c.args[0][1:] != ["shell", "listPlugins"]
+                   and c.args[0] != ["hyprctl", "-j", "clients"]]
         return reply, actions, key
 
     def test_media_buttons_use_omarchys_media_plugin_like_the_media_keys(self):
@@ -1110,6 +1111,42 @@ class MobileBridgePinTests(unittest.TestCase):
                                    {"spotify": "Paused", "chromium.instance42": "Playing"})
         self.assertEqual(reply, "Next track.")
         self.assertEqual(calls, [("chromium.instance42", "Next")])
+
+    def _youtube(self, phrase, clients):
+        from omarchy_voice.mobile_bridge import _quick_command
+
+        def fake_run(argv, **kwargs):
+            out = json.dumps(clients) if argv == ["hyprctl", "-j", "clients"] else ""
+            return SimpleNamespace(returncode=0, stdout=out, stderr="")
+
+        with mock.patch("omarchy_voice.mobile_bridge.subprocess.run", side_effect=fake_run), \
+             mock.patch("omarchy_voice.mobile_bridge.shutil.which", return_value=None), \
+             mock.patch("omarchy_voice.tools.Executor.call",
+                        return_value=SimpleNamespace(ok=True, output="ok")) as key:
+            reply = _quick_command(phrase)
+        return reply, [c.args[:2] for c in key.call_args_list]
+
+    def test_play_pause_presses_k_in_the_youtube_window_even_when_unfocused(self):
+        clients = [
+            {"address": "0xaaa", "title": "~ - Alacritty", "focusHistoryID": 0},
+            {"address": "0xbbb", "title": "lofi beats - YouTube - Chromium", "focusHistoryID": 1},
+        ]
+        reply, keys = self._youtube("media play pause", clients)
+        self.assertEqual(reply, "Toggled YouTube.")
+        self.assertEqual(keys, [("send_shortcut",
+                                 {"mods": "", "key": "k", "window": "address:0xbbb"})])
+
+    def test_next_uses_youtubes_shift_n(self):
+        clients = [{"address": "0xbbb", "title": "YouTube", "focusHistoryID": 0}]
+        reply, keys = self._youtube("media next", clients)
+        self.assertEqual(reply, "Next video.")
+        self.assertEqual(keys[0][1], {"mods": "shift", "key": "n", "window": "address:0xbbb"})
+
+    def test_without_a_youtube_window_media_falls_through(self):
+        clients = [{"address": "0xaaa", "title": "Spotify", "focusHistoryID": 0}]
+        reply, keys = self._youtube("media play pause", clients)
+        self.assertEqual(reply, "Toggled playback.")
+        self.assertEqual(keys[0][1], {"mods": "", "key": "XF86AudioPlay"})
 
     def test_the_phone_button_uses_kill_port(self):
         from omarchy_voice.mobile_bridge import _quick_command
