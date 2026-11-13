@@ -6291,7 +6291,9 @@ def _mpris_control(action: str) -> str | None:
     second player open (another tab, a paused app) it could start YouTube but
     never pause it again. Asking each player whether it is playing first means
     play/pause pauses everything that is playing, and only resumes when
-    nothing is. None when there is no bus or no player: try the next route.
+    nothing is. A player whose status is no use (Chromium says "Stopped"
+    while playing) gets PlayPause instead. None when there is no bus or no
+    player: try the next route.
     """
     if not shutil.which("busctl"):
         return None
@@ -6316,10 +6318,17 @@ def _mpris_control(action: str) -> str | None:
         if playing:
             done = [call(n, "Pause") for n in playing]
             return "Paused." if all(done) else None
-        if action == "stop":
-            return "Nothing is playing."
-        target = (paused or [players[0][0]])[0]
-        return "Playing." if call(target, "Play") else None
+        if paused:
+            if action == "stop":
+                return "Nothing is playing."
+            return "Playing." if call(paused[0], "Play") else None
+        # No player says Playing or Paused. Chromium reports "Stopped" while
+        # YouTube is playing, so the status cannot be trusted: sending Play
+        # started a stopped video but could never pause a playing one.
+        # PlayPause lets the player decide from its own state.
+        method = "Pause" if action == "stop" else "PlayPause"
+        done = [call(n, method) for n, _ in players]
+        return "Toggled playback." if any(done) else None
     method = "Next" if action == "next" else "Previous"
     target = (playing or paused or [players[0][0]])[0]
     return {"Next": "Next track.", "Previous": "Previous track."}[method]         if call(target, method) else None
