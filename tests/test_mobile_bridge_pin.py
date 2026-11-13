@@ -1096,6 +1096,15 @@ class MobileBridgePinTests(unittest.TestCase):
         self.assertEqual(reply, "Playing.")
         self.assertEqual(calls, [("chromium.instance42", "Play")])
 
+    def test_chromium_saying_stopped_while_playing_gets_play_pause(self):
+        reply, calls = self._mpris("media play pause", {"chromium.instance7090": "Stopped"})
+        self.assertEqual(reply, "Toggled playback.")
+        self.assertEqual(calls, [("chromium.instance7090", "PlayPause")])
+
+    def test_stop_never_starts_a_player_with_a_useless_status(self):
+        _, calls = self._mpris("media stop", {"chromium.instance7090": "Stopped"})
+        self.assertEqual(calls, [("chromium.instance7090", "Pause")])
+
     def test_next_skips_on_the_player_that_is_playing(self):
         reply, calls = self._mpris("media next",
                                    {"spotify": "Paused", "chromium.instance42": "Playing"})
