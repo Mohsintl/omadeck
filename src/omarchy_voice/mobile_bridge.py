@@ -539,7 +539,9 @@ _PWA_HTML = r"""<!DOCTYPE html>
     flex-direction: column;
     justify-content: space-between;
     gap: 6px;
-    padding: max(calc(env(safe-area-inset-top, 0px) + 16px), 48px) 10px max(env(safe-area-inset-bottom, 0px), 8px) 10px;
+    /* The bottom pads past the home bar and then some: the dock is thumbed, and a
+       thumb at the very edge keeps hitting the system swipe area. */
+    padding: max(calc(env(safe-area-inset-top, 0px) + 16px), 48px) 10px max(calc(env(safe-area-inset-bottom, 0px) + 12px), 24px) 10px;
     isolation: isolate;
   }
 
@@ -1233,8 +1235,7 @@ _PWA_HTML = r"""<!DOCTYPE html>
     touch-action: manipulation;
   }
   .dock-close:hover { color: var(--text); }
-  /* Ask runs a command, so the typing keys and plain Type stay out of it. */
-  #controls-dock[data-panel="cmd"] .aux-keys,
+  /* Ask runs a command, so plain Type (no Enter) stays out of it. */
   #controls-dock[data-panel="cmd"] #type-direct-btn { display: none; }
   .mode-bar.dock-bar {
     height: 48px;
@@ -1289,7 +1290,7 @@ _PWA_HTML = r"""<!DOCTYPE html>
       justify-content: stretch;
       align-items: stretch;
       gap: 12px;
-      padding: max(env(safe-area-inset-top, 0px), 8px) max(env(safe-area-inset-right, 0px), 12px) max(env(safe-area-inset-bottom, 0px), 8px) max(env(safe-area-inset-left, 0px), 12px);
+      padding: max(env(safe-area-inset-top, 0px), 8px) max(env(safe-area-inset-right, 0px), 12px) max(calc(env(safe-area-inset-bottom, 0px) + 8px), 16px) max(env(safe-area-inset-left, 0px), 12px);
     }
 
     /* Left Control Cockpit */
@@ -1397,7 +1398,7 @@ _PWA_HTML = r"""<!DOCTYPE html>
       height: 32px;
     }
     .mode-bar.dock-bar {
-      height: 40px;
+      height: 46px;  /* the mic's own height, so the column never clips it */
       gap: 6px;
     }
     .dock-bar .mode-pill { font-size: 0.66rem; }
@@ -3438,22 +3439,6 @@ _PWA_HTML = r"""<!DOCTYPE html>
           <span class="dock-panel-title" id="dock-panel-title">Ask OmaDeck</span>
           <button class="dock-close" id="dock-close" type="button">Close</button>
         </div>
-        <div class="aux-keys" id="aux-keys">
-          <button class="key-chip" data-key="enter" title="Send Enter to PC">↵ Enter</button>
-          <button class="key-chip" data-key="backspace" title="Send Backspace to PC">⌫ Del</button>
-          <button class="key-chip" data-key="tab" title="Send Tab to PC">Tab ⇥</button>
-          <button class="key-chip" data-key="escape" title="Send Escape to PC">Esc</button>
-          <button class="key-chip" data-key="select_all" title="Select all (Ctrl+A)">All</button>
-          <button class="key-chip" data-key="copy" title="Copy (Ctrl+Shift+C in a terminal)">Copy</button>
-          <button class="key-chip" data-key="paste" title="Paste (Ctrl+Shift+V in a terminal)">Paste</button>
-        </div>
-        <!-- Arrow keys: hold one to keep pressing it -->
-        <div class="aux-keys arrow-keys" id="arrow-keys">
-          <button class="key-chip" data-key="left" data-repeat title="Left arrow (hold to repeat)" aria-label="Left arrow"><svg viewBox="0 0 24 24" style="transform: rotate(180deg)"><path d="M5 12h14M13 6l6 6-6 6"/></svg></button>
-          <button class="key-chip" data-key="up" data-repeat title="Up arrow (hold to repeat)" aria-label="Up arrow"><svg viewBox="0 0 24 24" style="transform: rotate(-90deg)"><path d="M5 12h14M13 6l6 6-6 6"/></svg></button>
-          <button class="key-chip" data-key="down" data-repeat title="Down arrow (hold to repeat)" aria-label="Down arrow"><svg viewBox="0 0 24 24" style="transform: rotate(90deg)"><path d="M5 12h14M13 6l6 6-6 6"/></svg></button>
-          <button class="key-chip" data-key="right" data-repeat title="Right arrow (hold to repeat)" aria-label="Right arrow"><svg viewBox="0 0 24 24"><path d="M5 12h14M13 6l6 6-6 6"/></svg></button>
-        </div>
         <div class="cmd-bar">
           <div class="cmd-input-wrap">
             <input id="cmd-input" type="text" placeholder="Type a command…" autocomplete="off" autocorrect="off">
@@ -3464,6 +3449,24 @@ _PWA_HTML = r"""<!DOCTYPE html>
           <button id="type-direct-btn" class="cmd-action-btn" title="Type into PC">Type</button>
           <button id="cmd-send" class="cmd-action-btn">Send</button>
         </div>
+      </div>
+
+      <!-- Quick keys and arrows: always visible, just above the dock -->
+      <div class="aux-keys" id="aux-keys">
+        <button class="key-chip" data-key="enter" title="Send Enter to PC">↵ Enter</button>
+        <button class="key-chip" data-key="backspace" title="Send Backspace to PC">⌫ Del</button>
+        <button class="key-chip" data-key="tab" title="Send Tab to PC">Tab ⇥</button>
+        <button class="key-chip" data-key="escape" title="Send Escape to PC">Esc</button>
+        <button class="key-chip" data-key="select_all" title="Select all (Ctrl+A)">All</button>
+        <button class="key-chip" data-key="copy" title="Copy (Ctrl+Shift+C in a terminal)">Copy</button>
+        <button class="key-chip" data-key="paste" title="Paste (Ctrl+Shift+V in a terminal)">Paste</button>
+      </div>
+      <!-- Arrow keys: hold one to keep pressing it -->
+      <div class="aux-keys arrow-keys" id="arrow-keys">
+        <button class="key-chip" data-key="left" data-repeat title="Left arrow (hold to repeat)" aria-label="Left arrow"><svg viewBox="0 0 24 24" style="transform: rotate(180deg)"><path d="M5 12h14M13 6l6 6-6 6"/></svg></button>
+        <button class="key-chip" data-key="up" data-repeat title="Up arrow (hold to repeat)" aria-label="Up arrow"><svg viewBox="0 0 24 24" style="transform: rotate(-90deg)"><path d="M5 12h14M13 6l6 6-6 6"/></svg></button>
+        <button class="key-chip" data-key="down" data-repeat title="Down arrow (hold to repeat)" aria-label="Down arrow"><svg viewBox="0 0 24 24" style="transform: rotate(90deg)"><path d="M5 12h14M13 6l6 6-6 6"/></svg></button>
+        <button class="key-chip" data-key="right" data-repeat title="Right arrow (hold to repeat)" aria-label="Right arrow"><svg viewBox="0 0 24 24"><path d="M5 12h14M13 6l6 6-6 6"/></svg></button>
       </div>
 
       <!-- The dock itself: always visible, under the thumb -->
