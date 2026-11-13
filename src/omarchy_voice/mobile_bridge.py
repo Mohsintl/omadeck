@@ -6199,6 +6199,66 @@ _DAEMON_OFF = ("The desktop mic daemon is not running — use the mic button "
                "on this page, or type a command.")
 
 
+def _shell_plugin_enabled(plugin: str) -> bool:
+    """Whether an Omarchy shell plugin is turned on.
+
+    `omarchy-shell` exits 0 for a call into a disabled plugin and does nothing,
+    so its exit code alone cannot say whether the call landed.
+    """
+    if not shutil.which("omarchy-shell"):
+        return False
+    try:
+        r = subprocess.run(["omarchy-shell", "shell", "listPlugins"],
+                           capture_output=True, text=True, timeout=3)
+        if r.returncode != 0:
+            return False
+        return any(p.get("id") == plugin and p.get("enabled")
+                   for p in json.loads(r.stdout or "[]"))
+    except (OSError, subprocess.SubprocessError, ValueError, AttributeError):
+        return False
+
+
+# Each media action, as Omarchy's shell, swayosd and playerctl spell it.
+_MEDIA_ACTIONS = {
+    "play-pause": ("playPause", "play-pause", "play-pause"),
+    "next": ("next", "next", "next"),
+    "previous": ("previous", "prev", "previous"),
+    "stop": ("pause", "stop", "stop"),
+}
+
+
+def _media_control(action: str, keysym: str, run) -> tuple[bool, str]:
+    """Play, pause or skip whatever is playing, wherever it is.
+
+    The media key sent with send_shortcut goes to the focused window only, and
+    players do not act on a synthetic key anyway: browsers, Spotify and the
+    rest are driven over MPRIS. So YouTube never heard the deck. Omarchy's own
+    media keys call `omarchy-shell media ...`, which talks MPRIS; that comes
+    first, then swayosd-client and playerctl for older setups. The key is the
+    last resort.
+    """
+    shell_name, osd_name, ctl_name = _MEDIA_ACTIONS[action]
+    commands = []
+    if _shell_plugin_enabled("omarchy.media"):
+        commands.append(["omarchy-shell", "media", shell_name])
+    commands += [["swayosd-client", "--playerctl", osd_name],
+                 ["playerctl", ctl_name]]
+    for argv in commands:
+        if not shutil.which(argv[0]):
+            continue
+        try:
+            res = subprocess.run(argv, capture_output=True, text=True, timeout=5)
+        except (OSError, subprocess.SubprocessError):
+            continue
+        if res.returncode == 0:
+            return True, ""
+    ok, out = run("send_shortcut", {"mods": "", "key": keysym})
+    if not ok:
+        ok, err = _press_key(keysym)
+        out = "" if ok else (out or err)
+    return ok, out
+
+
 def _quick_command(text: str, voice: bool = False) -> str | None:
     """Resolve the page's own buttons and the obvious phrasings locally.
 
@@ -6635,34 +6695,22 @@ def _quick_command(text: str, voice: bool = False) -> str | None:
         return "Volume lowered." if ok else f"Couldn't lower volume: {out}"
 
     # --- media playback ---------------------------------------------------
-    if t in ("media play pause", "play pause", "play/pause", "play", "pause", "toggle playback"):
-        ok, out = run("send_shortcut", {"mods": "", "key": "XF86AudioPlay"})
-        if not ok:
-            ok, err = _press_key("XF86AudioPlay")
-            if ok: out = ""
-        return "Toggled playback." if ok else f"Couldn't toggle playback: {out}"
-
-    if t in ("media next", "next track", "next song", "skip track", "skip song"):
-        ok, out = run("send_shortcut", {"mods": "", "key": "XF86AudioNext"})
-        if not ok:
-            ok, err = _press_key("XF86AudioNext")
-            if ok: out = ""
-        return "Next track." if ok else f"Couldn't skip track: {out}"
-
-    if t in ("previous track", "prev track", "media prev", "media previous",
-             "previous song", "prev song", "last track", "skip back"):
-        ok, out = run("send_shortcut", {"mods": "", "key": "XF86AudioPrev"})
-        if not ok:
-            ok, err = _press_key("XF86AudioPrev")
-            if ok: out = ""
-        return "Previous track." if ok else f"Couldn't skip back: {out}"
-
-    if t in ("media stop", "stop media", "stop playback", "stop music", "stop audio"):
-        ok, out = run("send_shortcut", {"mods": "", "key": "XF86AudioStop"})
-        if not ok:
-            ok, err = _press_key("XF86AudioStop")
-            if ok: out = ""
-        return "Stopped playback." if ok else f"Couldn't stop playback: {out}"
+    media = {
+        ("media play pause", "play pause", "play/pause", "play", "pause",
+         "toggle playback"): ("play-pause", "XF86AudioPlay", "Toggled playback.",
+                              "Couldn't toggle playback"),
+        ("media next", "next track", "next song", "skip track", "skip song"):
+            ("next", "XF86AudioNext", "Next track.", "Couldn't skip track"),
+        ("previous track", "prev track", "media prev", "media previous",
+         "previous song", "prev song", "last track", "skip back"):
+            ("previous", "XF86AudioPrev", "Previous track.", "Couldn't skip back"),
+        ("media stop", "stop media", "stop playback", "stop music", "stop audio"):
+            ("stop", "XF86AudioStop", "Stopped playback.", "Couldn't stop playback"),
+    }
+    for phrases, (action, keysym, done, failed) in media.items():
+        if t in phrases:
+            ok, out = _media_control(action, keysym, run)
+            return done if ok else f"{failed}: {out}"
 
     # --- browser navigation (back / forward / reload / new tab) ----------
     if t in ("browser back", "go back", "back", "navigate back", "history back"):
