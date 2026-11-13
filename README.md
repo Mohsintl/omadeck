@@ -51,8 +51,8 @@ It installs just the phone deck and ends by showing a QR code. Scan it with your
 |:---|:---|
 | **What is it?** | A self-hosted Web App (PWA) that acts like a physical Stream Deck + AI voice remote for Linux. |
 | **Who is it for?** | Omarchy, Arch Linux, and Hyprland users who want tactile desk control or couch remote power. |
-| **Why not a physical deck?** | Physical decks cost $150+, have fixed buttons, and lack Wayland awareness. OmaDeck uses your existing phone, has 5 context profiles, OLED themes, and direct PC voice typing. |
-| **Supported Devices** | Tested on iPhone and iPad. Android Chrome should work but hasn't been tested yet. Zero app store installs. |
+| **Why not a physical deck?** | Physical decks cost $150+, have fixed buttons, and lack Wayland awareness. OmaDeck uses your existing phone, has 5 built-in tabs plus tabs you make yourself, OLED themes, and direct PC voice typing. |
+| **Supported Devices** | Tested on iPhone, iPad and Android (Chrome). Installs as a full-screen app from the browser, with no app store. |
 | **Privacy & Connection** | Runs on your own network, with HTTPS once the local CA is installed, and token/PIN authentication. Works offline, though cloud APIs are more accurate. |
 
 ---
@@ -83,9 +83,17 @@ Most Linux remote tools are either clunky VNC viewers that eat battery, or singl
 
 ## 🌟 Highlights
 
-- **📱 Touch Remote Deck (PWA)**: Calibrated for zero-scroll viewport precision across both portrait (e.g. 390×844) and landscape (844×390). Add to iOS or Android Home Screen for an instant fullscreen hardware deck experience with tactile haptic feedback.
-- **⌨️ Direct PC Typing & Always-On Key Bar**: Type directly into whatever browser bar, code editor, or terminal window is focused on your Linux desktop with persistent auxiliary keys (`↵ Enter`, `⌫ Del`, `Tab ⇥`, `Esc`, `All`, `Copy`, `Paste`) and arrow keys you can hold to repeat.
-- **🎙️ Inline Speech Dictation & AI Polish**: Dedicated dictation mic inside the input bar with intelligent Amical-style cleanup (strips filler words like "um", "uh", fixes punctuation, and applies context-aware formatting based on active window class).
+<div align="center">
+  <img src="docs/images/portrait-deck-dock.jpg" width="320" alt="OmaDeck on an iPhone: workspace keys 1 to 5 and Scratch with a hint to tap or hold, tabs for Desk, Code, Media, Web, Utils and a plus for your own, the Window and Layout keys, quick keys and arrows, and the dock with Ask, a round mic and Type" />
+</div>
+
+- **📱 Touch Remote Deck (PWA)**: Works upright and sideways on a phone or tablet. Install it from the browser as a full-screen app on iPhone or Android, with haptic feedback.
+- **🎛️ One Dock Under Your Thumb**: **Ask** on the left runs a typed command, the big **mic** in the middle runs voice commands, and **Type** on the right types straight into the focused PC window, with a remembered **Press ↵ after** switch. Quick keys (`↵ Enter`, `⌫ Del`, `Tab`, `Esc`, `All`, `Copy`, `Paste`) and arrows you can hold to repeat sit just above it.
+- **⭐ Tabs and Keys of Your Own**: Tap **+** to add a tab, then make keys that run any deck button, type text, press a key combo, or run **Steps** in order. For example: New terminal → wait 1 s → type `cd omadeck && omadeck update` ↵. Deck keys run on the PC without the AI, so they use no tokens.
+- **✏️ Edit Deck**: From the **⋯** menu, hide keys, reorder them and pick which quick keys show. Saved on that phone.
+- **🪟 One Row for Workspaces**: Tap a number to go there, or hold it to move the focused window there.
+- **⏯️ Media That Works on YouTube**: Play/pause, next and previous press YouTube's own keys in its window, even when another window has focus, and use MPRIS for Spotify and other players.
+- **🎙️ Inline Speech Dictation & AI Polish**: A dictation mic inside the Type panel with Amical-style cleanup: it strips filler words like "um" and "uh", fixes punctuation, and formats for the focused app.
 - **🕹️ Hold, Tap, or Hybrid Mic Activation**: Choose between Push-to-talk (hold to speak), Hands-free latch (tap to start/stop), or Both (hybrid tap/hold) with radar pulse and live sound-wave visualizers.
 - **🤖 Universal AI Model Support**: Works with **any** modern LLM provider:
   - **Groq** (Ultra-fast 500+ tok/s with Llama 3.3 70B)
@@ -103,11 +111,12 @@ Most Linux remote tools are either clunky VNC viewers that eat battery, or singl
 
 | Profile | What it Controls |
 |:---|:---|
-| **🪟 Desk** | Workspaces 1–5, scratchpad toggle, window swap left/right, tile/float toggle, fullscreen, split cycle, app launchers (Files, Terminal, Web, Discord). |
-| **💻 Code** | Terminal shortcuts, Git status / diff / push, test runner, process kill (`:3000`, `:8000`), `Ctrl+C`, `Ctrl+Z`, `Ctrl+L`, terminal copy/paste. |
-| **🎵 Media** | Play/pause, track skip, volume slider & steps, mute, display brightness presets, audio output device switcher. |
-| **🌐 Web** | Browser launch, new tab, close tab, tab switcher (next/prev), refresh, zoom in/out, bookmark search, copy active URL. |
-| **🛠️ Utils** | Clean system utility dashboard: Btop system monitor, T3 Code Dashboard, OpenCode AI terminal, Lazygit, Lazydocker, Kill Window, Zen Mode, Caffeine (keep awake), Night Light, and Clipboard history. |
+| **🪟 Desk** | Fullscreen, float, split, previous/next window, swap left/right, close window, dimmer/brighter, lock and sleep. Workspaces 1–5 and Scratch sit above every tab: tap to go there, hold to move the window there. |
+| **💻 Code** | Git status, diff, pull and push; kill `:3000` and `:8000`; `Ctrl+C`, suspend (`Ctrl+Z`), clear (`Ctrl+L`); run tests, new terminal, terminal copy/paste. |
+| **🎵 Media** | Previous, play/pause, next and stop (YouTube included); volume −/+, mute, switch audio output; PC mic mute, screenshot, app menu. |
+| **🌐 Web** | Back, forward, scroll up/down; previous/next tab, new tab, close tab; address bar, reload, zoom in/out. |
+| **🛠️ Utils** | btop, T3 Code, Inspector, Lazygit, Docker (lazydocker), OpenCode, Kill app, Zen mode, Caffeine, Night light, Clipboard history and the system menu. |
+| **⭐ Your own** | Tap **+** to make a tab with keys of your own: deck keys, text, key combos or Steps. |
 
 ### 🕹️ Ergonomic Landscape Split-Deck Mode
 Prop your phone or tablet next to your keyboard as a dedicated physical Stream Deck alternative:
@@ -123,7 +132,7 @@ Prop your phone or tablet next to your keyboard as a dedicated physical Stream D
 ### Requirements
 
 - **On the PC:** Omarchy, or Arch with Hyprland, with `hyprctl` and `wtype`. Python 3.11 or newer; the phone deck needs no Python packages of its own.
-- **On the phone:** iPhone or iPad with Safari (tested), or Android with Chrome (should work, not tested yet).
+- **On the phone:** iPhone or iPad with Safari, or Android with Chrome.
 - **The network:** the phone and the PC on the same Wi-Fi or LAN, or the same Tailscale network. The deck listens on port `8765`.
 - **Optional:** `qrencode` for the pairing QR code, and an API key (Groq, OpenAI and others) or a local Ollama for voice and AI.
 
@@ -215,9 +224,9 @@ Found a security problem? Please see [SECURITY.md](SECURITY.md).
 |:---|:---|
 | **Linux** | Omarchy |
 | **Compositor** | Hyprland 0.56.2. Requires `hyprctl` and `wtype`. |
-| **Phone and tablet** | iPhone and iPad |
+| **Phone and tablet** | iPhone, iPad, and Android with Chrome (Redmi Note 9 Pro Max) |
 
-Other Hyprland setups and Android Chrome may work but haven't been tested yet. Reports are welcome in the [issue tracker](https://github.com/Mohsintl/omadeck/issues).
+Other Hyprland setups and Android phones may work but haven't been tested yet. Reports are welcome in the [issue tracker](https://github.com/Mohsintl/omadeck/issues).
 
 **Offline use:** everything works offline with local models, but voice and AI results are less accurate than with a cloud API.
 
@@ -259,7 +268,10 @@ In the **API Keys** pane:
 # Show your pairing link
 omadeck mobile
 
-# Restart everything (the voice daemon and the phone page), e.g. after an update
+# Pull the latest OmaDeck, reinstall it and restart
+omadeck update
+
+# Restart everything (the voice daemon and the phone page)
 omadeck restart
 
 # What it heard, what the AI did, and every phone button press, live
@@ -300,11 +312,13 @@ Start with `omadeck doctor`, which checks every moving part, and `omadeck log -f
 | What you see | What to do |
 |:---|:---|
 | The deck loads on the PC but times out on the phone | The firewall is probably blocking it. Omarchy turns on `ufw`, so allow the port with `sudo ufw allow 8765/tcp`. `omadeck mobile` warns about this when it spots it. Also check that the phone is on the same Wi-Fi, not mobile data. |
-| The browser warns that the connection isn't private | The certificate isn't trusted yet. Do step 1 of `omadeck mobile` again; on iPhone, also turn on full trust in **Settings ➔ General ➔ About ➔ Certificate Trust Settings**. |
+| The browser warns that the connection isn't private | The certificate isn't trusted yet. Scan the QR code from `omadeck mobile` again and follow step 1; on iPhone, also turn on full trust in **Settings ➔ General ➔ About ➔ Certificate Trust Settings**. Don't tap **Proceed** on the warning. |
+| Android has no **Install app**, or the app opens with a Chrome bar | Chrome doesn't trust the certificate: tap the icon left of the address, which must say **Connection is secure**. Install the certificate as a **CA certificate** (not VPN & app or Wi-Fi), clear any old Proceed in Chrome's **⋮ ➔ Settings ➔ Site settings ➔ All sites ➔ your PC ➔ Clear & reset**, then reinstall with **⋮ ➔ Install app**. |
 | The mic doesn't work | Browsers only allow the mic over HTTPS. Open the `https://` link, not the `http://` one, after installing the certificate. |
 | The deck asks for the "Desktop Pairing Token" | The link is missing its `?token=...`, or the token changed. Scan the QR code from `omadeck mobile` again. |
-| The Home Screen icon shows the old logo | Remove the icon from the Home Screen and add it again; iOS keeps the old one. |
-| Buttons do nothing on the PC | Check that `hyprctl` and `wtype` are installed, then run `omadeck restart`. |
+| The Home Screen icon is a plain letter or the old logo | Run `omadeck update`, remove the icon from the Home Screen and add it again; iOS keeps the old one. |
+| Buttons do nothing on the PC | Check that `hyprctl` and `wtype` are installed, then run `omadeck restart`. `omadeck log` shows each command it ran and why one failed. |
+| `sudo` fails in a terminal opened from the deck | Run `omadeck update`: older versions started terminals inside the service's sandbox, where sudo can't run. |
 
 Still stuck? [Open an issue](https://github.com/Mohsintl/omadeck/issues) with the output of `omadeck doctor`.
 
