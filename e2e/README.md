@@ -27,7 +27,7 @@ await expect.poll(desktopCalls).toContain('hyprctl dispatch hl.dsp.focus({ works
 
 - the pairing link opens the deck
 - a workspace key switches the desktop to that workspace
-- Direct Type types text into the focused PC window
+- Direct Type types text into the focused PC window, then presses Enter
 - the Media profile shows playback and volume keys
 - the phone stays paired after the token leaves the address bar
 
