@@ -59,17 +59,13 @@ The token sits after the `#`, which the phone never sends over the network. Trea
 
 ### Upgrading from 0.5.0
 
-```bash
-cd omadeck && git pull && ./install.sh --update && omadeck restart
-```
-
-`omadeck update` arrives in 0.6.0 and does those three steps from now on. On iPhone, remove the Home Screen icon and add it again for the new icon and name.
+Do the update by hand once, as in [Updating](#updating). On iPhone, remove the Home Screen icon and add it again for the new icon and name.
 
 ## What you get
 
 **A dock under your thumb.** **Ask** runs a typed command, the **mic** runs a voice command, **Type** types into the focused PC window. Each opens one panel above the dock instead of taking over the screen. Quick keys and arrows you can hold to repeat sit just above it, and `⋯` has Edit deck, where you hide and reorder keys and pick the quick keys, saved on that phone.
 
-**Tabs, with the keys already on them.** Tap a workspace number to go there, hold it to move the focused window there. Workspaces 1–5 and Scratch sit above every tab.
+**Tabs, with the keys already on them.**
 
 | Tab | Keys |
 |:---|:---|
@@ -80,15 +76,17 @@ cd omadeck && git pull && ./install.sh --update && omadeck restart
 | **Utils** | btop, T3 Code, Inspector, Lazygit, lazydocker, OpenCode, Kill app (point a crosshair at any stuck window and end it), Zen mode, Caffeine, Night light, Clipboard history, system menu. |
 | **Yours** | Tap **+** to make a tab of your own: keys that run a deck button, type text, press a key combo, or run Steps in order. New terminal → wait 1 s → type `cd omadeck && omadeck update` ↵. Deck keys run on the PC without the AI, so they cost no tokens. |
 
+Workspaces 1–5 and Scratch sit above every tab: tap a number to go there, hold it to move the focused window there.
+
 **Obvious commands skip the AI.** "Volume to max", "volume 40 percent", "turn it up a bit", "focus the address bar", "select all", "undo", and every description in Omarchy's Super+K keybinding list ("toggle nightlight", "color picker", "focus on left window") run straight away, from the phone or the PC mic, with no tokens. "Hey Oma", "please" and "can you" get dropped. Everything else goes to the AI, and `omadeck log` marks which way each command went.
 
 **Themes that follow your desktop.** The deck matches your active Omarchy theme, or you pick one of the built-in ones yourself.
 
 <div align="center">
 
-<img src="docs/images/landscape-deck-tokyo-night.png" width="760" alt="OmaDeck in landscape, in Tokyo Night: the log and the Ask/Type box on the left, workspaces, tabs and the key grid on the right" />
+<img src="docs/images/landscape-deck-tokyo-night.png" width="760" alt="OmaDeck in landscape, in Tokyo Night: the status, quick keys, arrows and the Ask, mic and Type dock on the left; workspaces, tabs and the Desk keys on the right" />
 
-*In landscape there's room for the log and the command box beside the keys, so a phone propped next to your keyboard works like a deck of its own.*
+*In landscape the dock and quick keys sit on the left and the keys fill the right, so a phone propped next to your keyboard works like a deck of its own.*
 
 </div>
 
@@ -103,8 +101,8 @@ cd omadeck && git pull && ./install.sh --update && omadeck restart
 
 <div align="center">
 
-<img src="docs/images/settings-tokyo-night.png" width="340" alt="OmaDeck settings panel in Tokyo Night: provider, API keys, mic activation, dictation polish" />
-<img src="docs/images/themes-tokyo-night.png" width="340" alt="The theme picker, each theme shown as a preview of the deck" />
+<img src="docs/images/settings-tokyo-night.png" width="340" alt="OmaDeck settings in Tokyo Night, on the API Keys tab: provider, model, speech-to-text, AI dictation polish and mic activation" />
+<img src="docs/images/themes-tokyo-night.png" width="340" alt="The Theme tab in settings: Auto (desktop), Midnight, Phosphor, Amber, Gruvbox, Catppuccin, Tokyo Night, Nord, Everforest and more, each with a small preview" />
 
 </div>
 
@@ -124,7 +122,7 @@ Omarchy with Hyprland 0.56.2, on iPhone and iPad with Safari, and on Android wit
 
 Everything works offline with local models; voice and AI results are just less accurate than with a cloud API.
 
-The phone deck has end-to-end tests that open it in a phone-sized browser, tap the keys and check what reached the desktop. The desktop is fake: `hyprctl` and `wtype` stand-ins log each call, so the tests run on any machine, and CI runs them on every pull request next to 400+ unit tests. They're also written up as a [community example on e2e](https://e2e.com/examples/omadeck); to run them yourself, see [`e2e/README.md`](e2e/README.md).
+The phone deck has end-to-end tests that open it in a phone-sized browser, tap the keys and check what reached the desktop. The desktop is fake: `hyprctl` and `wtype` stand-ins log each call, so the tests run on any machine, and CI runs them on every pull request next to 500+ unit tests. They're also written up as a [community example on e2e](https://e2e.com/examples/omadeck); to run them yourself, see [`e2e/README.md`](e2e/README.md).
 
 ## Commands
 
@@ -173,7 +171,7 @@ Start with `omadeck doctor`, which checks every moving part, and `omadeck log -f
 | The browser warns that the connection isn't private | The certificate isn't trusted yet. Scan the QR code from `omadeck mobile` again and follow the certificate steps above; on iPhone, also turn on full trust in **Settings → General → About → Certificate Trust Settings**. Don't tap **Proceed** on the warning. |
 | Android has no **Install app**, or the app opens with a Chrome bar | Chrome doesn't trust the certificate: tap the icon left of the address, which must say **Connection is secure**. Install the certificate as a **CA certificate** (not VPN & app or Wi-Fi), clear any old Proceed in Chrome's **⋮ → Settings → Site settings → All sites → your PC → Clear & reset**, then reinstall with **⋮ → Install app**. |
 | The mic doesn't work | Browsers only allow the mic over HTTPS. Open the `https://` link, not the `http://` one, after installing the certificate. |
-| The deck asks for the "Desktop Pairing Token" | The link is missing its `?token=...`, or the token changed. Scan the QR code from `omadeck mobile` again. |
+| The deck asks for the "Desktop Pairing Token" | The link lost its token, or the token changed. Scan the QR code from `omadeck mobile` again. |
 | The Home Screen icon is a plain letter or the old logo | Run `omadeck update`, remove the icon from the Home Screen and add it again; iOS keeps the old one. |
 | Buttons do nothing on the PC | Check that `hyprctl` and `wtype` are installed, then run `omadeck restart`. `omadeck log` shows each command it ran and why one failed. |
 | `sudo` fails in a terminal opened from the deck | Run `omadeck update`: older versions started terminals inside the service's sandbox, where sudo can't run. |
@@ -195,7 +193,7 @@ To remove those as well:
 ./uninstall.sh --purge
 ```
 
-Then delete the "Oma Remote CA" certificate from your phone: on iPhone, **Settings → General → VPN & Device Management**.
+Then delete the "Oma Remote CA" certificate from your phone: on iPhone, **Settings → General → VPN & Device Management**; on Android, **Settings → Security → Encryption & credentials → User credentials**.
 
 ## Roadmap and contributing
 
