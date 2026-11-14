@@ -6,363 +6,573 @@
   <title>OmaDeck: your phone is the keyboard now</title>
   <meta name="description" content="OmaDeck turns any phone or tablet into a Stream Deck and voice remote for Omarchy and Hyprland. No app store, no hardware, free and open source." />
   <meta name="color-scheme" content="dark" />
-  <meta name="theme-color" content="#0e0b16" />
+  <meta name="theme-color" content="#1a1b26" />
   <link rel="icon" type="image/png" href="assets/omadeck-logo-256.png" />
   <link rel="apple-touch-icon" href="assets/omadeck-logo-256.png" />
+  <link rel="preload" href="assets/fonts/JetBrainsMono-ExtraBold.woff2" as="font" type="font/woff2" crossorigin />
   <meta property="og:title" content="OmaDeck" />
   <meta property="og:description" content="Turn your phone into a Stream Deck and voice remote for Hyprland and Omarchy." />
   <meta property="og:image" content="https://mohsintl.is-a.dev/omadeck/assets/social-preview.png" />
   <meta property="og:url" content="https://mohsintl.is-a.dev/omadeck/" />
   <meta name="twitter:card" content="summary_large_image" />
   <style>
+    @font-face { font-family: "JetBrains Mono"; src: url("assets/fonts/JetBrainsMono-Regular.woff2") format("woff2"); font-weight: 400; font-display: swap; }
+    @font-face { font-family: "JetBrains Mono"; src: url("assets/fonts/JetBrainsMono-Medium.woff2") format("woff2"); font-weight: 500; font-display: swap; }
+    @font-face { font-family: "JetBrains Mono"; src: url("assets/fonts/JetBrainsMono-Bold.woff2") format("woff2"); font-weight: 700; font-display: swap; }
+    @font-face { font-family: "JetBrains Mono"; src: url("assets/fonts/JetBrainsMono-ExtraBold.woff2") format("woff2"); font-weight: 800; font-display: swap; }
+
+    /* Tokyo Night, Omarchy's default theme */
     :root {
-      --ground: #0e0b16;
-      --panel: #171226;
-      --panel-edge: #2d2346;
-      --ink: #ffffff;
-      --soft: #d8c4ff;
-      --muted: #a99bc9;
-      --accent: #b46cff;
-      --accent-light: #e2c6ff;
-      --star: #ffd166;
-      --mono: ui-monospace, "JetBrains Mono", "SF Mono", Menlo, Consolas, monospace;
-      --sans: Inter, ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+      --ground: #1a1b26;
+      --tile: #1f2335;
+      --raised: #24283b;
+      --edge: #3b4261;
+      --ink: #c0caf5;
+      --quiet: #a9b1d6;
+      --label: #9aa2cc;
+      --blue: #7aa2f7;
+      --purple: #bb9af7;
+      --green: #9ece6a;
+      --red: #f7768e;
+      --amber: #e0af68;
+      --cyan: #7dcfff;
+      --mono: "JetBrains Mono", ui-monospace, monospace;
+      --sans: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+      --gap-out: 10px;
+      --gap-in: 6px;
+      --bar: 34px;
     }
     * { box-sizing: border-box; }
-    html { scroll-behavior: smooth; }
-    body {
-      margin: 0;
-      background: var(--ground);
-      color: var(--ink);
-      font-family: var(--sans);
-      line-height: 1.55;
-      -webkit-font-smoothing: antialiased;
+    html { scroll-behavior: smooth; scroll-padding-top: calc(var(--bar) + var(--gap-out)); scrollbar-color: var(--edge) var(--ground); }
+    body { margin: 0; background: var(--ground); color: var(--ink); font: 17px/1.6 var(--sans); -webkit-font-smoothing: antialiased; caret-color: var(--blue); }
+    ::selection { background: #33467c; color: #fff; }
+    a { color: var(--blue); text-underline-offset: 3px; text-decoration-thickness: 1px; }
+    a:hover { color: var(--cyan); }
+    :focus-visible { outline: 2px solid var(--blue); outline-offset: 2px; }
+    code, pre, kbd { font-family: var(--mono); font-size: .92em; }
+    code { color: var(--green); }
+    q { color: var(--amber); quotes: "“" "”"; }
+    .ico { width: 16px; height: 16px; flex: none; }
+    .sr { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
+
+    /* the bar */
+    .bar {
+      position: sticky; top: 0; z-index: 10; height: var(--bar);
+      display: grid; grid-template-columns: 1fr auto 1fr; align-items: center;
+      padding: 0 var(--gap-out); background: var(--ground); border-bottom: 1px solid var(--raised);
+      font: 500 13px/1 var(--mono); color: var(--quiet);
     }
-    body::before {
-      content: "";
-      position: fixed;
-      inset: -20vh -20vw auto;
-      height: 90vh;
-      background: radial-gradient(closest-side, rgba(180, 108, 255, 0.28), rgba(180, 108, 255, 0));
-      pointer-events: none;
-      z-index: -1;
+    .bar-l { display: flex; align-items: center; gap: 4px; }
+    .bar-l img { width: 20px; height: 20px; border-radius: 5px; margin-right: 8px; }
+    .ws-btn {
+      display: inline-grid; place-items: center; min-width: 26px; height: 24px; padding: 0 6px;
+      color: var(--label); text-decoration: none; border-radius: 4px; transition: color .2s, background-color .2s;
     }
-    a { color: var(--accent-light); }
-    .wrap { max-width: 1080px; margin: 0 auto; padding: 0 20px; }
+    .ws-btn span { display: none; margin-left: 6px; }
+    .ws-btn:hover { color: var(--ink); background: var(--raised); }
+    .ws-btn[aria-current="true"] { color: var(--ground); background: var(--blue); }
+    .ws-btn[aria-current="true"] span { display: inline; }
+    .ws-btn[aria-current="true"] { display: inline-flex; }
+    .clock { color: var(--ink); font-variant-numeric: tabular-nums; }
+    .bar-r { justify-self: end; display: flex; align-items: center; gap: 14px; }
+    .bar-r a { display: inline-flex; align-items: center; gap: 6px; color: var(--quiet); text-decoration: none; }
+    .bar-r a:hover { color: var(--amber); }
 
-    /* header */
-    header { display: flex; align-items: center; justify-content: space-between; padding: 20px 0; }
-    .brand { display: flex; align-items: center; gap: 12px; text-decoration: none; color: var(--ink); font-weight: 800; font-size: 20px; letter-spacing: -0.02em; }
-    .brand img { width: 40px; height: 40px; border-radius: 10px; }
-    .gh { display: inline-flex; align-items: center; gap: 8px; padding: 9px 16px; border-radius: 999px; border: 1px solid var(--panel-edge); color: var(--ink); text-decoration: none; font-weight: 600; font-size: 15px; background: var(--panel); }
-    .gh:hover { border-color: var(--accent); }
-
-    /* hero */
-    .hero { display: grid; grid-template-columns: 1.1fr 0.9fr; gap: 48px; align-items: center; padding: 40px 0 72px; }
-    .eyebrow { color: var(--soft); font-weight: 600; font-size: 15px; margin: 0 0 14px; }
-    h1 { font-size: clamp(42px, 6vw, 72px); line-height: 1.02; letter-spacing: -0.04em; margin: 0 0 20px; font-weight: 900; }
-    h1 span { color: var(--accent-light); }
-    .lede { font-size: 19px; color: var(--soft); max-width: 34ch; margin: 0 0 30px; }
-    .ctas { display: flex; flex-wrap: wrap; gap: 12px; }
-    .btn { display: inline-flex; align-items: center; gap: 8px; padding: 14px 22px; border-radius: 14px; font-weight: 700; text-decoration: none; font-size: 16px; }
-    .btn-primary { background: var(--accent); color: #12091f; }
-    .btn-primary:hover { background: var(--accent-light); }
-    .btn-ghost { border: 1px solid var(--panel-edge); color: var(--ink); background: var(--panel); }
-    .btn-ghost:hover { border-color: var(--accent); }
-    .note { margin-top: 18px; color: var(--muted); font-size: 14px; }
-    .video {
-      justify-self: center; width: 100%; max-width: 320px; aspect-ratio: 9 / 16;
-      border-radius: 28px; overflow: hidden; border: 2px solid var(--accent);
-      box-shadow: 0 0 80px rgba(180, 108, 255, 0.35); background: var(--panel);
+    /* the desk: workspaces of tiles */
+    main { padding: var(--gap-out); display: grid; gap: calc(var(--gap-out) * 4); }
+    .ws { display: grid; gap: var(--gap-in); }
+    .tile {
+      position: relative; background: var(--tile); border: 2px solid var(--edge); min-width: 0;
+      transition: opacity .35s ease, border-color .35s ease;
     }
-    .video video { width: 100%; height: 100%; object-fit: cover; display: block; }
+    .tile > .title, .tile video, .tile img { transition: opacity .35s ease; }
+    .dim .tile:not(.focus) > .title, .dim .tile.hero-vid:not(.focus) video, .dim .tile:not(.focus).shot img { opacity: .6; }
+    .dim .tile:not(.focus) { border-color: #2e3350; }
+    .tile.focus { opacity: 1; border-color: transparent; background: linear-gradient(var(--tile), var(--tile)) padding-box, linear-gradient(135deg, var(--blue), var(--purple)) border-box; }
+    .title {
+      margin: 0; display: flex; gap: 0; align-items: center; padding: 8px 12px;
+      font: 500 12px/1 var(--mono); color: var(--label); background: var(--raised); white-space: nowrap; overflow: hidden;
+    }
+    .title span + span::before { content: "·"; margin: 0 9px; color: var(--edge); }
+    .title span:first-child { color: var(--quiet); }
+    .pad { padding: clamp(20px, 3.4vw, 48px); }
+    h1, h2, h3 { font-family: var(--mono); color: #fff; margin: 0; text-wrap: balance; }
+    h1 { font-weight: 800; font-size: clamp(42px, min(6.6vw, 10.5svh), 96px); line-height: .98; letter-spacing: -.04em; }
+    h2 { font-weight: 800; font-size: clamp(30px, 4vw, 56px); line-height: 1.02; letter-spacing: -.04em; }
+    h3 { font-weight: 700; font-size: 18px; line-height: 1.25; letter-spacing: -.02em; }
+    .lede { font-size: clamp(18px, 1.6vw, 21px); color: var(--quiet); max-width: 44ch; margin: 22px 0 0; }
+    .sect-lede { color: var(--quiet); max-width: 62ch; margin: 14px 0 0; }
 
-    /* sections */
-    section { padding: 64px 0; border-top: 1px solid var(--panel-edge); }
-    h2 { font-size: clamp(30px, 4vw, 42px); letter-spacing: -0.03em; margin: 0 0 12px; font-weight: 800; }
-    .section-lede { color: var(--soft); font-size: 18px; margin: 0 0 36px; max-width: 60ch; }
-    .grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; }
-    .card { background: var(--panel); border: 1px solid var(--panel-edge); border-radius: 20px; padding: 24px; }
-    .card h3 { margin: 0 0 8px; font-size: 20px; letter-spacing: -0.01em; }
-    .card p { margin: 0; color: var(--muted); font-size: 16px; }
-    .key { display: inline-grid; place-items: center; width: 44px; height: 44px; border-radius: 12px; background: #2a1e42; border: 2px solid var(--accent); color: var(--accent-light); font-weight: 800; margin-bottom: 14px; font-size: 20px; }
+    /* ws1 */
+    .ws1 {
+      --h: max(600px, calc(100svh - var(--bar) - var(--gap-out) * 2));
+      min-height: var(--h);
+      grid-template-columns: minmax(0, 1fr) calc((var(--h) - 36px) * 9 / 16);
+    }
+    .home { display: flex; flex-direction: column; }
+    .home .pad { display: flex; flex-direction: column; flex: 1; justify-content: center; }
+    .home .logo { width: 56px; height: 56px; border-radius: 12px; margin-bottom: 24px; }
+    .term { margin-top: 36px; background: #16161e; border: 1px solid var(--edge); max-width: 760px; }
+    .term .title { background: #16161e; border-bottom: 1px solid var(--raised); }
+    .term-row { display: flex; align-items: stretch; }
+    .term pre { margin: 0; flex: 1; min-width: 0; padding: 18px 16px; overflow-x: auto; color: var(--ink); font-size: 15px; line-height: 1.6; white-space: pre; scrollbar-width: thin; }
+    .term pre .ps { color: var(--green); user-select: none; }
+    .copy {
+      flex: none; border: 0; border-left: 1px solid var(--edge); background: var(--blue); color: var(--ground);
+      font: 800 14px/1 var(--mono); padding: 0 22px; cursor: pointer; letter-spacing: .02em; transition: background-color .2s;
+    }
+    .copy:hover { background: var(--cyan); }
+    .mb { display: none; }
+    .copy:active { background: var(--purple); }
+    .after { margin: 14px 0 0; font-size: 15px; color: var(--quiet); }
+    .after a { white-space: nowrap; }
+    .hero-vid { display: flex; flex-direction: column; }
+    .hero-vid video { display: block; width: 100%; flex: 1 1 0; height: 0; min-height: 0; object-fit: cover; background: #0e0f15; }
 
-    .story { display: grid; grid-template-columns: 1fr 1fr; gap: 40px; align-items: center; }
-    .story blockquote { margin: 0; font-size: 22px; line-height: 1.45; color: var(--ink); border-left: 3px solid var(--accent); padding-left: 22px; }
-    .story img { width: 100%; border-radius: 18px; border: 1px solid var(--panel-edge); }
+    /* ws2: clips */
+    .ws2 { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+    .ws2 > .tile:first-child { grid-column: 1 / -1; }
+    .clip-in { display: flex; flex-direction: column; }
+    .clip video { display: block; width: 100%; aspect-ratio: 9 / 16; object-fit: cover; background: #0e0f15; filter: brightness(.5) saturate(.7); transition: filter .9s cubic-bezier(.16, 1, .3, 1); }
+    .clip.lit video { filter: none; }
+    .clip-text { padding: 16px 18px 20px; }
+    .clip ol { margin: 10px 0 0; padding-left: 20px; color: var(--quiet); font-size: 15px; }
+    .clip li { margin: 6px 0; }
+    .clip li::marker { color: var(--blue); font: 700 14px var(--mono); }
+    .clip { display: flex; flex-direction: column; }
+    .clip-in { flex: 1; }
+    .clip.wide { grid-column: span 2; }
+    .clip.wide .clip-in { flex-direction: row; }
+    .clip.wide video { width: 50%; height: 100%; aspect-ratio: auto; min-height: 100%; }
+    .clip.wide .clip-text { align-self: center; padding: 24px 28px; }
+    .clip.wide h3 { font-size: clamp(20px, 1.8vw, 26px); }
+    .clip.wide ol { font-size: 16px; }
+    .clip.lead h3 { font-size: clamp(22px, 2.2vw, 30px); }
 
-    .steps { counter-reset: step; display: grid; gap: 14px; max-width: 760px; }
-    .step { display: grid; grid-template-columns: 40px minmax(0, 1fr); gap: 16px; align-items: start; }
-    .step > div { min-width: 0; }
-    .step::before { counter-increment: step; content: counter(step); display: grid; place-items: center; width: 40px; height: 40px; border-radius: 50%; background: #2a1e42; border: 2px solid var(--accent); font-weight: 800; color: var(--accent-light); }
-    .step p { margin: 6px 0 8px; color: var(--soft); }
-    pre { margin: 0; background: #0a0812; border: 1px solid var(--panel-edge); border-radius: 12px; padding: 14px 16px; overflow-x: auto; font-family: var(--mono); font-size: 15px; color: var(--accent-light); }
+    /* ws3: the evening, as a log */
+    .ws3 { grid-template-columns: minmax(0, 1fr) min(24vw, 340px); }
+    .ws3 .log { padding-bottom: 36px; }
+    .log { margin: 0; padding: 22px clamp(18px, 3vw, 36px) 28px; list-style: none; font: 14px/1.55 var(--mono); }
+    .log li { display: grid; grid-template-columns: 7ch 8ch minmax(0, 1fr); gap: 12px; padding: 9px 0; border-bottom: 1px solid var(--raised); }
+    .log li:last-child { border-bottom: 0; }
+    .log time { color: var(--label); font-variant-numeric: tabular-nums; }
+    .log .via { color: var(--purple); }
+    .log .what { color: var(--ink); }
+    .log .what em { display: block; font-style: normal; color: var(--green); margin-top: 2px; }
+    .shot { display: flex; flex-direction: column; }
+    .shot img { display: block; width: 100%; height: auto; background: #0e0f15; }
 
-    .moments { list-style: none; padding: 0; margin: 0 0 32px; display: grid; gap: 12px; }
-    .moments li { display: grid; grid-template-columns: 92px minmax(0, 1fr); gap: 18px; align-items: start; background: var(--panel); border: 1px solid var(--panel-edge); border-radius: 18px; padding: 18px 20px; }
-    .moments h3 { margin: 0 0 4px; font-size: 19px; }
-    .moments p { margin: 0; color: var(--muted); }
-    .tag { display: inline-block; text-align: center; padding: 6px 0; border-radius: 10px; background: #2a1e42; border: 1px solid var(--accent); color: var(--accent-light); font-weight: 700; font-size: 14px; }
-    code { font-family: var(--mono); font-size: 0.92em; color: var(--accent-light); }
-    .wide-shot { width: 100%; border-radius: 18px; border: 1px solid var(--panel-edge); display: block; }
-    .everything { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 24px 20px; }
-    .everything h3 { margin: 0 0 8px; font-size: 17px; color: var(--accent-light); }
-    .everything ul { margin: 0; padding-left: 18px; color: var(--muted); font-size: 15px; }
-    .everything li { margin: 4px 0; }
-    .codebox { position: relative; }
-    .copy { position: absolute; top: 8px; right: 8px; padding: 5px 10px; border-radius: 8px; border: 1px solid var(--panel-edge); background: var(--panel); color: var(--soft); font: 600 13px var(--sans); cursor: pointer; }
-    .copy:hover { border-color: var(--accent); color: var(--ink); }
-    .codebox pre { padding-right: 72px; }
-    .shots { display: grid; grid-template-columns: 1.4fr 1fr 1fr; gap: 16px; }
-    .shots img { width: 100%; border-radius: 16px; border: 1px solid var(--panel-edge); display: block; }
+    /* ws4: install */
+    .ws4 { grid-template-columns: minmax(0, 1.4fr) minmax(0, 1fr); }
+    .steps { margin: 28px 0 0; padding: 0; list-style: none; counter-reset: s; display: grid; gap: 22px; }
+    .steps > li { counter-increment: s; display: grid; grid-template-columns: 34px minmax(0, 1fr); gap: 14px; }
+    .steps > li::before { content: counter(s); display: grid; place-items: center; width: 34px; height: 34px; font: 800 15px var(--mono); color: #fff; background: var(--raised); border: 1px solid var(--edge); }
+    .steps p { margin: 4px 0 0; color: var(--quiet); }
+    .steps .term { margin-top: 12px; }
+    .facts { margin: 0; padding: 22px clamp(18px, 3vw, 32px) 28px; display: grid; gap: 16px; }
+    .facts dt { font: 700 14px/1.3 var(--mono); color: var(--green); }
+    .facts dd { margin: 4px 0 0; color: var(--quiet); font-size: 15px; }
 
-    /* one clip per feature */
-    .clips { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 18px; }
-    .clip { background: var(--panel); border: 1px solid var(--panel-edge); border-radius: 20px; overflow: hidden; display: flex; flex-direction: column; }
-    .clip video { width: 100%; aspect-ratio: 9 / 16; object-fit: cover; display: block; background: #0a0812; }
-    .clip-body { padding: 16px 18px 20px; }
-    .clip .tag { padding: 3px 12px; font-size: 13px; }
-    .clip h3 { margin: 10px 0 8px; font-size: 18px; letter-spacing: -0.01em; }
-    .clip ol { margin: 0; padding-left: 20px; color: var(--muted); font-size: 15px; }
-    .clip li { margin: 5px 0; }
-    .clip li::marker { color: var(--accent-light); font-weight: 700; }
+    /* ws5: details */
+    .ws5 { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); }
+    .rows { margin: 0; padding: 8px clamp(18px, 3vw, 32px) 24px; list-style: none; }
+    .rows li { padding: 14px 0; border-bottom: 1px solid var(--raised); }
+    .rows li:last-child { border-bottom: 0; }
+    .rows b { display: block; font: 700 15px/1.3 var(--mono); color: #fff; }
+    .rows span { display: block; margin-top: 4px; color: var(--quiet); font-size: 15px; }
+    .tabs { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 0 24px; padding: 8px clamp(18px, 3vw, 32px) 24px; }
+    .tabs div { padding: 14px 0; border-bottom: 1px solid var(--raised); }
+    .tabs h3 { font-size: 15px; color: #fff; }
+    .tabs ul { margin: 6px 0 0; padding-left: 18px; color: var(--quiet); font-size: 15px; }
+    .tabs li { margin: 3px 0; }
+    .star { grid-column: 1 / -1; display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 24px; align-items: center; }
+    .star p { margin: 12px 0 0; color: var(--quiet); max-width: 60ch; }
+    .btn-star { display: inline-flex; align-items: center; gap: 10px; padding: 16px 22px; background: var(--amber); color: var(--ground); font: 800 15px/1 var(--mono); text-decoration: none; transition: background-color .2s; }
+    .btn-star:hover { background: #f0c27f; color: var(--ground); }
+    .btn-star .ico { width: 18px; height: 18px; }
 
-    .star { text-align: center; }
-    .star .big { font-size: 56px; color: var(--star); line-height: 1; }
-    .star p { color: var(--soft); font-size: 18px; max-width: 52ch; margin: 14px auto 26px; }
+    footer { padding: 18px var(--gap-out) 26px; display: flex; flex-wrap: wrap; justify-content: space-between; gap: 10px 24px; font: 13px/1.6 var(--mono); color: var(--label); border-top: 1px solid var(--raised); }
+    footer a { color: var(--quiet); }
 
-    footer { padding: 36px 0 48px; color: var(--muted); font-size: 14px; border-top: 1px solid var(--panel-edge); }
-    footer .wrap { display: flex; flex-wrap: wrap; gap: 12px 24px; justify-content: space-between; }
+    /* one authored moment: the first workspace's tiles open like Hyprland windows */
+    @media (prefers-reduced-motion: no-preference) {
+      .ws1 .tile { animation: open .7s cubic-bezier(.16, 1, .3, 1) both; }
+      .ws1 .tile + .tile { animation-delay: .12s; }
+      @keyframes open { from { transform: scale(.965); opacity: .4; } }
+    }
+    @media (prefers-reduced-motion: reduce) {
+      html { scroll-behavior: auto; }
+      .clip video { filter: none; transition: none; }
+    }
 
+    @media (max-width: 1100px) {
+      .ws2 { grid-template-columns: repeat(3, minmax(0, 1fr)); grid-auto-flow: dense; }
+      .clip.wide, .clip.tail { grid-column: 1 / -1; }
+      .clip.tail .clip-in { flex-direction: row; }
+      .clip.wide video, .clip.tail video { width: 34%; height: auto; aspect-ratio: 9 / 16; min-height: 0; }
+      .clip.tail .clip-text { align-self: center; padding: 24px 28px; }
+    }
     @media (max-width: 860px) {
-      .hero, .story { grid-template-columns: 1fr; }
-      .hero { padding-top: 16px; gap: 36px; }
-      .grid { grid-template-columns: 1fr 1fr; }
-      .shots { grid-template-columns: 1fr; }
-      .everything { grid-template-columns: 1fr 1fr; }
-      .clips { grid-template-columns: 1fr 1fr; }
+      .ws1, .ws3, .ws4, .ws5 { grid-template-columns: 1fr; }
+      .ws1 { height: auto; }
+      .hero-vid video { flex: none; height: auto; aspect-ratio: 9 / 16; max-height: 78svh; }
+      .ws2 { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+      .clip.tail { grid-column: auto; } .clip.tail .clip-in { flex-direction: column; } .clip.tail video { width: 100%; } .clip.tail .clip-text { align-self: auto; padding: 16px 18px 20px; }
+      .clock { display: none; }
+      .bar { grid-template-columns: 1fr auto; }
+      .shot { max-width: 460px; }
     }
     @media (max-width: 560px) {
-      .grid { grid-template-columns: 1fr; }
-      .everything { grid-template-columns: 1fr; }
-      .moments li { grid-template-columns: 1fr; gap: 10px; }
-      .tag { justify-self: start; padding: 4px 12px; }
-      .gh span { display: none; }
-      .lede { font-size: 17px; }
-      .clips { grid-template-columns: 1fr; }
-      .clip { display: grid; grid-template-columns: 44% minmax(0, 1fr); }
-      .clip video { height: 100%; }
-      .clip-body { padding: 14px 14px 16px; }
-      .clip h3 { font-size: 16px; }
-      .clip ol { font-size: 14px; padding-left: 18px; }
+      :root { --gap-out: 6px; --gap-in: 6px; }
+      .ws-btn[aria-current="true"] span { display: none; }
+      .bar-r .gh-text { display: none; }
+      .ws2 { grid-template-columns: 1fr; }
+      .clip.wide, .clip.tail { grid-column: auto; }
+      .clip .clip-in { flex-direction: row; }
+      .clip video, .clip.wide video, .clip.tail video { width: 42%; aspect-ratio: 9 / 16; height: auto; min-height: 0; align-self: start; }
+      .clip-text, .clip.wide .clip-text, .clip.tail .clip-text { padding: 12px 12px 14px; align-self: start; }
+      .clip h3, .clip.wide h3, .clip.lead h3 { font-size: 16px; }
+      .clip ol, .clip.wide ol { font-size: 14px; padding-left: 18px; }
+      .log li { grid-template-columns: 6ch minmax(0, 1fr); }
+      .log .via { grid-column: 2; grid-row: 1; }
+      .log .what { grid-column: 1 / -1; }
+      .tabs { grid-template-columns: 1fr; }
+      .star { grid-template-columns: 1fr; }
+      .term-row { flex-direction: column; }
+      .term pre { font-size: 12px; padding: 14px 12px; }
+      .term pre.over { -webkit-mask-image: linear-gradient(90deg, #000 92%, transparent); mask-image: linear-gradient(90deg, #000 92%, transparent); }
+      .mb { display: inline; }
+      .db { display: none; }
+      .copy { border-left: 0; border-top: 1px solid var(--edge); padding: 14px; width: 100%; }
     }
-    @media (prefers-reduced-motion: reduce) { html { scroll-behavior: auto; } }
   </style>
 </head>
 <body>
-  <div class="wrap">
-    <header>
-      <a class="brand" href="./"><img src="assets/omadeck-logo-256.png" alt="" />OmaDeck</a>
-      <a class="gh" href="https://github.com/Mohsintl/omadeck">
-        <svg width="18" height="18" viewBox="0 0 16 16" fill="currentColor" aria-hidden="true"><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z"/></svg>
-        <span>Star on GitHub</span>
-      </a>
-    </header>
+  <header class="bar">
+    <nav class="bar-l" aria-label="Workspaces">
+      <img src="assets/omadeck-logo-256.png" alt="" />
+      <a class="ws-btn" href="#ws1" data-ws="1" aria-current="true">1<span>home</span></a>
+      <a class="ws-btn" href="#ws2" data-ws="2">2<span>watch</span></a>
+      <a class="ws-btn" href="#ws3" data-ws="3">3<span>evening</span></a>
+      <a class="ws-btn" href="#ws4" data-ws="4">4<span>install</span></a>
+      <a class="ws-btn" href="#ws5" data-ws="5">5<span>details</span></a>
+    </nav>
+    <span class="clock" aria-hidden="true"></span>
+    <div class="bar-r">
+      <a href="https://github.com/Mohsintl/omadeck" aria-label="Star OmaDeck on GitHub"><svg class="ico" viewBox="0 0 16 16" aria-hidden="true"><path fill="currentColor" d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z"/></svg><span class="gh-text">Star on GitHub</span></a>
+    </div>
+  </header>
 
-    <main>
-      <div class="hero">
-        <div>
-          <p class="eyebrow">For Omarchy &amp; Hyprland</p>
-          <h1>Your phone is the <span>keyboard</span> now.</h1>
-          <p class="lede">OmaDeck turns any phone or tablet into a Stream Deck and voice remote for your desktop. Run it from the couch, the bed, or across the room.</p>
-          <div class="ctas">
-            <a class="btn btn-primary" href="#install">Install</a>
-            <a class="btn btn-ghost" href="#watch">Watch each feature</a>
+  <main>
+    <section class="ws ws1" id="ws1" data-ws="1" aria-label="OmaDeck">
+      <div class="tile home">
+        <p class="title"><span>omadeck</span><span>home</span><span>workspace 1</span></p>
+        <div class="pad">
+          <img class="logo" src="assets/omadeck-logo-256.png" alt="OmaDeck logo" />
+          <h1>Your phone is the keyboard now.</h1>
+          <p class="lede">OmaDeck turns the phone you already own into a Stream Deck and voice remote for your Omarchy desktop. Switch workspaces, pause YouTube, kill <code>:3000</code>, from the couch.</p>
+          <div class="term">
+            <p class="title"><span>terminal</span><span>on your Omarchy machine</span></p>
+            <div class="term-row">
+              <pre><span class="ps">$ </span>git clone<span class="mb"> \
+</span><span class="db"> </span>https://github.com/Mohsintl/omadeck.git &amp;&amp;
+cd omadeck &amp;&amp; ./install.sh --quick</pre>
+              <button class="copy" type="button" data-copy="git clone https://github.com/Mohsintl/omadeck.git &amp;&amp; cd omadeck &amp;&amp; ./install.sh --quick">Copy</button>
+            </div>
           </div>
-          <p class="note">Free and open source · Apache 2.0 · No app store, no extra hardware</p>
-        </div>
-        <div class="video">
-          <video src="media/clips/highlight.mp4" poster="media/clips/highlight.jpg" autoplay muted loop playsinline preload="metadata"
-                 aria-label="OmaDeck on an iPhone in front of an Omarchy laptop: voice commands, killing a dev server on port 3000, a key of your own that runs omadeck update, workspaces and media keys"></video>
+          <p class="after">Then scan the QR code it prints. Free and open source, Apache 2.0, no app store. <a href="#ws2">Watch each feature</a></p>
         </div>
       </div>
+      <div class="tile hero-vid">
+        <p class="title"><span>phone</span><span>highlight</span><span>sped up</span></p>
+        <video src="media/clips/highlight.mp4" poster="media/clips/highlight.jpg" autoplay muted loop playsinline preload="metadata"
+               aria-label="OmaDeck on an iPhone in front of an Omarchy laptop: voice commands, killing a dev server on port 3000, a key of your own that runs omadeck update, workspaces and media keys"></video>
+      </div>
+    </section>
 
-      <section>
-        <h2>Tap it. Say it. Done.</h2>
-        <p class="section-lede">A touch deck with real buttons for your desktop, plus voice control when tapping is too slow.</p>
-        <div class="grid">
-          <div class="card"><div class="key">1</div><h3>Switch workspaces</h3><p>One tap to jump workspaces, move windows, or toggle the scratchpad.</p></div>
-          <div class="card"><div class="key">🎙</div><h3>Say what you want</h3><p>"Open Chrome on workspace 5" just works. Bring your own AI: Ollama fully local, or Groq, OpenAI and more.</p></div>
-          <div class="card"><div class="key">⌨</div><h3>Type from your phone</h3><p>Type or dictate into whatever window is focused, with Enter, Tab, Esc, All, Copy, Paste and arrow keys.</p></div>
-          <div class="card"><div class="key">⚡</div><h3>Kill :3000</h3><p>Stop a stuck dev server with one tap, without hunting for the terminal.</p></div>
-          <div class="card"><div class="key">+</div><h3>Tabs of your own</h3><p>Five built-in tabs, plus your own: keys that run any deck button, type text, press keys, or run several steps in order.</p></div>
-          <div class="card"><div class="key">◐</div><h3>24 themes</h3><p>Pick a theme you like, or let the deck follow your Omarchy theme automatically.</p></div>
+    <section class="ws ws2" id="ws2" data-ws="2" aria-labelledby="watch-h">
+      <div class="tile">
+        <p class="title"><span>watch</span><span>13 clips</span><span>workspace 2</span></p>
+        <div class="pad">
+          <h2 id="watch-h">Watch each feature.</h2>
+          <p class="sect-lede">Real clips of an iPhone driving an Omarchy laptop, sped up where it waits. Each one plays when you scroll to it, with the exact taps and words it shows.</p>
         </div>
-      </section>
+      </div>
+        <article class="tile clip wide lead">
+          <p class="title"><span>Voice</span><span>Mic</span><span>hold</span></p>
+          <div class="clip-in">
+            <video src="media/clips/voice.mp4" poster="media/clips/voice.jpg" muted loop playsinline preload="none" aria-label="Say what you want: Voice on the Mic tab"></video>
+            <div class="clip-text"><h3>Say what you want</h3><ol><li>Hold the mic and say <q>Close the active window</q>. The YouTube window closes.</li><li>Hold it again and say <q>Open Chrome on workspace 4</q>.</li><li>The deck answers <q>Opened Chrome on workspace 4</q>, and the screen follows.</li></ol></div>
+          </div>
+        </article>
+        <article class="tile clip">
+          <p class="title"><span>Voice</span><span>Mic</span><span>Super+K names</span></p>
+          <div class="clip-in">
+            <video src="media/clips/voice-keybinding.mp4" poster="media/clips/voice-keybinding.jpg" muted loop playsinline preload="none" aria-label="Your keybindings, by name: Voice on the Mic tab"></video>
+            <div class="clip-text"><h3>Your keybindings, by name</h3><ol><li>Hold the mic and say <q>Open incognito browser</q>.</li><li>The deck answers <q>The incognito browser has been opened</q>.</li><li>Any description in Omarchy's Super+K list works the same way.</li></ol></div>
+          </div>
+        </article>
+        <article class="tile clip">
+          <p class="title"><span>Kill :3000</span><span>Code</span><span>tap</span></p>
+          <div class="clip-in">
+            <video src="media/clips/kill-port.mp4" poster="media/clips/kill-port.jpg" muted loop playsinline preload="none" aria-label="Kill a stuck dev server: Kill :3000 on the Code tab"></video>
+            <div class="clip-text"><h3>Kill a stuck dev server</h3><ol><li>Type <code>python -m http.server 3000</code> with <b>Type</b>, and the server starts in the terminal.</li><li>Tap <b>Kill :3000</b> on the Code tab.</li><li>The deck answers <q>Killed the process on port 3000</q>.</li></ol></div>
+          </div>
+        </article>
+        <article class="tile clip wide">
+          <p class="title"><span>Steps</span><span>Dev</span><span>your key</span></p>
+          <div class="clip-in">
+            <video src="media/clips/steps.mp4" poster="media/clips/steps.jpg" muted loop playsinline preload="none" aria-label="A key that runs steps: Steps on the Dev tab"></video>
+            <div class="clip-text"><h3>A key that runs steps</h3><ol><li>Tap <b>+</b>, name the tab <b>Dev</b>, then <b>Add key</b>.</li><li>Choose <b>Steps</b>: <b>New terminal</b>, wait 1 s, then type <code>cd omadeck &amp;&amp; omadeck update</code> with Enter.</li><li>Save, then tap the key: a terminal opens and the update runs. The deck answers <q>ran 3 steps</q>.</li></ol></div>
+          </div>
+        </article>
+        <article class="tile clip">
+          <p class="title"><span>Ask, Type</span><span>Dock</span><span>type</span></p>
+          <div class="clip-in">
+            <video src="media/clips/ask-type.mp4" poster="media/clips/ask-type.jpg" muted loop playsinline preload="none" aria-label="Ask, then Type: Ask, Type on the Dock tab"></video>
+            <div class="clip-text"><h3>Ask, then Type</h3><ol><li>Tap <b>Ask</b>, type <q>Open chrome in workspace 1</q> and send. Chrome opens there.</li><li>Tap <b>Type</b>, type <q>Youtube</q> and send.</li><li>The text goes straight into the focused window on the PC.</li></ol></div>
+          </div>
+        </article>
+        <article class="tile clip">
+          <p class="title"><span>Copy, Paste</span><span>Quick keys</span><span>tap</span></p>
+          <div class="clip-in">
+            <video src="media/clips/copy-paste.mp4" poster="media/clips/copy-paste.jpg" muted loop playsinline preload="none" aria-label="Copy here, paste there: Copy, Paste on the Quick keys tab"></video>
+            <div class="clip-text"><h3>Copy here, paste there</h3><ol><li>In VS Code, tap <b>All</b>, then <b>Copy</b> to copy a GitHub link.</li><li>Tap workspace <b>1</b>, then <b>Address</b> on the Web tab.</li><li>Tap <b>Paste</b> and <b>Enter</b>: the repo opens in Chrome.</li></ol></div>
+          </div>
+        </article>
+        <article class="tile clip">
+          <p class="title"><span>Workspaces</span><span>Top row</span><span>tap or hold</span></p>
+          <div class="clip-in">
+            <video src="media/clips/workspaces.mp4" poster="media/clips/workspaces.jpg" muted loop playsinline preload="none" aria-label="One row for workspaces: Workspaces on the Top row tab"></video>
+            <div class="clip-text"><h3>One row for workspaces</h3><ol><li>Tap <b>1</b>, <b>2</b> and <b>3</b>: the screen jumps to each one.</li><li>Hold a key to move the focused window there, here into the scratchpad.</li><li>Tap <b>Scratch</b> to show or hide the scratchpad.</li></ol></div>
+          </div>
+        </article>
+        <article class="tile clip">
+          <p class="title"><span>Windows</span><span>Desk</span><span>tap</span></p>
+          <div class="clip-in">
+            <video src="media/clips/desk.mp4" poster="media/clips/desk.jpg" muted loop playsinline preload="none" aria-label="Windows and layout: Windows on the Desk tab"></video>
+            <div class="clip-text"><h3>Windows and layout</h3><ol><li>Tap <b>Previous</b> to focus the window on the left.</li><li>Tap <b>Fullscreen</b>, <b>Float</b> and <b>Split</b> to change the layout.</li><li>Tap <b>Swap right</b>, then <b>Close window</b>.</li></ol></div>
+          </div>
+        </article>
+        <article class="tile clip wide">
+          <p class="title"><span>Media</span><span>Media</span><span>tap</span></p>
+          <div class="clip-in">
+            <video src="media/clips/media.mp4" poster="media/clips/media.jpg" muted loop playsinline preload="none" aria-label="Media keys, YouTube included: Media on the Media tab"></video>
+            <div class="clip-text"><h3>Media keys, YouTube included</h3><ol><li>Tap <b>Play / Pause</b>: YouTube pauses and plays, even when it isn't focused.</li><li>Tap <b>Previous</b> and <b>Next</b> to change videos.</li><li>Tap <b>Volume −</b>, <b>Volume +</b> and <b>Mute</b>; Omarchy shows the volume.</li></ol></div>
+          </div>
+        </article>
+        <article class="tile clip">
+          <p class="title"><span>Browser</span><span>Web</span><span>tap</span></p>
+          <div class="clip-in">
+            <video src="media/clips/web.mp4" poster="media/clips/web.jpg" muted loop playsinline preload="none" aria-label="Browser controls: Browser on the Web tab"></video>
+            <div class="clip-text"><h3>Browser controls</h3><ol><li>Tap <b>Zoom in</b>, <b>Zoom out</b> and <b>Reload</b>.</li><li>Tap <b>Address</b>, type <q>Chrome</q> with <b>Type</b> and send.</li><li>Tap <b>Back</b>, <b>Forward</b>, <b>Scroll down</b>, <b>New tab</b> and <b>Close tab</b>.</li></ol></div>
+          </div>
+        </article>
+        <article class="tile clip">
+          <p class="title"><span>Tools</span><span>Utils</span><span>tap</span></p>
+          <div class="clip-in">
+            <video src="media/clips/utils.mp4" poster="media/clips/utils.jpg" muted loop playsinline preload="none" aria-label="Tools and menus: Tools on the Utils tab"></video>
+            <div class="clip-text"><h3>Tools and menus</h3><ol><li>Tap <b>btop</b> to see the system monitor.</li><li>Tap <b>Clipboard</b> for clipboard history and <b>Lazygit</b> for git.</li><li>Tap <b>System menu</b>, then <b>Esc</b> on the deck to close it.</li></ol></div>
+          </div>
+        </article>
+        <article class="tile clip">
+          <p class="title"><span>Edit deck</span><span>⋯ menu</span><span>tap</span></p>
+          <div class="clip-in">
+            <video src="media/clips/edit-deck.mp4" poster="media/clips/edit-deck.jpg" muted loop playsinline preload="none" aria-label="Make the deck yours: Edit deck on the ⋯ menu tab"></video>
+            <div class="clip-text"><h3>Make the deck yours</h3><ol><li>Open <b>⋯</b> and tap <b>Edit deck</b>.</li><li>Tap ✕ to hide a key, ◀ ▶ to move one, and pick which quick keys show.</li><li>Tap <b>Done</b>: <q>Saved your layout on this phone</q>.</li></ol></div>
+          </div>
+        </article>
+        <article class="tile clip tail">
+          <p class="title"><span>Landscape</span><span>Any tab</span><span>turn the phone</span></p>
+          <div class="clip-in">
+            <video src="media/clips/landscape.mp4" poster="media/clips/landscape.jpg" muted loop playsinline preload="none" aria-label="Works sideways too: Landscape on the Any tab tab"></video>
+            <div class="clip-text"><h3>Works sideways too</h3><ol><li>Turn the phone: the dock moves left and the deck fills the right.</li><li>Tap a workspace to switch to it.</li><li>Tap <b>Close window</b> on the Desk tab.</li></ol></div>
+          </div>
+        </article>
+    </section>
 
-      <section id="watch">
-        <h2>Watch each feature</h2>
-        <p class="section-lede">Real clips from an iPhone and an Omarchy laptop, sped up where it waits. Each one plays when you scroll to it.</p>
-        <div class="clips">
-          <article class="clip">
-            <video src="media/clips/voice.mp4" poster="media/clips/voice.jpg" muted loop playsinline preload="none" aria-label="Say what you want"></video>
-            <div class="clip-body"><span class="tag">Voice</span><h3>Say what you want</h3><ol><li>Hold the mic and say <q>Close the active window</q>. The YouTube window closes.</li><li>Hold it again and say <q>Open Chrome on workspace 4</q>.</li><li>The deck answers <q>Opened Chrome on workspace 4</q>, and the screen follows.</li></ol></div>
-          </article>
-          <article class="clip">
-            <video src="media/clips/voice-keybinding.mp4" poster="media/clips/voice-keybinding.jpg" muted loop playsinline preload="none" aria-label="Your keybindings, by name"></video>
-            <div class="clip-body"><span class="tag">Voice</span><h3>Your keybindings, by name</h3><ol><li>Hold the mic and say <q>Open incognito browser</q>.</li><li>The deck answers <q>The incognito browser has been opened</q>.</li><li>Any description in Omarchy's Super+K list works the same way.</li></ol></div>
-          </article>
-          <article class="clip">
-            <video src="media/clips/kill-port.mp4" poster="media/clips/kill-port.jpg" muted loop playsinline preload="none" aria-label="Kill a stuck dev server"></video>
-            <div class="clip-body"><span class="tag">Code</span><h3>Kill a stuck dev server</h3><ol><li>Type <code>python -m http.server 3000</code> with <b>Type</b>, and the server starts in the terminal.</li><li>Tap <b>Kill :3000</b> on the Code tab.</li><li>The deck answers <q>Killed the process on port 3000</q>.</li></ol></div>
-          </article>
-          <article class="clip">
-            <video src="media/clips/steps.mp4" poster="media/clips/steps.jpg" muted loop playsinline preload="none" aria-label="A key that runs steps"></video>
-            <div class="clip-body"><span class="tag">Your tab</span><h3>A key that runs steps</h3><ol><li>Tap <b>+</b>, name the tab <b>Dev</b>, then <b>Add key</b>.</li><li>Choose <b>Steps</b>: <b>New terminal</b>, wait 1 s, then type <code>cd omadeck &amp;&amp; omadeck update</code> with Enter.</li><li>Save, then tap the key: a terminal opens and the update runs. The deck answers <q>ran 3 steps</q>.</li></ol></div>
-          </article>
-          <article class="clip">
-            <video src="media/clips/ask-type.mp4" poster="media/clips/ask-type.jpg" muted loop playsinline preload="none" aria-label="Ask, then Type"></video>
-            <div class="clip-body"><span class="tag">Dock</span><h3>Ask, then Type</h3><ol><li>Tap <b>Ask</b>, type <q>Open chrome in workspace 1</q> and send. Chrome opens there.</li><li>Tap <b>Type</b>, type <q>Youtube</q> and send.</li><li>The text goes straight into the focused window on the PC.</li></ol></div>
-          </article>
-          <article class="clip">
-            <video src="media/clips/copy-paste.mp4" poster="media/clips/copy-paste.jpg" muted loop playsinline preload="none" aria-label="Copy here, paste there"></video>
-            <div class="clip-body"><span class="tag">Quick keys</span><h3>Copy here, paste there</h3><ol><li>In VS Code, tap <b>All</b>, then <b>Copy</b> to copy a GitHub link.</li><li>Tap workspace <b>1</b>, then <b>Address</b> on the Web tab.</li><li>Tap <b>Paste</b> and <b>Enter</b>: the repo opens in Chrome.</li></ol></div>
-          </article>
-          <article class="clip">
-            <video src="media/clips/workspaces.mp4" poster="media/clips/workspaces.jpg" muted loop playsinline preload="none" aria-label="One row for workspaces"></video>
-            <div class="clip-body"><span class="tag">Workspaces</span><h3>One row for workspaces</h3><ol><li>Tap <b>1</b>, <b>2</b> and <b>3</b>: the screen jumps to each one.</li><li>Hold a key to move the focused window there, here into the scratchpad.</li><li>Tap <b>Scratch</b> to show or hide the scratchpad.</li></ol></div>
-          </article>
-          <article class="clip">
-            <video src="media/clips/desk.mp4" poster="media/clips/desk.jpg" muted loop playsinline preload="none" aria-label="Windows and layout"></video>
-            <div class="clip-body"><span class="tag">Desk</span><h3>Windows and layout</h3><ol><li>Tap <b>Previous</b> to focus the window on the left.</li><li>Tap <b>Fullscreen</b>, <b>Float</b> and <b>Split</b> to change the layout.</li><li>Tap <b>Swap right</b>, then <b>Close window</b>.</li></ol></div>
-          </article>
-          <article class="clip">
-            <video src="media/clips/media.mp4" poster="media/clips/media.jpg" muted loop playsinline preload="none" aria-label="Media keys, YouTube included"></video>
-            <div class="clip-body"><span class="tag">Media</span><h3>Media keys, YouTube included</h3><ol><li>Tap <b>Play / Pause</b>: YouTube pauses and plays, even when it isn't focused.</li><li>Tap <b>Previous</b> and <b>Next</b> to change videos.</li><li>Tap <b>Volume −</b>, <b>Volume +</b> and <b>Mute</b>; Omarchy shows the volume.</li></ol></div>
-          </article>
-          <article class="clip">
-            <video src="media/clips/web.mp4" poster="media/clips/web.jpg" muted loop playsinline preload="none" aria-label="Browser controls"></video>
-            <div class="clip-body"><span class="tag">Web</span><h3>Browser controls</h3><ol><li>Tap <b>Zoom in</b>, <b>Zoom out</b> and <b>Reload</b>.</li><li>Tap <b>Address</b>, type <q>Chrome</q> with <b>Type</b> and send.</li><li>Tap <b>Back</b>, <b>Forward</b>, <b>Scroll down</b>, <b>New tab</b> and <b>Close tab</b>.</li></ol></div>
-          </article>
-          <article class="clip">
-            <video src="media/clips/utils.mp4" poster="media/clips/utils.jpg" muted loop playsinline preload="none" aria-label="Tools and menus"></video>
-            <div class="clip-body"><span class="tag">Utils</span><h3>Tools and menus</h3><ol><li>Tap <b>btop</b> to see the system monitor.</li><li>Tap <b>Clipboard</b> for clipboard history and <b>Lazygit</b> for git.</li><li>Tap <b>System menu</b>, then <b>Esc</b> on the deck to close it.</li></ol></div>
-          </article>
-          <article class="clip">
-            <video src="media/clips/edit-deck.mp4" poster="media/clips/edit-deck.jpg" muted loop playsinline preload="none" aria-label="Make the deck yours"></video>
-            <div class="clip-body"><span class="tag">Edit deck</span><h3>Make the deck yours</h3><ol><li>Open <b>⋯</b> and tap <b>Edit deck</b>.</li><li>Tap ✕ to hide a key, ◀ ▶ to move one, and pick which quick keys show.</li><li>Tap <b>Done</b>: <q>Saved your layout on this phone</q>.</li></ol></div>
-          </article>
-          <article class="clip">
-            <video src="media/clips/landscape.mp4" poster="media/clips/landscape.jpg" muted loop playsinline preload="none" aria-label="Works sideways too"></video>
-            <div class="clip-body"><span class="tag">Landscape</span><h3>Works sideways too</h3><ol><li>Turn the phone: the dock moves left and the deck fills the right.</li><li>Tap a workspace to switch to it.</li><li>Tap <b>Close window</b> on the Desk tab.</li></ol></div>
-          </article>
+    <section class="ws ws3" id="ws3" data-ws="3" aria-labelledby="evening-h">
+      <div class="tile">
+        <p class="title"><span>omadeck log -f</span><span>one evening on the couch</span><span>workspace 3</span></p>
+        <div class="pad" style="padding-bottom:0">
+          <h2 id="evening-h">One evening, never getting up.</h2>
+          <p class="sect-lede">Coding agents work on one workspace, YouTube plays on another. This is how the evening goes.</p>
         </div>
-      </section>
-
-      <section>
-        <h2>One evening on the couch</h2>
-        <p class="section-lede">I leave coding agents working on one workspace and YouTube playing on another. This is how the evening goes, without getting up once.</p>
-        <ol class="moments">
-          <li><span class="tag">Desk</span><div><h3>Check on the agents.</h3><p>Tap workspace 2 to see where they are, then tap 3 to get back to the video.</p></div></li>
-          <li><span class="tag">Media</span><div><h3>Pause the video.</h3><p>Play, pause, skip and volume are on the Media deck, along with brightness and the audio output.</p></div></li>
-          <li><span class="tag">Code</span><div><h3>A dev server hangs.</h3><p>Tap <code>:3000</code> on the Code deck. The deck tells you what it stopped.</p></div></li>
-          <li><span class="tag">Voice</span><div><h3>Need a browser on workspace 5.</h3><p>Hold the mic and say "open Chrome on workspace 5". It opens there and the screen follows.</p></div></li>
-          <li><span class="tag">Type</span><div><h3>Answer the agent.</h3><p>Dictate the reply into the focused window, then send it with the Enter key on the deck.</p></div></li>
+        <ol class="log">
+          <li><time>21:04</time><span class="via">tap</span><span class="what">Workspace 2 to check on the agents, then 3 to get back to the video.</span></li>
+          <li><time>21:31</time><span class="via">media</span><span class="what">Play / Pause. YouTube pauses, even though it isn't the focused window.<em>Toggled playback.</em></span></li>
+          <li><time>21:48</time><span class="via">code</span><span class="what">A dev server hangs. Kill :3000 on the Code tab.<em>Killed the process on port 3000.</em></span></li>
+          <li><time>22:10</time><span class="via">voice</span><span class="what">Hold the mic: <q>Open Chrome on workspace 4</q>.<em>Opened Chrome on workspace 4.</em></span></li>
+          <li><time>22:26</time><span class="via">type</span><span class="what">Answer the agent from the Type panel, then send it with Enter.</span></li>
+          <li><time>22:52</time><span class="via">your key</span><span class="what">Update OmaDeck: one key opens a terminal and runs <code>omadeck update</code>.<em>Update omadeck: ran 3 steps.</em></span></li>
         </ol>
-        <img class="wide-shot" src="images/landscape-deck-tokyo-night.png" alt="The OmaDeck deck in landscape, Tokyo Night theme" loading="lazy" />
-      </section>
+      </div>
+      <div class="tile shot">
+        <p class="title"><span>deck</span><span>Tokyo Night</span><span>phone</span></p>
+        <img src="images/deck-tokyo-night.jpg" width="780" height="1688" alt="The OmaDeck deck in the Tokyo Night theme: workspaces 1 to 5 and Scratch on top, the Desk, Code, Media, Web, Utils tabs and a plus for your own, the deck keys, quick keys and arrows, and the dock with Ask, the mic and Type" loading="lazy" />
+      </div>
+    </section>
 
-      <section id="install">
-        <h2>Try it in 2 minutes</h2>
-        <p class="section-lede">One command on your Omarchy machine. Your phone just needs a browser.</p>
-        <div class="steps">
-          <div class="step"><div><p>Run this. It installs just the phone deck, with no questions.</p><div class="codebox"><pre>git clone https://github.com/Mohsintl/omadeck.git &amp;&amp; cd omadeck &amp;&amp; ./install.sh --quick</pre><button class="copy" type="button">Copy</button></div></div></div>
-          <div class="step"><div><p>Scan the QR code it shows with your phone. The setup page installs a certificate, checks it, then opens the deck.</p></div></div>
-          <div class="step"><div><p>Install it as an app: <b>Share › Add to Home Screen</b> on iPhone, <b>⋮ › Install app</b> on Android. Tapping and typing work straight away; voice is optional, from the deck's Settings.</p></div></div>
+    <section class="ws ws4" id="ws4" data-ws="4" aria-labelledby="install-h">
+      <div class="tile">
+        <p class="title"><span>install</span><span>about 2 minutes</span><span>workspace 4</span></p>
+        <div class="pad">
+          <h2 id="install-h">Set up your phone.</h2>
+          <ol class="steps">
+            <li><div><h3>Run this on your Omarchy machine.</h3><p>It installs just the phone deck, with no questions.</p>
+              <div class="term"><div class="term-row"><pre><span class="ps">$ </span>git clone<span class="mb"> \
+</span><span class="db"> </span>https://github.com/Mohsintl/omadeck.git &amp;&amp;
+cd omadeck &amp;&amp; ./install.sh --quick</pre><button class="copy" type="button" data-copy="git clone https://github.com/Mohsintl/omadeck.git &amp;&amp; cd omadeck &amp;&amp; ./install.sh --quick">Copy</button></div></div></div></li>
+            <li><div><h3>Scan the QR code with your phone.</h3><p>The setup page installs a certificate, checks it, then opens the deck.</p></div></li>
+            <li><div><h3>Install it as an app.</h3><p><b>Share › Add to Home Screen</b> on iPhone, <b>⋮ › Install app</b> on Android. Tapping and typing work straight away; voice is optional, from the deck's Settings.</p></div></li>
+          </ol>
         </div>
-        <p class="note">Lost the QR code? Run <code>omadeck mobile</code>. Update later with <code>omadeck update</code>. Tested on iPhone, iPad and Android (Chrome) with Omarchy on Hyprland.</p>
-      </section>
+      </div>
+      <div class="tile">
+        <p class="title"><span>notes</span><span>after install</span></p>
+        <dl class="facts">
+          <div><dt>omadeck mobile</dt><dd>Shows the QR code again if you lost it.</dd></div>
+          <div><dt>omadeck update</dt><dd>Pulls the latest OmaDeck, reinstalls it and restarts.</dd></div>
+          <div><dt>omadeck log -f</dt><dd>Shows each button press and voice command as it happens.</dd></div>
+          <div><dt>Tested on</dt><dd>iPhone, iPad and Android (Chrome) with Omarchy on Hyprland.</dd></div>
+        </dl>
+      </div>
+    </section>
 
-      <section>
-        <h2>Built for your own network</h2>
-        <p class="section-lede">OmaDeck types and runs actions on your desktop, so it stays close to home.</p>
-        <div class="grid">
-          <div class="card"><h3>Local network only</h3><p>The deck talks to your computer over your Wi-Fi. Away from home, use Tailscale or WireGuard, never port forwarding.</p></div>
-          <div class="card"><h3>Paired, with an optional PIN</h3><p>Each phone pairs with an auto-generated token. Add a 4–8 digit PIN on shared networks; wrong guesses are rate limited.</p></div>
-          <div class="card"><h3>HTTPS with your own certificate</h3><p>A local certificate, limited to private addresses, encrypts the connection. PINs and API keys are never sent over plain HTTP.</p></div>
-          <div class="card"><h3>No shell by default</h3><p>The assistant can't run shell commands unless you turn that on.</p></div>
-          <div class="card"><h3>Careful with what it reads</h3><p>After the assistant reads a page or the clipboard, commands wait for your spoken confirmation.</p></div>
-          <div class="card"><h3>Honest about the limits</h3><p>The security guide lists what OmaDeck does and doesn't protect against. <a href="https://github.com/Mohsintl/omadeck#-network-security--privacy-guide">Read it</a>.</p></div>
-        </div>
-      </section>
-
-      <section>
-        <h2>Everything in OmaDeck</h2>
-        <div class="everything">
-          <div><h3>Desk</h3><ul><li>Workspaces 1–5 and the scratchpad</li><li>Move windows between workspaces</li><li>Fullscreen, float, split and swap</li><li>Launch Files, Terminal, Web and more</li></ul></div>
-          <div><h3>Code</h3><ul><li>Kill <code>:3000</code>, <code>:8000</code> and other ports</li><li>Ctrl+C, Ctrl+Z and Ctrl+L</li><li>Git status, diff and push</li><li>Run the tests</li></ul></div>
-          <div><h3>Media</h3><ul><li>Play, pause and skip</li><li>Volume, mute and audio output</li><li>Display brightness</li></ul></div>
+    <section class="ws ws5" id="ws5" data-ws="5" aria-labelledby="details-h">
+      <div class="tile">
+        <p class="title"><span>security</span><span>your own network</span><span>workspace 5</span></p>
+        <div class="pad" style="padding-bottom:0"><h2 id="details-h">Stays close to home.</h2>
+          <p class="sect-lede">OmaDeck types and runs actions on your desktop, so it keeps to your network.</p></div>
+        <ul class="rows">
+          <li><b>Local network only</b><span>The deck talks to your computer over your Wi-Fi. Away from home, use Tailscale or WireGuard, never port forwarding.</span></li>
+          <li><b>Paired, with an optional PIN</b><span>Each phone pairs with an auto-generated token. Add a 4–8 digit PIN on shared networks; wrong guesses are rate limited.</span></li>
+          <li><b>HTTPS with your own certificate</b><span>A local certificate, limited to private addresses, encrypts the connection. PINs and API keys are never sent over plain HTTP.</span></li>
+          <li><b>No shell by default</b><span>The assistant can't run shell commands unless you turn that on.</span></li>
+          <li><b>Careful with what it reads</b><span>After the assistant reads a page or the clipboard, commands wait for your spoken confirmation.</span></li>
+          <li><b>Honest about the limits</b><span>The security guide lists what OmaDeck does and doesn't protect against. <a href="https://github.com/Mohsintl/omadeck#-network-security--privacy-guide">Read it</a>.</span></li>
+        </ul>
+      </div>
+      <div class="tile">
+        <p class="title"><span>everything</span><span>by tab</span></p>
+        <div class="tabs">
+          <div><h3>Desk</h3><ul><li>Workspaces 1–5 and the scratchpad</li><li>Hold a workspace to move a window there</li><li>Fullscreen, float, split and swap</li></ul></div>
+          <div><h3>Code</h3><ul><li>Kill <code>:3000</code>, <code>:8000</code> and other ports</li><li>Ctrl+C, Ctrl+Z and Ctrl+L</li><li>Git status, diff and push; run the tests</li></ul></div>
+          <div><h3>Media</h3><ul><li>Play, pause and skip, YouTube included</li><li>Volume, mute and audio output</li><li>Display brightness</li></ul></div>
           <div><h3>Web</h3><ul><li>New, close and switch tabs</li><li>Back, forward, reload and zoom</li><li>Jump to the address bar</li></ul></div>
           <div><h3>Utils</h3><ul><li>btop, Lazygit, Lazydocker, OpenCode</li><li>Night light, keep awake, zen mode</li><li>Clipboard history</li></ul></div>
-          <div><h3>Typing and voice</h3><ul><li>Type or dictate into any window</li><li>Enter, Del, Tab, Esc, All, Copy, Paste</li><li>Arrow keys that repeat while held</li><li>Voice commands with Ollama, Groq, OpenAI and more</li><li>Obvious commands and Super+K keybindings skip the AI</li><li>Hold, tap or both to talk</li></ul></div>
-          <div><h3>Look and setup</h3><ul><li>Five tabs plus your own, portrait or landscape</li><li>Edit deck: hide and move keys</li><li>24 themes, or follow your Omarchy theme</li><li>Add to the Home Screen, no app store</li><li><code>omadeck log -f</code> shows what happened</li></ul></div>
+          <div><h3>Typing and voice</h3><ul><li>Type or dictate into any window</li><li>Enter, Del, Tab, Esc, All, Copy, Paste and arrows that repeat</li><li>Obvious commands and Super+K keybindings skip the AI</li><li>Voice with Ollama, Groq, OpenAI and more</li></ul></div>
+          <div><h3>Your own</h3><ul><li>Tabs and keys of your own, with Steps</li><li>Edit deck: hide and move keys</li></ul></div>
+          <div><h3>Look</h3><ul><li>Portrait or landscape</li><li>24 themes, or follow your Omarchy theme</li><li>Installs from the browser, no app store</li></ul></div>
         </div>
-      </section>
-
-      <section>
-        <h2>See the deck</h2>
-        <p class="section-lede">Big, tactile keys that fit a phone in portrait or a tablet in landscape.</p>
-        <div class="shots">
-          <img src="images/landscape-deck.png" alt="OmaDeck in landscape" loading="lazy" />
-          <img src="images/portrait-deck-dock.jpg" alt="OmaDeck in portrait: workspaces on top, the deck, and the dock with Ask, the mic and Type" loading="lazy" />
-          <img src="images/themes-tokyo-night.png" alt="The theme picker" loading="lazy" />
+      </div>
+      <div class="tile star">
+        <div class="pad">
+          <h2>Like it?</h2>
+          <p>If OmaDeck saves you a trip to the keyboard, a star on GitHub helps a lot. Ideas, bugs and pull requests are all welcome.</p>
         </div>
-      </section>
+        <div class="pad"><a class="btn-star" href="https://github.com/Mohsintl/omadeck"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M12 2.6l2.9 6 6.5.9-4.7 4.6 1.1 6.5L12 17.5l-5.8 3.1 1.1-6.5-4.7-4.6 6.5-.9z"/></svg>Star OmaDeck on GitHub</a></div>
+      </div>
+    </section>
+  </main>
 
-      <section class="star">
-        <div class="big" aria-hidden="true">★</div>
-        <h2>Like it?</h2>
-        <p>If OmaDeck saves you a trip to the keyboard, a star on GitHub helps a lot. Ideas, bugs and pull requests are all welcome.</p>
-        <a class="btn btn-primary" href="https://github.com/Mohsintl/omadeck">Star OmaDeck on GitHub</a>
-      </section>
-    </main>
-  </div>
-
+  <p class="sr" id="copy-status" role="status" aria-live="polite"></p>
   <footer>
-    <div class="wrap">
-      <span>OmaDeck · Apache 2.0 · built on <a href="https://github.com/wombatoperator/omarchy-voice">omarchy-voice</a> by Britain Eriksen</span>
-      <span><a href="https://github.com/Mohsintl/omadeck/releases/latest">Latest release</a> · <a href="https://github.com/Mohsintl/omadeck/issues">Report a bug</a> · <a href="https://mohsintl.is-a.dev/">Made by Mohsin</a></span>
-    </div>
+    <span>OmaDeck · Apache 2.0 · built on <a href="https://github.com/wombatoperator/omarchy-voice">omarchy-voice</a> by Britain Eriksen</span>
+    <span><a href="https://github.com/Mohsintl/omadeck/releases/latest">Latest release</a> · <a href="https://github.com/Mohsintl/omadeck/issues">Report a bug</a> · <a href="https://mohsintl.is-a.dev/">Made by Mohsin</a></span>
   </footer>
+
   <script>
-    // Each clip loads and plays only while it is on screen. With reduced
-    // motion, nothing plays by itself; the clips get controls instead.
+    // The bar's clock, like Waybar's.
     (() => {
-      const clips = document.querySelectorAll(".clip video");
-      const still = matchMedia("(prefers-reduced-motion: reduce)").matches;
-      if (still || !("IntersectionObserver" in window)) {
-        clips.forEach((v) => { v.controls = true; });
-        if (still) { const hero = document.querySelector(".video video"); hero.removeAttribute("autoplay"); hero.pause(); hero.controls = true; }
-        return;
-      }
-      const seen = new IntersectionObserver((entries) => {
-        entries.forEach((e) => { if (e.isIntersecting) e.target.play().catch(() => {}); else e.target.pause(); });
-      }, { threshold: 0.4 });
-      clips.forEach((v) => seen.observe(v));
+      const el = document.querySelector(".clock");
+      const tick = () => { el.textContent = new Date().toLocaleString(undefined, { weekday: "short", hour: "2-digit", minute: "2-digit" }); };
+      tick(); setInterval(tick, 15000);
     })();
 
+    // Fade a terminal's edge only when its line really runs past it.
+    (() => {
+      const pres = document.querySelectorAll(".term pre");
+      const mark = () => pres.forEach((p) => p.classList.toggle("over", p.scrollWidth > p.clientWidth + 1));
+      mark(); addEventListener("resize", mark); document.fonts && document.fonts.ready.then(mark);
+    })();
+
+    // Copy buttons.
     document.querySelectorAll(".copy").forEach((btn) => {
       btn.addEventListener("click", async () => {
-        const text = btn.previousElementSibling.textContent;
-        try { await navigator.clipboard.writeText(text); btn.textContent = "Copied"; }
+        const say = document.getElementById("copy-status");
+        try { await navigator.clipboard.writeText(btn.dataset.copy); btn.textContent = "Copied"; say.textContent = "Install command copied."; }
         catch (e) {
-          const range = document.createRange(); range.selectNodeContents(btn.previousElementSibling);
-          const sel = getSelection(); sel.removeAllRanges(); sel.addRange(range);
-          btn.textContent = "Selected";
+          const pre = btn.previousElementSibling; const r = document.createRange(); r.selectNodeContents(pre);
+          const sel = getSelection(); sel.removeAllRanges(); sel.addRange(r); btn.textContent = "Selected";
+          say.textContent = "Couldn't copy; the command is selected, press Ctrl+C.";
         }
         setTimeout(() => { btn.textContent = "Copy"; }, 1600);
       });
     });
+
+    // The desk: the bar marks the workspace in view; the tile in view lights
+    // its border and the rest dim; clips play only while on screen.
+    (() => {
+      const still = matchMedia("(prefers-reduced-motion: reduce)").matches;
+      const btns = document.querySelectorAll(".ws-btn");
+      const tiles = [...document.querySelectorAll(".tile")];
+      const clips = [...document.querySelectorAll(".clip video")];
+      if (!("IntersectionObserver" in window)) { clips.forEach((v) => { v.controls = true; v.closest(".clip").classList.add("lit"); }); return; }
+      document.body.classList.add("dim");
+
+      const wsSeen = new IntersectionObserver((entries) => {
+        entries.forEach((e) => {
+          if (!e.isIntersecting) return;
+          const n = e.target.dataset.ws;
+          btns.forEach((b) => b.setAttribute("aria-current", b.dataset.ws === n ? "true" : "false"));
+        });
+      }, { rootMargin: "-45% 0px -50% 0px" });
+      document.querySelectorAll(".ws").forEach((s) => wsSeen.observe(s));
+
+      // Focus follows the mouse, like Omarchy; without one, the tile nearest
+      // the middle of the screen (ties go to the one nearest the last pointer).
+      let px = innerWidth / 2, py = -1;
+      const fine = matchMedia("(pointer: fine)").matches;
+      const focusOn = (best) => tiles.forEach((t) => t.classList.toggle("focus", t === best));
+      const pick = () => {
+        if (fine && py >= 0) {
+          const under = document.elementFromPoint(px, py);
+          const t = under && under.closest(".tile");
+          if (t) { focusOn(t); return; }
+        }
+        const mid = innerHeight * 0.45; let best = null, dist = Infinity;
+        tiles.forEach((t) => {
+          const r = t.getBoundingClientRect();
+          if (r.bottom < 0 || r.top > innerHeight) return;
+          const dy = mid < r.top ? r.top - mid : mid > r.bottom ? mid - r.bottom : 0;
+          const dx = px < r.left ? r.left - px : px > r.right ? px - r.right : 0;
+          const d = dy * 4 + dx;
+          if (d < dist) { dist = d; best = t; }
+        });
+        focusOn(best);
+      };
+      if (fine) {
+        addEventListener("pointermove", (e) => { px = e.clientX; py = e.clientY; }, { passive: true });
+        tiles.forEach((t) => t.addEventListener("pointerenter", () => focusOn(t)));
+      }
+      let raf = 0; addEventListener("scroll", () => { cancelAnimationFrame(raf); raf = requestAnimationFrame(pick); }, { passive: true });
+      addEventListener("resize", pick); pick();
+
+      if (still) {
+        clips.forEach((v) => { v.controls = true; v.closest(".clip").classList.add("lit"); });
+        const hero = document.querySelector(".hero-vid video"); hero.removeAttribute("autoplay"); hero.pause(); hero.controls = true;
+        return;
+      }
+      const seen = new IntersectionObserver((entries) => {
+        entries.forEach((e) => {
+          const tile = e.target.closest(".clip");
+          if (e.isIntersecting) { tile.classList.add("lit"); e.target.play().catch(() => {}); }
+          else { tile.classList.remove("lit"); e.target.pause(); }
+        });
+      }, { threshold: 0.4 });
+      clips.forEach((v) => seen.observe(v));
+    })();
   </script>
 </body>
 </html>
