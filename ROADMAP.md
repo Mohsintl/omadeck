@@ -6,7 +6,7 @@ Community feedback and contributions are highly encouraged!
 
 ---
 
-## ✅ Shipped (up to v0.5.0)
+## ✅ Shipped (up to v0.6.0)
 
 - [x] **Universal Multi-Provider Engine**: Groq, Ollama, OpenAI, OpenRouter, DeepSeek, Mistral, NVIDIA NIM, and custom endpoints.
 - [x] **Zero-Scroll PWA Mobile Deck**: Fullscreen touch deck on iOS & Android.
@@ -18,12 +18,18 @@ Community feedback and contributions are highly encouraged!
 - [x] **Two-Minute Install**: `./install.sh --quick` ends with pairing QR codes (v0.5.0).
 - [x] **Arrow Keys With Hold-to-Repeat** (v0.5.0).
 - [x] **Saved API Keys List**: See and remove every key saved on the computer from Settings (v0.5.0).
+- [x] **Custom Keys and Tabs**: Make tabs and keys of your own on the phone. A key runs a deck button, types text, presses keys, or runs Steps in order (v0.6.0).
+- [x] **Command Dock**: Ask, a big mic and Type under your thumb, with quick keys always on screen (v0.6.0).
+- [x] **Edit Deck**: Hide and reorder keys and pick the quick keys (v0.6.0).
+- [x] **One-Step Updates**: `omadeck update` pulls, reinstalls and restarts (v0.6.0).
+- [x] **One QR Code Setup**: A setup page installs and checks the certificate, then opens the deck (v0.6.0).
+- [x] **Voice Without the AI for Obvious Commands**: Volume levels, the address bar, editing keys and every Super+K keybinding run locally (v0.6.0).
+- [x] **Media Keys on YouTube**: Play/pause, next and previous work even when YouTube isn't focused (v0.6.0).
 
 ---
 
 ## 📌 Next Up
 
-- [ ] **Custom Macro Builder in Web UI**: Drag-and-drop or form-based builder to define custom touch buttons with custom bash commands or key combinations.
 - [ ] **Obsidian & Note Quick-Capture**: Dedicated button to dictate or type a quick note directly into your daily Obsidian vault.
 - [ ] **Battery & Desktop Sensor Indicators**: Live display of PC CPU temperature, RAM usage, and laptop battery level on the top status strip.
 

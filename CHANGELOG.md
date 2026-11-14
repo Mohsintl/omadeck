@@ -2,10 +2,12 @@
 
 What changed in each OmaDeck release. The [GitHub releases](https://github.com/Mohsintl/omadeck/releases) have the full notes.
 
-## [Unreleased]
+## [0.6.0] - 2026-11-15
+
+**Upgrading from 0.5.0:** `omadeck update` arrives in this release, so run the update by hand once. In your OmaDeck clone, run `git pull`, then `./install.sh --update`, then `omadeck restart`. After that, `omadeck update` does all three. On iPhone, remove the Home Screen icon and add it again to get the new icon and name.
 
 ### Added
-- Obvious voice and typed commands run without the AI: volume levels ("volume to max", "40 percent"), "turn it up", the address bar, select all, copy, undo, redo, save, find, and every description in Omarchy's Super+K keybinding list. The PC mic uses the same fast path as the phone.
+- Obvious voice and typed commands run without the AI: volume levels ("volume to max", "40 percent"), "turn it up", the address bar, select all, copy, undo, redo, save, find, and every description in Omarchy's Super+K keybinding list. The PC mic uses the same fast path as the phone (#54).
 - A dock under your thumb: Ask, a big mic and Type, each opening one panel above it (#44, #45).
 - Tabs and keys of your own, including Steps that run deck keys, text, key combos and waits in order (#48).
 - Edit deck: hide and reorder keys and pick the quick keys, saved on the phone (#46).
@@ -22,7 +24,12 @@ What changed in each OmaDeck release. The [GitHub releases](https://github.com/M
 - Play/pause works on YouTube: media keys press YouTube's own keys in its window, and use MPRIS for other players (#39, #41, #42, #43).
 - Terminals opened from the deck can use sudo: apps start through Hyprland, outside the service sandbox (#49).
 - The PIN keypad digits are readable in every theme (#49).
+- Setting the volume to a level reads the sink Omarchy really changes, so "volume 40 percent" lands on 40 with a speaker-tuning filter in front (#54).
 - Android installs the deck as a full-screen app, and the iPhone Home Screen shows the logo and the name OmaDeck (#50, #51, #52).
+
+### Docs
+- The README and the site show a new tour of an iPhone driving an Omarchy laptop, with a clip and step list for each feature (#53, #55).
+- The site is redesigned as an Omarchy desktop in Tokyo Night, and PRODUCT.md and DESIGN.md describe the product and its design (#55).
 
 ## [0.5.0] - 2026-11-12
 
