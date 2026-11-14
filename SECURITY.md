@@ -14,4 +14,4 @@ Only the latest release gets security fixes.
 
 ## What's in scope
 
-OmaDeck is designed for a network you trust. The README's [security guide](README.md#-network-security--privacy-guide) lists its protections and known limits. Please report a way around a listed protection, even if it seems minor. Items already listed as known limits don't need a report.
+OmaDeck is designed for a network you trust. The README's [security guide](README.md#security) lists its protections and known limits. Please report a way around a listed protection, even if it seems minor. Items already listed as known limits don't need a report.
