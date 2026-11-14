@@ -15,9 +15,9 @@
 
 <div align="center">
 
-<img src="docs/media/omadeck-demo.webp" width="400" alt="OmaDeck demo at 2x speed: switching workspaces, a voice command opening Chrome, dictation into an editor, killing a dev server on port 3000, and copying a link from VS Code into Chrome, all from an iPad" />
+<img src="docs/media/omadeck-tour.webp" width="360" alt="OmaDeck on an iPhone in front of an Omarchy laptop: voice commands for brightness and opening Chrome on workspace 4, killing a dev server on port 3000, a key of your own that opens a terminal and runs omadeck update, switching workspaces, and media keys on YouTube" />
 
-*At 2x speed: workspaces, a voice command, dictation, killing `:3000`, and copy and paste across apps, all from the iPad. [Full-quality video (MP4)](docs/media/omadeck-demo.mp4).*
+*Sped up: voice commands, killing `:3000`, a key of your own that runs three steps, workspaces and media, all from an iPhone. [Full tour of every tab (MP4, 1 min 48 s)](docs/media/omadeck-tour.mp4).*
 
 </div>
 
@@ -25,9 +25,9 @@
 
 | 📱 Mobile Touch Remote (Portrait) | 💻 Linux Desktop (Hyprland / Omarchy) |
 | :---: | :---: |
-| <img src="docs/images/portrait-deck-tokyo-night.png" width="310" alt="OmaDeck Mobile Remote (Tokyo Night)" /> | <img src="docs/images/pc-screen.jpg" width="510" alt="Omarchy Linux Desktop" /> |
+| <img src="docs/images/portrait-deck-dock.jpg" width="310" alt="OmaDeck on an iPhone: workspace keys 1 to 5 and Scratch with a hint to tap or hold, tabs for Desk, Code, Media, Web, Utils and a plus for your own, the Window and Layout keys, quick keys and arrows, and the dock with Ask, a round mic and Type" /> | <img src="docs/images/pc-screen.jpg" width="510" alt="Omarchy Linux Desktop" /> |
 
-*OmaDeck running in Tokyo Night theme: tactile quick keys, inline dictation mic, instant workspace switching, and direct PC typing.*
+*Workspaces along the top, the deck in the middle, and the dock at the bottom: Ask, the mic and Type.*
 
 </div>
 
@@ -82,10 +82,6 @@ Most Linux remote tools are either clunky VNC viewers that eat battery, or singl
 ---
 
 ## 🌟 Highlights
-
-<div align="center">
-  <img src="docs/images/portrait-deck-dock.jpg" width="320" alt="OmaDeck on an iPhone: workspace keys 1 to 5 and Scratch with a hint to tap or hold, tabs for Desk, Code, Media, Web, Utils and a plus for your own, the Window and Layout keys, quick keys and arrows, and the dock with Ask, a round mic and Type" />
-</div>
 
 - **📱 Touch Remote Deck (PWA)**: Works upright and sideways on a phone or tablet. Install it from the browser as a full-screen app on iPhone or Android, with haptic feedback.
 - **🎛️ One Dock Under Your Thumb**: **Ask** on the left runs a typed command, the big **mic** in the middle runs voice commands, and **Type** on the right types straight into the focused PC window, with a remembered **Press ↵ after** switch. Quick keys (`↵ Enter`, `⌫ Del`, `Tab`, `Esc`, `All`, `Copy`, `Paste`) and arrows you can hold to repeat sit just above it.
