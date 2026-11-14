@@ -5,6 +5,7 @@ What changed in each OmaDeck release. The [GitHub releases](https://github.com/M
 ## [Unreleased]
 
 ### Added
+- Obvious voice and typed commands run without the AI: volume levels ("volume to max", "40 percent"), "turn it up", the address bar, select all, copy, undo, redo, save, find, and every description in Omarchy's Super+K keybinding list. The PC mic uses the same fast path as the phone.
 - A dock under your thumb: Ask, a big mic and Type, each opening one panel above it (#44, #45).
 - Tabs and keys of your own, including Steps that run deck keys, text, key combos and waits in order (#48).
 - Edit deck: hide and reorder keys and pick the quick keys, saved on the phone (#46).
