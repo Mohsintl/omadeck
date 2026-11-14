@@ -708,7 +708,7 @@ class MobileBridgePinTests(unittest.TestCase):
     def test_a_phone_button_is_logged_with_its_reply(self):
         with mock.patch("omarchy_voice.mobile_bridge._quick_command", return_value="Killed processes on port 3000."):
             _dispatch("kill port 3000")
-        self.assertIn("phone   kill port 3000 -> Killed processes on port 3000.", self._logged())
+        self.assertIn("phone   kill port 3000 -> Killed processes on port 3000. (fast, no AI)", self._logged())
 
     def test_a_daemon_timeout_is_logged(self):
         with mock.patch("omarchy_voice.mobile_bridge._quick_command", return_value=None),              mock.patch("omarchy_voice.mobile_bridge.send_control", side_effect=TimeoutError):

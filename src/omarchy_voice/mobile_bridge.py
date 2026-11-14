@@ -7673,7 +7673,7 @@ def _media_control(action: str, keysym: str, run) -> tuple[bool, str]:
     return ok, ("" if ok else out)
 
 
-def _quick_command(text: str, voice: bool = False) -> str | None:
+def _quick_command(text: str, voice: bool = False, _again: bool = False) -> str | None:
     """Resolve the page's own buttons and the obvious phrasings locally.
 
     Every chip used to be a full model round-trip, and the planner still got
@@ -7684,8 +7684,12 @@ def _quick_command(text: str, voice: bool = False) -> str | None:
     and only the open-ended requests go to the planner.
     """
     import re
+    from . import intents
 
-    t = " ".join(text.lower().strip().split()).rstrip(".!?")
+    # "Hey Oma, could you turn the volume up please." -> "turn the volume up"
+    t = intents.clean(text)
+    if not t:
+        return None
 
     if t in _SOCKET_COMMANDS:
         try:
@@ -7878,7 +7882,9 @@ def _quick_command(text: str, voice: bool = False) -> str | None:
 
     # --- direct typing & key presses --------------------------------------
     if t.startswith("type ") or t.startswith("write "):
-        to_type = text.split(None, 1)[1] if len(text.split(None, 1)) > 1 else ""
+        # The words as said, case and all, after the first "type" or "write".
+        said = re.search(r"\b(?:type|write)\s+(.*)$", text, re.I | re.S)
+        to_type = said.group(1).strip() if said else ""
         if to_type:
             ok, err = _type_text(to_type, enter=False)
             return f'Typed "{to_type}".' if ok else f"Couldn't type text: {err}"
@@ -8103,6 +8109,19 @@ def _quick_command(text: str, voice: bool = False) -> str | None:
         ok, out = run("omarchy_cli", {"command": "brightness display 10%-"})
         return "Decreased brightness." if ok else f"Couldn't decrease brightness: {out}"
 
+    # --- volume: a level, a step, up / down -------------------------------
+    level = intents.volume_level(t)
+    if level is not None:
+        return _set_volume(level, run)
+
+    step = intents.volume_step(t)
+    if step is not None:
+        ok, out = run("omarchy_cli", {"command": f"audio output volume {step}"})
+        if not ok:
+            return f"Couldn't change the volume: {out}"
+        return {"raise": "Volume raised.", "lower": "Volume lowered."}.get(
+            step, f"Volume {'raised' if step[0] == '+' else 'lowered'} by {step[1:]}%.")
+
     # --- volume up / down -------------------------------------------------
     if t in ("volume up", "vol up", "vol +", "increase volume", "raise volume", "louder"):
         ok, out = run("omarchy_cli", {"command": "audio output volume raise"})
@@ -8159,7 +8178,8 @@ def _quick_command(text: str, voice: bool = False) -> str | None:
             if ok: out = ""
         return "Opened a new tab." if ok else f"Couldn't open new tab: {out}"
 
-    if t in ("address bar", "url bar", "focus address bar", "focus url", "browser url", "go to address bar"):
+    if t in ("address bar", "url bar", "focus address bar", "focus url", "browser url",
+             "go to address bar") or intents.is_address_bar(t):
         ok, out = run("send_shortcut", {"mods": "ctrl", "key": "l"})
         if not ok:
             ok, err = _press_key("ctrl+l")
@@ -8448,7 +8468,133 @@ def _quick_command(text: str, voice: bool = False) -> str | None:
         ok, out = run("omarchy_cli", {"command": "launch browser"})
         return "Opened the browser." if ok else f"Couldn't open the browser: {out}"
 
+    # --- editing keys ------------------------------------------------------
+    edit = {
+        ("select all", "select everything", "highlight all", "highlight everything"):
+            ("select_all", "Selected all."),
+        ("copy", "copy it", "copy that", "copy this", "copy selection", "copy text"):
+            ("copy", "Copied."),
+    }
+    for phrases, (action, done) in edit.items():
+        if t in phrases:
+            ok, err = _press_key(action)
+            return done if ok else f"Couldn't {action.replace('_', ' ')}: {err}"
+
+    # Ctrl+Z in a terminal suspends the program, Ctrl+S freezes it, so these
+    # are only for apps.
+    app_keys = {
+        ("undo", "undo that", "undo it"): ("z", "Undid."),
+        ("redo", "redo that", "redo it"): ("y", "Redid."),
+        ("save", "save it", "save file", "save this", "save that"): ("s", "Saved."),
+        ("find", "find on page", "search page", "search this page", "find in page"):
+            ("f", "Opened Find."),
+    }
+    for phrases, (letter, done) in app_keys.items():
+        if t in phrases:
+            from .tools import is_terminal_class
+            window = _focused_window() or {}
+            if is_terminal_class(window.get("class") or window.get("initialClass") or ""):
+                return (f"{t.capitalize()} isn't sent to a terminal, where "
+                        f"Ctrl+{letter.upper()} means something else.")
+            ok, err = _hypr_shortcut("ctrl", letter)
+            if not ok:
+                ok, err = _press_key(f"ctrl+{letter}")
+            return done if ok else f"Couldn't press Ctrl+{letter.upper()}: {err}"
+
+    # --- anything in Omarchy's own keybinding list (Super+K) ---------------
+    bound = _run_omarchy_binding(t)
+    if bound is not None:
+        return bound
+
+    # One more try without "the", "a", "my": "close the window" is "close window".
+    if not _again:
+        plain = intents.drop_articles(t)
+        if plain != t:
+            return _quick_command(plain, voice=voice, _again=True)
     return None
+
+
+def _set_volume(level: int, run) -> str:
+    """Put the output volume at an exact level through Omarchy's own command.
+
+    `omarchy audio output volume` only steps (+N/-N) and stops at 0 and 100, so
+    the step is worked out from the current level and the OSD shows once. When
+    the level can't be read, it goes to 0 and up from there.
+    """
+    current = None
+    try:
+        res = _run(["pactl", "get-sink-volume", "@DEFAULT_SINK@"],
+                   capture_output=True, text=True, timeout=3)
+        import re
+        found = re.search(r"(\d+)%", res.stdout or "")
+        current = int(found.group(1)) if found and res.returncode == 0 else None
+    except Exception:
+        current = None
+    if current is None:
+        steps = ["-100"] + ([f"+{level}"] if level else [])
+    elif level == current:
+        steps = ["+0"]
+    else:
+        steps = [f"{'+' if level > current else '-'}{abs(level - current)}"]
+    for step in steps:
+        ok, out = run("omarchy_cli", {"command": f"audio output volume {step}"})
+        if not ok:
+            return f"Couldn't set the volume: {out}"
+    return f"Volume set to {level}%."
+
+
+# Omarchy's keybinding list, read the way the Super+K menu reads it.
+_BINDINGS: dict = {"at": -1e9, "rows": []}
+_BINDINGS_LOCK = threading.Lock()
+BINDINGS_TTL = 300.0
+
+# `omarchy-menu-keybindings` with its last block (the menu itself) cut off,
+# so its functions can be called: output_binding_records prints every row with
+# the dispatcher and argument the menu runs when it's picked.
+_BINDINGS_SCRIPT = (
+    'source <(sed \'/^if \\[\\[ \\$1 == "--print"/,$d\' "$1") && output_binding_records'
+)
+
+
+def _omarchy_bindings() -> list[dict]:
+    from . import intents
+    with _BINDINGS_LOCK:
+        if time.monotonic() - _BINDINGS["at"] < BINDINGS_TTL:
+            return _BINDINGS["rows"]
+        rows: list[dict] = []
+        script = shutil.which("omarchy-menu-keybindings")
+        if script:
+            try:
+                res = _run(["bash", "-c", _BINDINGS_SCRIPT, "bash", script],
+                           capture_output=True, text=True, timeout=20)
+                if res.returncode == 0:
+                    rows = intents.parse_binding_records(res.stdout or "")
+            except Exception as exc:
+                write_log(f"warn    keybindings: {exc}")
+        write_log(f"binds   {len(rows)} Omarchy keybindings loaded")
+        _BINDINGS["at"], _BINDINGS["rows"] = time.monotonic(), rows
+        return rows
+
+
+def _run_omarchy_binding(t: str) -> str | None:
+    """Run the Super+K row whose description was said, as the menu would."""
+    from . import intents
+    row = intents.match_binding(t, _omarchy_bindings())
+    if row is None:
+        return None
+    write_log(f"binding {row['action']} ({row['chords']}): {row['dispatcher']} {brief(row['arg'])}")
+    error = "nothing to run"
+    for argv in intents.binding_commands(row):
+        try:
+            res = _run(argv, capture_output=True, text=True, timeout=5)
+        except Exception as exc:
+            error = str(exc)
+            continue
+        out = (res.stdout or "").strip()
+        if res.returncode == 0 and out.lower() in ("", "ok"):
+            return f"{row['action']}."
+        error = (res.stderr or out or "hyprctl dispatch failed").strip()
+    return f"Couldn't run {row['action']}: {error}"
 
 
 def _dispatch(text: str, voice: bool = False) -> str:
@@ -8458,7 +8604,7 @@ def _dispatch(text: str, voice: bool = False) -> str:
         reply = quick
         # Buttons and shortcut phrasings never reach a model, so nothing
         # else logs them.
-        write_log(f"phone   {text} -> {brief(reply)}")
+        write_log(f"phone   {text} -> {brief(reply)} (fast, no AI)")
     else:
         try:
             reply = send_control(f"say {text}", timeout=DAEMON_REPLY_TIMEOUT)

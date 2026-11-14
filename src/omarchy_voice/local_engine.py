@@ -1478,6 +1478,27 @@ class LocalSession:
         return f"unknown command: {cmd}"
 
     # ------------------------------------------------------------------
+    def _fast(self, text: str) -> str | None:
+        """Obvious commands run without the model, the same as from the phone.
+
+        Volume, keys, workspaces and Omarchy's own keybindings answer in
+        milliseconds; anything else returns None and goes to the planner.
+        Listening controls ("stop", "cancel") stay with the planner here,
+        since this is the daemon they would be sent to.
+        """
+        try:
+            from .intents import clean
+            from .mobile_bridge import _SOCKET_COMMANDS, _quick_command
+            if clean(text) in _SOCKET_COMMANDS:
+                return None
+            reply = _quick_command(text, voice=True)
+        except Exception as exc:
+            self.feedback.log(f"warn    fast path: {exc}")
+            return None
+        if reply is not None:
+            self.feedback.log(f"fast    {text} -> {reply} (no AI)")
+        return reply
+
     def _process_utterance(self, pcm: bytes) -> None:
         """STT → planner → TTS.  Runs in a thread pool."""
         self.feedback.state("thinking")
@@ -1493,7 +1514,9 @@ class LocalSession:
         self.feedback.log(f"heard   {text}")
         self.feedback.notify(f"🎤 {text}")
 
-        reply = self.planner.think(text)
+        reply = self._fast(text)
+        if reply is None:
+            reply = self.planner.think(text)
         self.feedback.log(f"reply   {reply}")
         self.feedback.state("listening" if self._active else "idle", reply)
         self.feedback.notify(f"Oma: {reply}")
