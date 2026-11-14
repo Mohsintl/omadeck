@@ -84,7 +84,7 @@ Workspaces 1–5 and Scratch sit above every tab: tap a number to go there, hold
 
 <div align="center">
 
-<img src="docs/images/landscape-deck-tokyo-night.png" width="760" alt="OmaDeck in landscape, in Tokyo Night: the status, quick keys, arrows and the Ask, mic and Type dock on the left; workspaces, tabs and the Desk keys on the right" />
+<img src="docs/images/deck-landscape-2026-11.png" width="760" alt="OmaDeck in landscape, in Tokyo Night: the status, quick keys, arrows and the Ask, mic and Type dock on the left; workspaces, tabs and the Desk keys on the right" />
 
 *In landscape the dock and quick keys sit on the left and the keys fill the right, so a phone propped next to your keyboard works like a deck of its own.*
 
@@ -101,8 +101,8 @@ Workspaces 1–5 and Scratch sit above every tab: tap a number to go there, hold
 
 <div align="center">
 
-<img src="docs/images/settings-tokyo-night.png" width="340" alt="OmaDeck settings in Tokyo Night, on the API Keys tab: provider, model, speech-to-text, AI dictation polish and mic activation" />
-<img src="docs/images/themes-tokyo-night.png" width="340" alt="The Theme tab in settings: Auto (desktop), Midnight, Phosphor, Amber, Gruvbox, Catppuccin, Tokyo Night, Nord, Everforest and more, each with a small preview" />
+<img src="docs/images/settings-2026-11.png" width="340" alt="OmaDeck settings in Tokyo Night, on the API Keys tab: provider, model, speech-to-text, AI dictation polish and mic activation" />
+<img src="docs/images/themes-2026-11.png" width="340" alt="The Theme tab in settings: Auto (desktop), Midnight, Phosphor, Amber, Gruvbox, Catppuccin, Tokyo Night, Nord, Everforest and more, each with a small preview" />
 
 </div>
 
