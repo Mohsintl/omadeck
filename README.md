@@ -1,161 +1,39 @@
-<p align="center"><img src="docs/assets/omadeck-logo-256.png" width="128" alt="OmaDeck logo: a glowing purple deck of keys with a microphone key, inside segmented rings" /></p>
+<p align="center"><img src="docs/assets/omadeck-logo-256.png" width="112" alt="OmaDeck logo: a deck of keys with a microphone key, inside segmented rings" /></p>
 
 <h1 align="center">OmaDeck</h1>
 
-[![License: Apache 2.0](https://img.shields.io/badge/License-Apache_2.0-blue.svg)](LICENSE)
-[![Platform](https://img.shields.io/badge/Client-iOS%20%7C%20Android%20(PWA)-blue)](#)
-[![Compositor](https://img.shields.io/badge/Compositor-Hyprland%20%2F%20Wayland-blueviolet)](#)
-[![Linux](https://img.shields.io/badge/Linux-Arch%20%2F%20Omarchy-0f94d2)](#)
-[![Roadmap](https://img.shields.io/badge/Roadmap-View%20Goals-purple)](ROADMAP.md)
-[![e2e community example](https://img.shields.io/badge/e2e-community%20example-b46cff)](https://e2e.com/examples/omadeck)
-[![Mentioned in Awesome Omarchy](https://awesome.re/mentioned-badge.svg)](https://github.com/aorumbayev/awesome-omarchy#development-tools)
-[![CI](https://github.com/Mohsintl/omadeck/actions/workflows/ci.yml/badge.svg)](https://github.com/Mohsintl/omadeck/actions/workflows/ci.yml)
+<p align="center">A phone remote and voice control for Omarchy and Hyprland: workspaces, windows, media, typing, and an AI that runs what you say.</p>
 
-> **Tactile PWA Mobile Remote Deck & Universal AI Voice Companion for Omarchy / Hyprland Linux**
+[![CI](https://github.com/Mohsintl/omadeck/actions/workflows/ci.yml/badge.svg)](https://github.com/Mohsintl/omadeck/actions/workflows/ci.yml)
+[![License: Apache 2.0](https://img.shields.io/badge/License-Apache_2.0-blue.svg)](LICENSE)
+[![Latest release](https://img.shields.io/github/v/release/Mohsintl/omadeck?color=b46cff)](https://github.com/Mohsintl/omadeck/releases/latest)
 
 <div align="center">
 
-<img src="docs/media/omadeck-tour.webp" width="360" alt="OmaDeck on an iPhone in front of an Omarchy laptop: voice commands for brightness and opening Chrome on workspace 4, killing a dev server on port 3000, a key of your own that opens a terminal and runs omadeck update, switching workspaces, and media keys on YouTube" />
+<img src="docs/media/omadeck-tour.webp" width="380" alt="OmaDeck on an iPhone in front of an Omarchy laptop: voice commands for brightness and opening Chrome on workspace 4, killing a dev server on port 3000, a key of your own that opens a terminal and runs omadeck update, switching workspaces, and media keys on YouTube" />
 
 *Sped up: voice commands, killing `:3000`, a key of your own that runs three steps, workspaces and media, all from an iPhone. [Full tour of every tab (MP4, 1 min 48 s)](docs/media/omadeck-tour.mp4).*
 
 </div>
 
-<div align="center">
+## Install
 
-| 📱 Mobile Touch Remote (Portrait) | 💻 Linux Desktop (Hyprland / Omarchy) |
-| :---: | :---: |
-| <img src="docs/images/portrait-deck-dock.jpg" width="310" alt="OmaDeck on an iPhone: workspace keys 1 to 5 and Scratch with a hint to tap or hold, tabs for Desk, Code, Media, Web, Utils and a plus for your own, the Window and Layout keys, quick keys and arrows, and the dock with Ask, a round mic and Type" /> | <img src="docs/images/pc-screen.jpg" width="510" alt="Omarchy Linux Desktop" /> |
-
-*Workspaces along the top, the deck in the middle, and the dock at the bottom: Ask, the mic and Type.*
-
-</div>
-
-### ⏱️ Try it in 2 minutes
-
-On your Omarchy machine:
+### On the PC
 
 ```bash
 git clone https://github.com/Mohsintl/omadeck.git && cd omadeck && ./install.sh --quick
 ```
 
-It installs just the phone deck and ends by showing a QR code. Scan it with your phone and follow the steps it opens. Tapping and typing work straight away; voice and AI are optional and can be set up later from the deck's Settings.
+`--quick` installs the phone deck and nothing else, asks no questions, and ends by showing a QR code. Tapping and typing work straight away; voice and AI can wait until later, in the deck's Settings or `omadeck settings` on the PC.
 
-[🚀 Quick Start](#-quick-start) • [💡 Why OmaDeck?](#-why-omadeck) • [📱 Profiles](#-five-dedicated-touch-profiles) • [⚙️ AI Setup](#️-interactive-settings--ai-configuration) • [🗺️ Roadmap](ROADMAP.md) • [🤝 Contributing](CONTRIBUTING.md)
+Needs Omarchy, or Arch with Hyprland, plus `hyprctl` and `wtype`, and Python 3.11 or newer. The phone and the PC on the same Wi-Fi, or the same Tailscale network. The deck listens on port `8765`. Everything installs under your home folder; `sudo` is only for packages, and [uninstalling](#uninstall) removes all of it.
 
----
+Run `./install.sh` without `--quick` to choose each part yourself, including the extras: the voice daemon and its service, the bar widget, the `omarchy voice ...` commands, and the SUPER + SHIFT + V keybinding. Run it again at any time to add them.
 
-### ⚡ At a Glance
+### On the phone
 
-| Question | Details |
-|:---|:---|
-| **What is it?** | A self-hosted Web App (PWA) that acts like a physical Stream Deck + AI voice remote for Linux. |
-| **Who is it for?** | Omarchy, Arch Linux, and Hyprland users who want tactile desk control or couch remote power. |
-| **Why not a physical deck?** | Physical decks cost $150+, have fixed buttons, and lack Wayland awareness. OmaDeck uses your existing phone, has 5 built-in tabs plus tabs you make yourself, OLED themes, and direct PC voice typing. |
-| **Supported Devices** | Tested on iPhone, iPad and Android (Chrome). Installs as a full-screen app from the browser, with no app store. |
-| **Privacy & Connection** | Runs on your own network, with HTTPS once the local CA is installed, and token/PIN authentication. Works offline, though cloud APIs are more accurate. |
+`omadeck mobile` prints the pairing link, and a QR code when `qrencode` is installed:
 
----
-
-## 💡 Why OmaDeck?
-
-Most Linux remote tools are either clunky VNC viewers that eat battery, or single-purpose media remotes that can't interact with modern Wayland compositors.
-
-| The Problem | How OmaDeck Solves It |
-|:---|:---|
-| Reaching for the keyboard just to switch workspaces or adjust volume while relaxing. | **One-tap touch grid**: Instant Hyprland workspace jumps, window moves, and scratchpad toggles. |
-| Typing long URLs, prompts, or text on the PC from across the room. | **Direct PC Typing**: Type or dictate via your phone's native speech keyboard straight into the focused PC window. |
-| A dev server or port `:3000` is hanging your system. | **One-tap Process Killer**: Kill `:3000`, `:8000`, or launch the crosshair window terminator with 1 tap. |
-| Physical macro pads cost $150+ and require proprietary drivers. | **Zero Hardware Cost**: Turn any spare or current phone into an OLED macro board with haptic feedback. |
-| Most AI voice assistants send everything to a proprietary cloud. | **Universal AI Engine**: Bring your own Groq, Ollama (100% local/offline), OpenAI, DeepSeek, or custom endpoint. |
-
-```
-       📱 Phone / Tablet (PWA)                     💻 Omarchy Linux Desktop (PC)
-  ┌────────────────────────────────┐         ┌──────────────────────────────────────┐
-  │  [Desk] [Code] [Media] [Utils] │ ──LAN──▶│  • Instant Workspace & Window Switch │
-  │  ⌨️ Direct PC Typing (iOS mic) │  HTTPS  │  • Terminal TUIs (OpenCode, Lazydock)│
-  │  🎙️ Tactile Hold-to-Talk AI    │  (8765) │  • Audio / Media / Brightness / Apps │
-  │  ⚡ Process Killer & Dev Tools │         │  • Hyprland Lua Dispatcher Engine    │
-  └────────────────────────────────┘         └──────────────────────────────────────┘
-```
-
----
-
-## 🌟 Highlights
-
-- **📱 Touch Remote Deck (PWA)**: Works upright and sideways on a phone or tablet. Install it from the browser as a full-screen app on iPhone or Android, with haptic feedback.
-- **🎛️ One Dock Under Your Thumb**: **Ask** on the left runs a typed command, the big **mic** in the middle runs voice commands, and **Type** on the right types straight into the focused PC window, with a remembered **Press ↵ after** switch. Quick keys (`↵ Enter`, `⌫ Del`, `Tab`, `Esc`, `All`, `Copy`, `Paste`) and arrows you can hold to repeat sit just above it.
-- **⭐ Tabs and Keys of Your Own**: Tap **+** to add a tab, then make keys that run any deck button, type text, press a key combo, or run **Steps** in order. For example: New terminal → wait 1 s → type `cd omadeck && omadeck update` ↵. Deck keys run on the PC without the AI, so they use no tokens.
-- **⚡ Obvious Commands Skip the AI**: "Volume to max", "set the volume to 40 percent", "turn it up a bit", "focus the address bar", "select all", "undo", and any description from Omarchy's **Super+K** keybinding list ("toggle nightlight", "color picker", "focus on left window", "lock the screen") run straight away, from the phone or the PC mic, with no tokens. "Hey Oma", "please" and "can you" are ignored. Everything else goes to the AI, and `omadeck log` marks which way each command went.
-- **✏️ Edit Deck**: From the **⋯** menu, hide keys, reorder them and pick which quick keys show. Saved on that phone.
-- **🪟 One Row for Workspaces**: Tap a number to go there, or hold it to move the focused window there.
-- **⏯️ Media That Works on YouTube**: Play/pause, next and previous press YouTube's own keys in its window, even when another window has focus, and use MPRIS for Spotify and other players.
-- **🎙️ Inline Speech Dictation & AI Polish**: A dictation mic inside the Type panel with Amical-style cleanup: it strips filler words like "um" and "uh", fixes punctuation, and formats for the focused app.
-- **🕹️ Hold, Tap, or Hybrid Mic Activation**: Choose between Push-to-talk (hold to speak), Hands-free latch (tap to start/stop), or Both (hybrid tap/hold) with radar pulse and live sound-wave visualizers.
-- **🤖 Universal AI Model Support**: Works with **any** modern LLM provider:
-  - **Groq** (Ultra-fast 500+ tok/s with Llama 3.3 70B)
-  - **Ollama** (100% offline, local & free)
-  - **OpenAI** (gpt-4o / gpt-4o-mini)
-  - **OpenRouter**, **DeepSeek**, **Mistral**, **NVIDIA NIM**, and **Custom OpenAI-compatible endpoints** (vLLM, LM Studio).
-- **🎙️ Independent Speech-to-Text (`STT_API_KEY`)**: Decoupled voice transcription so you can run a local LLM (Ollama) while taking advantage of blazing-fast cloud Whisper (Groq/OpenAI), or keep it 100% offline with local `faster-whisper`.
-- **🎨 24 Omarchy Color Themes & Auto-Sync**: Auto-matches your active Omarchy desktop theme live (Gruvbox, Catppuccin, Tokyo Night, Nord, Everforest, Kanagawa, Rose Pine, Hackerman, etc.) or manually select your favorite OLED theme!
-- **🛑 Dev Process & Port Management**: Kill stuck dev servers (`:3000`, `:8000`, Local LLM `:11434`, T3 Dash `:3773`) or use the Crosshair Window Terminator directly from your phone.
-- **🔒 Local First**: Runs on your own network with an auto-generated token, a local CA limited to private addresses, and an optional PIN lock. See the [security guide](#-network-security--privacy-guide) for what it does and doesn't protect against.
-
----
-
-## 📱 Five Dedicated Touch Profiles
-
-| Profile | What it Controls |
-|:---|:---|
-| **🪟 Desk** | Fullscreen, float, split, previous/next window, swap left/right, close window, dimmer/brighter, lock and sleep. Workspaces 1–5 and Scratch sit above every tab: tap to go there, hold to move the window there. |
-| **💻 Code** | Git status, diff, pull and push; kill `:3000` and `:8000`; `Ctrl+C`, suspend (`Ctrl+Z`), clear (`Ctrl+L`); run tests, new terminal, terminal copy/paste. |
-| **🎵 Media** | Previous, play/pause, next and stop (YouTube included); volume −/+, mute, switch audio output; PC mic mute, screenshot, app menu. |
-| **🌐 Web** | Back, forward, scroll up/down; previous/next tab, new tab, close tab; address bar, reload, zoom in/out. |
-| **🛠️ Utils** | btop, T3 Code, Inspector, Lazygit, Docker (lazydocker), OpenCode, Kill app, Zen mode, Caffeine, Night light, Clipboard history and the system menu. |
-| **⭐ Your own** | Tap **+** to make a tab with keys of your own: deck keys, text, key combos or Steps. |
-
-### 🕹️ Ergonomic Landscape Split-Deck Mode
-Prop your phone or tablet next to your keyboard as a dedicated physical Stream Deck alternative:
-
-<div align="center">
-  <img src="docs/images/landscape-deck-tokyo-night.png" width="760" alt="OmaDeck Landscape Split-Deck (Tokyo Night)" />
-</div>
-
----
-
-## 🚀 Quick Start
-
-### Requirements
-
-- **On the PC:** Omarchy, or Arch with Hyprland, with `hyprctl` and `wtype`. Python 3.11 or newer; the phone deck needs no Python packages of its own.
-- **On the phone:** iPhone or iPad with Safari, or Android with Chrome.
-- **The network:** the phone and the PC on the same Wi-Fi or LAN, or the same Tailscale network. The deck listens on port `8765`.
-- **Optional:** `qrencode` for the pairing QR code, and an API key (Groq, OpenAI and others) or a local Ollama for voice and AI.
-
-The installer runs as your user and puts everything under your home folder. It only asks for `sudo` to install packages with pacman, or for the optional `omarchy voice ...` commands. [Uninstalling](#-uninstall) removes all of it.
-
-### 1. Installation
-
-Clone and install on your Omarchy machine:
-
-```bash
-git clone https://github.com/Mohsintl/omadeck.git
-cd omadeck
-./install.sh --quick
-```
-
-`--quick` sets up just the phone deck without any questions: the `omadeck` command, the phone page as a background service that starts when you log in, and `qrencode` for the pairing QR code. It then shows the pairing QR code.
-
-Run `./install.sh` without `--quick` to choose each part yourself, including the extras: the voice daemon and its service, the bar widget, the `omarchy voice ...` commands, and the SUPER + SHIFT + V keybinding. You can run it again at any time to add them.
-
-### 2. Connect from Your Phone
-
-Run this in a terminal, and it walks you through setting up your phone. If the background service is running, it just shows the steps. If it isn't, it also starts the server until you press Ctrl+C:
-```bash
-omadeck mobile
-```
-You will see output similar to:
 ```text
   Scan this with your phone's camera. It walks you through the rest:
   the certificate (once per phone), opening the deck, and adding it
@@ -165,101 +43,90 @@ You will see output similar to:
     Certificate fingerprint: 8A:3F:B2:91:...
     Keep this link private: anyone with it can control your desktop.
 ```
-The QR code opens a setup page on the phone. It downloads the certificate with the steps for iPhone or Android, checks that the phone now trusts it, then opens the deck over HTTPS. The token is after the `#`, which the phone never sends over the network. Still, treat the link and QR code like a password. The service log leaves the token out and shows only the certificate fingerprint.
 
-To get the QR code, say yes when the installer offers `qrencode`, or install it later with `sudo pacman -S qrencode`. The links work without it.
+Scan it: the page that opens installs the certificate, checks that the phone trusts it, then opens the deck over HTTPS. Browsers only hand the microphone to a page over HTTPS, so the certificate is trusted once per phone. To do that part by hand, open `http://<your-pc-lan-ip>:8765/ca.crt`:
 
-#### Step-by-Step Connection Guide:
-1. **Install CA Certificate for Encrypted HTTPS & Microphone**:
-   - Modern mobile browsers (iOS Safari & Android Chrome) **strictly require HTTPS** for microphone access (`getUserMedia`).
-   - On your phone connected to the same Wi-Fi, open `http://<your-laptop-lan-ip>:8765/ca.crt` (or tap the setup banner) to download OmaDeck's scoped root CA.
-   - **iOS**: Open **Settings ➔ Profile Downloaded ➔ Install**, then enable **Settings ➔ General ➔ About ➔ Certificate Trust Settings ➔ Enable Full Trust for "Oma Remote CA"**.
-   - **Android**: Open **Settings ➔ Security ➔ Encryption & Credentials ➔ Install a Certificate ➔ CA Certificate**.
-   - *Upgrade Note*: If you are upgrading from an earlier OmaDeck version, install the new certificate profile as the CA is now restricted with strict name constraints (`.local`, `.ts.net`, and private subnets).
-2. **Connect & Pair Securely (HTTPS)**:
-   - Open `https://<your-laptop-lan-ip>:8765/?token=<token>` (or scan the QR code, if `qrencode` is installed).
-   - HTTPS ensures your pairing token, PIN, dictation audio, and window commands are fully encrypted across your local network.
-3. **PWA Standalone App**:
-   - In Safari, tap **Share ➔ Add to Home Screen**. In Chrome on Android, tap **⋮ ➔ Install app**. **Add to Home screen** only makes a shortcut that opens in Chrome, and **Install app** only appears once the certificate is trusted.
-   - This launches OmaDeck in fullscreen mode without URL address bars, providing an authentic hardware Stream Deck experience with haptic vibrations.
+- **iPhone and iPad:** **Settings → Profile Downloaded → Install**, then **Settings → General → About → Certificate Trust Settings** and turn on full trust for "Oma Remote CA".
+- **Android:** **Settings → Security → Encryption & credentials → Install a certificate → CA certificate**. A CA certificate, not "VPN & app" and not "Wi-Fi".
 
----
+Then open the `https://` link, or scan the QR code again. If the browser warns that the connection isn't private, the certificate isn't trusted yet: do the steps above instead of tapping through.
 
-## 🔒 Network Security & Privacy Guide
+The last step is installing the deck as an app: **Share → Add to Home Screen** in Safari, **⋮ → Install app** in Chrome. "Add to Home screen" in Chrome only makes a shortcut that keeps the address bar.
 
-> [!IMPORTANT]
-> OmaDeck provides direct input execution (virtual typing and shell triggers via `hyprctl` and `wtype`) onto your Linux desktop.
+The token sits after the `#`, which the phone never sends over the network. Treat the link and the QR code like a password anyway: anyone holding them can control your desktop. The service log leaves the token out and prints only the certificate fingerprint.
 
-- **Local Network Only**: Never port-forward port `8765` directly through your home router or expose it to the public internet.
-- **PIN Session Lock**: If you share your Wi-Fi network (or use public/office networks), go to **Settings ➔ Security** and configure a 4-to-8 digit PIN lock. This prevents anyone on the subnet from controlling your desktop.
-- **Remote Access Outside Home**: To control your desktop securely while away from home, use a private encrypted mesh VPN such as **[Tailscale](https://tailscale.com)** or **WireGuard** instead of public port forwarding.
+`qrencode` is optional and the links work without it; `sudo pacman -S qrencode` adds it.
 
-### What OmaDeck does and doesn't protect against
+### Upgrading from 0.5.0
 
-OmaDeck is built for a network you trust, such as your home Wi-Fi. Anyone holding your pairing link can control your desktop.
+```bash
+cd omadeck && git pull && ./install.sh --update && omadeck restart
+```
 
-**In place:**
-- **Shell access is off by default** (`allow_shell = false`). The assistant can't run commands or press Enter in a recognised terminal.
-- **Untrusted text is held back.** For 2 minutes after the assistant reads a screen, terminal, web page, or clipboard, commands and saved notes need your spoken confirmation.
-- **Secrets stay off plain HTTP.** PINs and API keys are refused over HTTP when HTTPS is available.
-- **Limits on abuse.** PIN guesses are rate limited, connections are capped per address, and slow clients are cut off.
+`omadeck update` arrives in 0.6.0 and does those three steps from now on. On iPhone, remove the Home Screen icon and add it again for the new icon and name.
 
-**Known limits:**
-- **Plain HTTP still works for touch controls**, so phones without the CA can use the deck. On that connection your token and commands aren't encrypted, so use HTTPS on any network you share.
-- **Prompt injection is reduced, not solved.** Text on a page could still steer ordinary clicks and typing. Be careful using the assistant on pages you don't trust.
-- **The command denylist isn't a sandbox.** With `allow_shell` on, a script already on disk can do anything your user can. Leave it off unless you need it.
-- **The terminal guard goes by window type.** It doesn't recognise terminals built into editors, such as VS Code's.
-- **Someone on your network can block PIN login** for up to 24 hours by failing it repeatedly. Your pairing link keeps working.
+## What you get
 
-Found a security problem? Please see [SECURITY.md](SECURITY.md).
+**A dock under your thumb.** **Ask** runs a typed command, the **mic** runs a voice command, **Type** types into the focused PC window. Each opens one panel above the dock instead of taking over the screen. Quick keys and arrows you can hold to repeat sit just above it, and `⋯` has Edit deck, where you hide and reorder keys and pick the quick keys, saved on that phone.
 
----
+**Tabs, with the keys already on them.** Tap a workspace number to go there, hold it to move the focused window there. Workspaces 1–5 and Scratch sit above every tab.
 
-## 🧪 Tested Compatibility
-
-| Component | Tested on |
+| Tab | Keys |
 |:---|:---|
-| **Linux** | Omarchy |
-| **Compositor** | Hyprland 0.56.2. Requires `hyprctl` and `wtype`. |
-| **Phone and tablet** | iPhone, iPad, and Android with Chrome (Redmi Note 9 Pro Max) |
+| **Desk** | Fullscreen, float, split, previous/next window, swap left/right, close window, dimmer/brighter, lock and sleep. |
+| **Code** | Git status, diff, pull and push; kill `:3000` and `:8000`; `Ctrl+C`, suspend, clear; run tests, new terminal, terminal copy/paste. |
+| **Media** | Previous, play/pause, next and stop, YouTube included; volume, mute, switch audio output; PC mic mute, screenshot, app menu. |
+| **Web** | Back, forward, scroll, previous/next tab, new tab, close tab, address bar, reload, zoom. |
+| **Utils** | btop, T3 Code, Inspector, Lazygit, lazydocker, OpenCode, Kill app (point a crosshair at any stuck window and end it), Zen mode, Caffeine, Night light, Clipboard history, system menu. |
+| **Yours** | Tap **+** to make a tab of your own: keys that run a deck button, type text, press a key combo, or run Steps in order. New terminal → wait 1 s → type `cd omadeck && omadeck update` ↵. Deck keys run on the PC without the AI, so they cost no tokens. |
 
-Other Hyprland setups and Android phones may work but haven't been tested yet. Reports are welcome in the [issue tracker](https://github.com/Mohsintl/omadeck/issues).
+**Obvious commands skip the AI.** "Volume to max", "volume 40 percent", "turn it up a bit", "focus the address bar", "select all", "undo", and every description in Omarchy's Super+K keybinding list ("toggle nightlight", "color picker", "focus on left window") run straight away, from the phone or the PC mic, with no tokens. "Hey Oma", "please" and "can you" get dropped. Everything else goes to the AI, and `omadeck log` marks which way each command went.
 
-**Offline use:** everything works offline with local models, but voice and AI results are less accurate than with a cloud API.
-
-### Tested end to end
-
-The phone deck has end-to-end tests built with [e2e](https://e2e.com). They open the deck in a phone-sized browser, tap the keys, and check what reached the desktop. The desktop is fake: `hyprctl` and `wtype` stand-ins log each call, so the tests run on any machine, and CI runs them on every pull request alongside 400+ unit tests.
-
-OmaDeck is featured as a community example on e2e: **[Testing OmaDeck's phone deck with e2e](https://e2e.com/examples/omadeck)**. To run the tests yourself, see [`e2e/README.md`](e2e/README.md).
-
----
-
-## ⚙️ Interactive Settings & AI Configuration
-
-Configure your AI provider, mic triggers, and OLED themes from either your PC or phone:
+**Themes that follow your desktop.** The deck matches your active Omarchy theme, or you pick one of the built-in ones yourself.
 
 <div align="center">
 
-| ⚙️ AI Keys & Settings | 🎨 24 OLED Themes & Auto-Sync |
-| :---: | :---: |
-| <img src="docs/images/settings-tokyo-night.png" width="350" alt="OmaDeck AI Settings Modal (Tokyo Night)" /> | <img src="docs/images/themes-tokyo-night.png" width="350" alt="OmaDeck Themes Modal (Tokyo Night)" /> |
+<img src="docs/images/landscape-deck-tokyo-night.png" width="760" alt="OmaDeck in landscape, in Tokyo Night: the log and the Ask/Type box on the left, workspaces, tabs and the key grid on the right" />
+
+*In landscape there's room for the log and the command box beside the keys, so a phone propped next to your keyboard works like a deck of its own.*
 
 </div>
 
-* **On PC**: Run `omadeck settings` in terminal to launch the settings panel.
-* **On Phone**: Tap the **⚙️** gear icon in the top navigation bar.
+## Settings and AI keys
 
-In the **API Keys** pane:
-- Select your provider (**Groq**, **Ollama**, **OpenAI**, **OpenRouter**, **DeepSeek**, **Mistral**, **NVIDIA**, or **Custom**).
-- Choose your **Mic Activation** style (**Hold to talk**, **Tap to talk**, or **Both tap & hold**).
-- Enable **AI Dictation Polishing** to automatically strip filler words ("um", "uh") and fix formatting.
-- Paste your API key (stored in `~/.config/omarchy-voice/env` with `chmod 600`).
-- Tap **"Test & Save Keys"** to verify connection live before saving.
+`omadeck settings` on the PC and the gear on the phone open the same panel: provider, keys, mic behaviour, theme.
 
----
+- Pick a provider: **Groq**, **Ollama**, **OpenAI**, **OpenRouter**, **DeepSeek**, **Mistral**, **NVIDIA**, or a custom OpenAI-compatible endpoint such as vLLM or LM Studio.
+- Paste the key, then **Test & Save Keys** checks it before saving. Keys live in `~/.config/omarchy-voice/env` with `chmod 600`.
+- Speech-to-text has its own key (`STT_API_KEY`), so a local model can run with cloud transcription, or everything stays local with `faster-whisper`.
+- Choose how the mic starts: hold to talk, tap to talk, or both. Dictation can strip filler words ("um", "uh") and fix punctuation before it types.
 
-## 🖥️ Desktop Commands
+<div align="center">
+
+<img src="docs/images/settings-tokyo-night.png" width="340" alt="OmaDeck settings panel in Tokyo Night: provider, API keys, mic activation, dictation polish" />
+<img src="docs/images/themes-tokyo-night.png" width="340" alt="The theme picker, each theme shown as a preview of the deck" />
+
+</div>
+
+## Security
+
+OmaDeck types and clicks on your desktop, so it is a keyboard lying on your network. It's built for a network you trust: anyone holding the pairing link can control your desktop. Never port-forward `8765`. Away from home, use Tailscale or WireGuard. On shared Wi-Fi, set a PIN in Settings → Security.
+
+**In place.** Shell access is off by default (`allow_shell = false`), so the assistant can't run commands or press Enter in a recognised terminal. For two minutes after it reads a screen, terminal, page or clipboard, commands and saved notes need your spoken confirmation. PINs and API keys are refused over plain HTTP when HTTPS is available. PIN guesses are rate limited, connections are capped per address, and slow clients are cut off.
+
+**Known limits.** Touch controls still work over plain HTTP, so a phone without the certificate sends its token and commands unencrypted. Prompt injection is reduced, not solved: text on a page can still steer ordinary clicks and typing. The command denylist isn't a sandbox. The terminal guard goes by window type, so it misses terminals built into editors. Someone on your network can block PIN login for up to 24 hours by failing it repeatedly, though your pairing link keeps working.
+
+Found a security problem? Please see [SECURITY.md](SECURITY.md).
+
+## What I've tested
+
+Omarchy with Hyprland 0.56.2, on iPhone and iPad with Safari, and on Android with Chrome (Redmi Note 9 Pro Max). Other Hyprland setups and other Android phones should work but haven't been tried, so reports are welcome in the [issues](https://github.com/Mohsintl/omadeck/issues).
+
+Everything works offline with local models; voice and AI results are just less accurate than with a cloud API.
+
+The phone deck has end-to-end tests that open it in a phone-sized browser, tap the keys and check what reached the desktop. The desktop is fake: `hyprctl` and `wtype` stand-ins log each call, so the tests run on any machine, and CI runs them on every pull request next to 400+ unit tests. They're also written up as a [community example on e2e](https://e2e.com/examples/omadeck); to run them yourself, see [`e2e/README.md`](e2e/README.md).
+
+## Commands
 
 ```bash
 # Show your pairing link
@@ -283,34 +150,28 @@ omadeck say "go to workspace 2"
 
 ### Updating
 
-```bash
-omadeck update
-```
+`omadeck update` pulls the folder you installed from, copies the new code into place and restarts, without asking the installer's questions again. Your settings, keys and pairing stay. It stops without changing anything if that folder has changes you haven't committed.
 
-This pulls the folder you installed from, copies the new code into place and restarts OmaDeck, without asking the installer's questions again. Your settings, keys and pairing stay. It stops without changing anything if that folder has changes you haven't committed.
-
-The services run a copy of the code, so `git pull` on its own changes nothing. If you installed before `omadeck update` existed, update the long way once:
+The services run a copy of the code, so `git pull` on its own changes nothing. If you installed before `omadeck update` existed, do it the long way once:
 
 ```bash
 cd omadeck
 git pull
-./install.sh
+./install.sh --update
 omadeck restart
 ```
 
-Answer **N** to the installer's questions on a re-install. After that, `omadeck update` works.
+After that, `omadeck update` works.
 
----
-
-## 🩺 Troubleshooting
+## Troubleshooting
 
 Start with `omadeck doctor`, which checks every moving part, and `omadeck log -f`, which shows each button press and voice command as it happens.
 
 | What you see | What to do |
 |:---|:---|
 | The deck loads on the PC but times out on the phone | The firewall is probably blocking it. Omarchy turns on `ufw`, so allow the port with `sudo ufw allow 8765/tcp`. `omadeck mobile` warns about this when it spots it. Also check that the phone is on the same Wi-Fi, not mobile data. |
-| The browser warns that the connection isn't private | The certificate isn't trusted yet. Scan the QR code from `omadeck mobile` again and follow step 1; on iPhone, also turn on full trust in **Settings ➔ General ➔ About ➔ Certificate Trust Settings**. Don't tap **Proceed** on the warning. |
-| Android has no **Install app**, or the app opens with a Chrome bar | Chrome doesn't trust the certificate: tap the icon left of the address, which must say **Connection is secure**. Install the certificate as a **CA certificate** (not VPN & app or Wi-Fi), clear any old Proceed in Chrome's **⋮ ➔ Settings ➔ Site settings ➔ All sites ➔ your PC ➔ Clear & reset**, then reinstall with **⋮ ➔ Install app**. |
+| The browser warns that the connection isn't private | The certificate isn't trusted yet. Scan the QR code from `omadeck mobile` again and follow the certificate steps above; on iPhone, also turn on full trust in **Settings → General → About → Certificate Trust Settings**. Don't tap **Proceed** on the warning. |
+| Android has no **Install app**, or the app opens with a Chrome bar | Chrome doesn't trust the certificate: tap the icon left of the address, which must say **Connection is secure**. Install the certificate as a **CA certificate** (not VPN & app or Wi-Fi), clear any old Proceed in Chrome's **⋮ → Settings → Site settings → All sites → your PC → Clear & reset**, then reinstall with **⋮ → Install app**. |
 | The mic doesn't work | Browsers only allow the mic over HTTPS. Open the `https://` link, not the `http://` one, after installing the certificate. |
 | The deck asks for the "Desktop Pairing Token" | The link is missing its `?token=...`, or the token changed. Scan the QR code from `omadeck mobile` again. |
 | The Home Screen icon is a plain letter or the old logo | Run `omadeck update`, remove the icon from the Home Screen and add it again; iOS keeps the old one. |
@@ -319,16 +180,14 @@ Start with `omadeck doctor`, which checks every moving part, and `omadeck log -f
 
 Still stuck? [Open an issue](https://github.com/Mohsintl/omadeck/issues) with the output of `omadeck doctor`.
 
----
-
-## 🧹 Uninstall
+## Uninstall
 
 ```bash
 cd omadeck
 ./uninstall.sh
 ```
 
-It stops and removes the services, the `omadeck` command, the installed code, the bar widget and the keybinding it added. It backs up `bindings.lua` and `shell.json` before changing them. Your settings, API keys and certificates stay in `~/.config/omarchy-voice` so a re-install keeps your pairing.
+It stops and removes the services, the `omadeck` command, the installed code, the bar widget and the keybinding it added. It backs up `bindings.lua` and `shell.json` before changing them. Your settings, API keys and certificates stay in `~/.config/omarchy-voice`, so a re-install keeps your pairing.
 
 To remove those as well:
 
@@ -336,25 +195,16 @@ To remove those as well:
 ./uninstall.sh --purge
 ```
 
-Then delete the "Oma Remote CA" certificate from your phone: on iPhone, **Settings ➔ General ➔ VPN & Device Management**.
+Then delete the "Oma Remote CA" certificate from your phone: on iPhone, **Settings → General → VPN & Device Management**.
 
----
+## Roadmap and contributing
 
-## 🗺️ Roadmap & Contributing
+[ROADMAP.md](ROADMAP.md) has what's planned. [CONTRIBUTING.md](CONTRIBUTING.md) covers local development and tests. Ideas and bugs go in the [issue tracker](https://github.com/Mohsintl/omadeck/issues).
 
-- Check out the **[OmaDeck Roadmap](ROADMAP.md)** for planned features and upcoming milestones.
-- Interested in contributing? Read **[CONTRIBUTING.md](CONTRIBUTING.md)** for local development and setup guidelines.
-- Have ideas or issues? Open an issue on our [GitHub Issue Tracker](https://github.com/Mohsintl/omadeck/issues).
+## Credits
 
----
+Built on [Omarchy](https://omarchy.org) and the [Hyprland](https://hyprland.org) Wayland compositor. The foundations and the Hyprland Lua dispatching started from [omarchy-voice](https://github.com/wombatoperator/omarchy-voice) by Britain Eriksen. OmaDeck is mentioned in [Awesome Omarchy](https://github.com/aorumbayev/awesome-omarchy#development-tools).
 
-## 🤝 Acknowledgments & Heritage
+## License
 
-- Built for **[Omarchy](https://omarchy.org)** and the **[Hyprland](https://hyprland.org)** Wayland compositor.
-- Foundations and core Hyprland Lua dispatching inspired by and developed from **[omarchy-voice](https://github.com/wombatoperator/omarchy-voice)** by Britain Eriksen.
-
----
-
-## 📄 License
-
-Distributed under the [Apache License 2.0](LICENSE).
+[Apache License 2.0](LICENSE).
