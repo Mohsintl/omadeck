@@ -130,13 +130,37 @@ class QuickCommandTests(unittest.TestCase):
             p.start()
             self.addCleanup(p.stop)
 
-    def test_volume_to_max_is_one_exact_step(self):
+    def _pactl(self, *levels):
+        """Fake the sink lookup and pactl: each get-sink-volume returns the next level."""
+        seen = list(levels)
+        self.read = []
+
+        def run(argv, **kwargs):
+            if argv[0] in ("omarchy-audio-output-sink", "omarchy"):
+                return SimpleNamespace(returncode=0, stdout="alsa_output.speakers\n")
+            self.read.append(argv[-1])
+            level = seen.pop(0) if len(seen) > 1 else seen[0]
+            return SimpleNamespace(returncode=0,
+                                   stdout=f"Volume: front-left: 19661 /  {level}% / -31 dB")
+        return run
+
+    def test_volume_to_max_is_one_exact_step_on_the_real_sink(self):
         from omarchy_voice.mobile_bridge import _quick_command
-        pactl = SimpleNamespace(returncode=0, stdout="Volume: front-left: 19661 /  30% / -31 dB")
-        with mock.patch("omarchy_voice.mobile_bridge._run", return_value=pactl):
+        with mock.patch("omarchy_voice.mobile_bridge._run", side_effect=self._pactl(30, 100)), \
+             mock.patch("omarchy_voice.mobile_bridge.shutil.which", return_value="/usr/bin/x"):
             reply = _quick_command("Hey Oma, volume to max please.")
         self.assertEqual(reply, "Volume set to 100%.")
         self.assertEqual(self.calls, [("omarchy_cli", {"command": "audio output volume +70"})])
+        self.assertEqual(set(self.read), {"alsa_output.speakers"})
+
+    def test_a_level_that_lands_off_is_corrected_once(self):
+        from omarchy_voice.mobile_bridge import _quick_command
+        with mock.patch("omarchy_voice.mobile_bridge._run", side_effect=self._pactl(60, 45, 40)), \
+             mock.patch("omarchy_voice.mobile_bridge.shutil.which", return_value="/usr/bin/x"):
+            reply = _quick_command("volume 40 percent")
+        self.assertEqual(reply, "Volume set to 40%.")
+        self.assertEqual([c[1]["command"] for c in self.calls],
+                         ["audio output volume -20", "audio output volume -5"])
 
     def test_volume_level_without_a_reading_goes_through_zero(self):
         from omarchy_voice.mobile_bridge import _quick_command

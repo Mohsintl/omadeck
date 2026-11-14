@@ -8514,32 +8514,70 @@ def _quick_command(text: str, voice: bool = False, _again: bool = False) -> str 
     return None
 
 
+def _output_sink() -> str:
+    """The sink Omarchy's volume command really changes.
+
+    With a speaker tuning filter (or EasyEffects) as the default output, the
+    default sink is the filter, whose level isn't what the speakers play at.
+    `omarchy audio output sink` follows it down to the physical sink, the one
+    `omarchy audio output volume` steps.
+    """
+    for argv in (["omarchy-audio-output-sink"], ["omarchy", "audio", "output", "sink"]):
+        if not shutil.which(argv[0]):
+            continue
+        try:
+            res = _run(argv, capture_output=True, text=True, timeout=3)
+        except Exception:
+            continue
+        name = (res.stdout or "").strip().splitlines()
+        if res.returncode == 0 and name and name[0].strip():
+            return name[0].strip()
+    return "@DEFAULT_SINK@"
+
+
+def _sink_volume(sink: str) -> int | None:
+    """The sink's volume in percent (first channel), or None."""
+    import re
+    try:
+        res = _run(["pactl", "get-sink-volume", sink], capture_output=True, text=True,
+                   timeout=3, env={**os.environ, "LC_ALL": "C"})
+    except Exception:
+        return None
+    found = re.search(r"(\d+)%", res.stdout or "")
+    return int(found.group(1)) if found and res.returncode == 0 else None
+
+
 def _set_volume(level: int, run) -> str:
     """Put the output volume at an exact level through Omarchy's own command.
 
     `omarchy audio output volume` only steps (+N/-N) and stops at 0 and 100, so
-    the step is worked out from the current level and the OSD shows once. When
-    the level can't be read, it goes to 0 and up from there.
+    the step is worked out from the level of the sink it changes. The level is
+    read again afterwards and corrected once if it is off (another app moved it,
+    or the sink changed). When it can't be read at all, it goes to 0 and up.
     """
-    current = None
-    try:
-        res = _run(["pactl", "get-sink-volume", "@DEFAULT_SINK@"],
-                   capture_output=True, text=True, timeout=3)
-        import re
-        found = re.search(r"(\d+)%", res.stdout or "")
-        current = int(found.group(1)) if found and res.returncode == 0 else None
-    except Exception:
-        current = None
+    sink = _output_sink()
+    current = _sink_volume(sink)
+    write_log(f"volume  {sink}: {current if current is not None else '?'}% -> {level}%")
     if current is None:
         steps = ["-100"] + ([f"+{level}"] if level else [])
     elif level == current:
-        steps = ["+0"]
+        steps = []
     else:
         steps = [f"{'+' if level > current else '-'}{abs(level - current)}"]
     for step in steps:
         ok, out = run("omarchy_cli", {"command": f"audio output volume {step}"})
         if not ok:
             return f"Couldn't set the volume: {out}"
+    after = _sink_volume(sink) if current is not None else None
+    if after is not None and after != level:
+        fix = f"{'+' if level > after else '-'}{abs(level - after)}"
+        write_log(f"volume  {sink}: landed on {after}%, correcting {fix}")
+        ok, out = run("omarchy_cli", {"command": f"audio output volume {fix}"})
+        if not ok:
+            return f"Couldn't set the volume: {out}"
+        after = _sink_volume(sink)
+    if after is not None and after != level:
+        return f"Volume is at {after}% (asked for {level}%)."
     return f"Volume set to {level}%."
 
 
