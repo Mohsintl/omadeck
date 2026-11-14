@@ -71,7 +71,7 @@
     .btn-ghost:hover { border-color: var(--accent); }
     .note { margin-top: 18px; color: var(--muted); font-size: 14px; }
     .video {
-      justify-self: center; width: 100%; max-width: 380px; aspect-ratio: 4 / 5;
+      justify-self: center; width: 100%; max-width: 320px; aspect-ratio: 9 / 16;
       border-radius: 28px; overflow: hidden; border: 2px solid var(--accent);
       box-shadow: 0 0 80px rgba(180, 108, 255, 0.35); background: var(--panel);
     }
@@ -116,6 +116,17 @@
     .shots { display: grid; grid-template-columns: 1.4fr 1fr 1fr; gap: 16px; }
     .shots img { width: 100%; border-radius: 16px; border: 1px solid var(--panel-edge); display: block; }
 
+    /* one clip per feature */
+    .clips { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 18px; }
+    .clip { background: var(--panel); border: 1px solid var(--panel-edge); border-radius: 20px; overflow: hidden; display: flex; flex-direction: column; }
+    .clip video { width: 100%; aspect-ratio: 9 / 16; object-fit: cover; display: block; background: #0a0812; }
+    .clip-body { padding: 16px 18px 20px; }
+    .clip .tag { padding: 3px 12px; font-size: 13px; }
+    .clip h3 { margin: 10px 0 8px; font-size: 18px; letter-spacing: -0.01em; }
+    .clip ol { margin: 0; padding-left: 20px; color: var(--muted); font-size: 15px; }
+    .clip li { margin: 5px 0; }
+    .clip li::marker { color: var(--accent-light); font-weight: 700; }
+
     .star { text-align: center; }
     .star .big { font-size: 56px; color: var(--star); line-height: 1; }
     .star p { color: var(--soft); font-size: 18px; max-width: 52ch; margin: 14px auto 26px; }
@@ -129,6 +140,7 @@
       .grid { grid-template-columns: 1fr 1fr; }
       .shots { grid-template-columns: 1fr; }
       .everything { grid-template-columns: 1fr 1fr; }
+      .clips { grid-template-columns: 1fr 1fr; }
     }
     @media (max-width: 560px) {
       .grid { grid-template-columns: 1fr; }
@@ -137,6 +149,12 @@
       .tag { justify-self: start; padding: 4px 12px; }
       .gh span { display: none; }
       .lede { font-size: 17px; }
+      .clips { grid-template-columns: 1fr; }
+      .clip { display: grid; grid-template-columns: 44% minmax(0, 1fr); }
+      .clip video { height: 100%; }
+      .clip-body { padding: 14px 14px 16px; }
+      .clip h3 { font-size: 16px; }
+      .clip ol { font-size: 14px; padding-left: 18px; }
     }
     @media (prefers-reduced-motion: reduce) { html { scroll-behavior: auto; } }
   </style>
@@ -159,13 +177,13 @@
           <p class="lede">OmaDeck turns any phone or tablet into a Stream Deck and voice remote for your desktop. Run it from the couch, the bed, or across the room.</p>
           <div class="ctas">
             <a class="btn btn-primary" href="#install">Install</a>
-            <a class="btn btn-ghost" href="https://github.com/Mohsintl/omadeck">View on GitHub</a>
+            <a class="btn btn-ghost" href="#watch">Watch each feature</a>
           </div>
           <p class="note">Free and open source · Apache 2.0 · No app store, no extra hardware</p>
         </div>
         <div class="video">
-          <video src="media/omadeck-demo.mp4" autoplay muted loop playsinline preload="metadata"
-                 aria-label="Demo: switching workspaces, a voice command opening Chrome, dictation, and killing a dev server from an iPad"></video>
+          <video src="media/clips/highlight.mp4" poster="media/clips/highlight.jpg" autoplay muted loop playsinline preload="metadata"
+                 aria-label="OmaDeck on an iPhone in front of an Omarchy laptop: voice commands, killing a dev server on port 3000, a key of your own that runs omadeck update, workspaces and media keys"></video>
         </div>
       </div>
 
@@ -177,8 +195,67 @@
           <div class="card"><div class="key">🎙</div><h3>Say what you want</h3><p>"Open Chrome on workspace 5" just works. Bring your own AI: Ollama fully local, or Groq, OpenAI and more.</p></div>
           <div class="card"><div class="key">⌨</div><h3>Type from your phone</h3><p>Type or dictate into whatever window is focused, with Enter, Tab, Esc, All, Copy, Paste and arrow keys.</p></div>
           <div class="card"><div class="key">⚡</div><h3>Kill :3000</h3><p>Stop a stuck dev server with one tap, without hunting for the terminal.</p></div>
-          <div class="card"><div class="key">5</div><h3>Five profiles</h3><p>Desk, Code, Media, Web and Utils decks, each with the buttons that fit the moment.</p></div>
+          <div class="card"><div class="key">+</div><h3>Tabs of your own</h3><p>Five built-in tabs, plus your own: keys that run any deck button, type text, press keys, or run several steps in order.</p></div>
           <div class="card"><div class="key">◐</div><h3>24 themes</h3><p>Pick a theme you like, or let the deck follow your Omarchy theme automatically.</p></div>
+        </div>
+      </section>
+
+      <section id="watch">
+        <h2>Watch each feature</h2>
+        <p class="section-lede">Real clips from an iPhone and an Omarchy laptop, sped up where it waits. Each one plays when you scroll to it.</p>
+        <div class="clips">
+          <article class="clip">
+            <video src="media/clips/voice.mp4" poster="media/clips/voice.jpg" muted loop playsinline preload="none" aria-label="Say what you want"></video>
+            <div class="clip-body"><span class="tag">Voice</span><h3>Say what you want</h3><ol><li>Hold the mic and say <q>Close the active window</q>. The YouTube window closes.</li><li>Hold it again and say <q>Open Chrome on workspace 4</q>.</li><li>The deck answers <q>Opened Chrome on workspace 4</q>, and the screen follows.</li></ol></div>
+          </article>
+          <article class="clip">
+            <video src="media/clips/voice-keybinding.mp4" poster="media/clips/voice-keybinding.jpg" muted loop playsinline preload="none" aria-label="Your keybindings, by name"></video>
+            <div class="clip-body"><span class="tag">Voice</span><h3>Your keybindings, by name</h3><ol><li>Hold the mic and say <q>Open incognito browser</q>.</li><li>The deck answers <q>The incognito browser has been opened</q>.</li><li>Any description in Omarchy's Super+K list works the same way.</li></ol></div>
+          </article>
+          <article class="clip">
+            <video src="media/clips/kill-port.mp4" poster="media/clips/kill-port.jpg" muted loop playsinline preload="none" aria-label="Kill a stuck dev server"></video>
+            <div class="clip-body"><span class="tag">Code</span><h3>Kill a stuck dev server</h3><ol><li>Type <code>python -m http.server 3000</code> with <b>Type</b>, and the server starts in the terminal.</li><li>Tap <b>Kill :3000</b> on the Code tab.</li><li>The deck answers <q>Killed the process on port 3000</q>.</li></ol></div>
+          </article>
+          <article class="clip">
+            <video src="media/clips/steps.mp4" poster="media/clips/steps.jpg" muted loop playsinline preload="none" aria-label="A key that runs steps"></video>
+            <div class="clip-body"><span class="tag">Your tab</span><h3>A key that runs steps</h3><ol><li>Tap <b>+</b>, name the tab <b>Dev</b>, then <b>Add key</b>.</li><li>Choose <b>Steps</b>: <b>New terminal</b>, wait 1 s, then type <code>cd omadeck &amp;&amp; omadeck update</code> with Enter.</li><li>Save, then tap the key: a terminal opens and the update runs. The deck answers <q>ran 3 steps</q>.</li></ol></div>
+          </article>
+          <article class="clip">
+            <video src="media/clips/ask-type.mp4" poster="media/clips/ask-type.jpg" muted loop playsinline preload="none" aria-label="Ask, then Type"></video>
+            <div class="clip-body"><span class="tag">Dock</span><h3>Ask, then Type</h3><ol><li>Tap <b>Ask</b>, type <q>Open chrome in workspace 1</q> and send. Chrome opens there.</li><li>Tap <b>Type</b>, type <q>Youtube</q> and send.</li><li>The text goes straight into the focused window on the PC.</li></ol></div>
+          </article>
+          <article class="clip">
+            <video src="media/clips/copy-paste.mp4" poster="media/clips/copy-paste.jpg" muted loop playsinline preload="none" aria-label="Copy here, paste there"></video>
+            <div class="clip-body"><span class="tag">Quick keys</span><h3>Copy here, paste there</h3><ol><li>In VS Code, tap <b>All</b>, then <b>Copy</b> to copy a GitHub link.</li><li>Tap workspace <b>1</b>, then <b>Address</b> on the Web tab.</li><li>Tap <b>Paste</b> and <b>Enter</b>: the repo opens in Chrome.</li></ol></div>
+          </article>
+          <article class="clip">
+            <video src="media/clips/workspaces.mp4" poster="media/clips/workspaces.jpg" muted loop playsinline preload="none" aria-label="One row for workspaces"></video>
+            <div class="clip-body"><span class="tag">Workspaces</span><h3>One row for workspaces</h3><ol><li>Tap <b>1</b>, <b>2</b> and <b>3</b>: the screen jumps to each one.</li><li>Hold a key to move the focused window there, here into the scratchpad.</li><li>Tap <b>Scratch</b> to show or hide the scratchpad.</li></ol></div>
+          </article>
+          <article class="clip">
+            <video src="media/clips/desk.mp4" poster="media/clips/desk.jpg" muted loop playsinline preload="none" aria-label="Windows and layout"></video>
+            <div class="clip-body"><span class="tag">Desk</span><h3>Windows and layout</h3><ol><li>Tap <b>Previous</b> to focus the window on the left.</li><li>Tap <b>Fullscreen</b>, <b>Float</b> and <b>Split</b> to change the layout.</li><li>Tap <b>Swap right</b>, then <b>Close window</b>.</li></ol></div>
+          </article>
+          <article class="clip">
+            <video src="media/clips/media.mp4" poster="media/clips/media.jpg" muted loop playsinline preload="none" aria-label="Media keys, YouTube included"></video>
+            <div class="clip-body"><span class="tag">Media</span><h3>Media keys, YouTube included</h3><ol><li>Tap <b>Play / Pause</b>: YouTube pauses and plays, even when it isn't focused.</li><li>Tap <b>Previous</b> and <b>Next</b> to change videos.</li><li>Tap <b>Volume −</b>, <b>Volume +</b> and <b>Mute</b>; Omarchy shows the volume.</li></ol></div>
+          </article>
+          <article class="clip">
+            <video src="media/clips/web.mp4" poster="media/clips/web.jpg" muted loop playsinline preload="none" aria-label="Browser controls"></video>
+            <div class="clip-body"><span class="tag">Web</span><h3>Browser controls</h3><ol><li>Tap <b>Zoom in</b>, <b>Zoom out</b> and <b>Reload</b>.</li><li>Tap <b>Address</b>, type <q>Chrome</q> with <b>Type</b> and send.</li><li>Tap <b>Back</b>, <b>Forward</b>, <b>Scroll down</b>, <b>New tab</b> and <b>Close tab</b>.</li></ol></div>
+          </article>
+          <article class="clip">
+            <video src="media/clips/utils.mp4" poster="media/clips/utils.jpg" muted loop playsinline preload="none" aria-label="Tools and menus"></video>
+            <div class="clip-body"><span class="tag">Utils</span><h3>Tools and menus</h3><ol><li>Tap <b>btop</b> to see the system monitor.</li><li>Tap <b>Clipboard</b> for clipboard history and <b>Lazygit</b> for git.</li><li>Tap <b>System menu</b>, then <b>Esc</b> on the deck to close it.</li></ol></div>
+          </article>
+          <article class="clip">
+            <video src="media/clips/edit-deck.mp4" poster="media/clips/edit-deck.jpg" muted loop playsinline preload="none" aria-label="Make the deck yours"></video>
+            <div class="clip-body"><span class="tag">Edit deck</span><h3>Make the deck yours</h3><ol><li>Open <b>⋯</b> and tap <b>Edit deck</b>.</li><li>Tap ✕ to hide a key, ◀ ▶ to move one, and pick which quick keys show.</li><li>Tap <b>Done</b>: <q>Saved your layout on this phone</q>.</li></ol></div>
+          </article>
+          <article class="clip">
+            <video src="media/clips/landscape.mp4" poster="media/clips/landscape.jpg" muted loop playsinline preload="none" aria-label="Works sideways too"></video>
+            <div class="clip-body"><span class="tag">Landscape</span><h3>Works sideways too</h3><ol><li>Turn the phone: the dock moves left and the deck fills the right.</li><li>Tap a workspace to switch to it.</li><li>Tap <b>Close window</b> on the Desk tab.</li></ol></div>
+          </article>
         </div>
       </section>
 
@@ -200,10 +277,10 @@
         <p class="section-lede">One command on your Omarchy machine. Your phone just needs a browser.</p>
         <div class="steps">
           <div class="step"><div><p>Run this. It installs just the phone deck, with no questions.</p><div class="codebox"><pre>git clone https://github.com/Mohsintl/omadeck.git &amp;&amp; cd omadeck &amp;&amp; ./install.sh --quick</pre><button class="copy" type="button">Copy</button></div></div></div>
-          <div class="step"><div><p>Scan the two QR codes it shows with your phone: the first installs a certificate, the second opens the deck.</p></div></div>
-          <div class="step"><div><p>Add the page to your Home Screen. Tapping and typing work straight away; voice is optional, from the deck's Settings.</p></div></div>
+          <div class="step"><div><p>Scan the QR code it shows with your phone. The setup page installs a certificate, checks it, then opens the deck.</p></div></div>
+          <div class="step"><div><p>Install it as an app: <b>Share › Add to Home Screen</b> on iPhone, <b>⋮ › Install app</b> on Android. Tapping and typing work straight away; voice is optional, from the deck's Settings.</p></div></div>
         </div>
-        <p class="note">Lost the QR codes? Run <code>omadeck mobile</code>. Tested on iPhone and iPad with Omarchy on Hyprland. Android should work too, and reports are welcome.</p>
+        <p class="note">Lost the QR code? Run <code>omadeck mobile</code>. Update later with <code>omadeck update</code>. Tested on iPhone, iPad and Android (Chrome) with Omarchy on Hyprland.</p>
       </section>
 
       <section>
@@ -227,8 +304,8 @@
           <div><h3>Media</h3><ul><li>Play, pause and skip</li><li>Volume, mute and audio output</li><li>Display brightness</li></ul></div>
           <div><h3>Web</h3><ul><li>New, close and switch tabs</li><li>Back, forward, reload and zoom</li><li>Jump to the address bar</li></ul></div>
           <div><h3>Utils</h3><ul><li>btop, Lazygit, Lazydocker, OpenCode</li><li>Night light, keep awake, zen mode</li><li>Clipboard history</li></ul></div>
-          <div><h3>Typing and voice</h3><ul><li>Type or dictate into any window</li><li>Enter, Del, Tab, Esc, All, Copy, Paste</li><li>Arrow keys that repeat while held</li><li>Voice commands with Ollama, Groq, OpenAI and more</li><li>Hold, tap or both to talk</li></ul></div>
-          <div><h3>Look and setup</h3><ul><li>Five profiles, portrait or landscape</li><li>24 themes, or follow your Omarchy theme</li><li>Add to the Home Screen, no app store</li><li><code>omadeck log -f</code> shows what happened</li></ul></div>
+          <div><h3>Typing and voice</h3><ul><li>Type or dictate into any window</li><li>Enter, Del, Tab, Esc, All, Copy, Paste</li><li>Arrow keys that repeat while held</li><li>Voice commands with Ollama, Groq, OpenAI and more</li><li>Obvious commands and Super+K keybindings skip the AI</li><li>Hold, tap or both to talk</li></ul></div>
+          <div><h3>Look and setup</h3><ul><li>Five tabs plus your own, portrait or landscape</li><li>Edit deck: hide and move keys</li><li>24 themes, or follow your Omarchy theme</li><li>Add to the Home Screen, no app store</li><li><code>omadeck log -f</code> shows what happened</li></ul></div>
         </div>
       </section>
 
@@ -237,7 +314,7 @@
         <p class="section-lede">Big, tactile keys that fit a phone in portrait or a tablet in landscape.</p>
         <div class="shots">
           <img src="images/landscape-deck.png" alt="OmaDeck in landscape" loading="lazy" />
-          <img src="images/portrait-deck-tokyo-night.png" alt="OmaDeck in portrait, Tokyo Night theme" loading="lazy" />
+          <img src="images/portrait-deck-dock.jpg" alt="OmaDeck in portrait: workspaces on top, the deck, and the dock with Ask, the mic and Type" loading="lazy" />
           <img src="images/themes-tokyo-night.png" alt="The theme picker" loading="lazy" />
         </div>
       </section>
@@ -258,6 +335,22 @@
     </div>
   </footer>
   <script>
+    // Each clip loads and plays only while it is on screen. With reduced
+    // motion, nothing plays by itself; the clips get controls instead.
+    (() => {
+      const clips = document.querySelectorAll(".clip video");
+      const still = matchMedia("(prefers-reduced-motion: reduce)").matches;
+      if (still || !("IntersectionObserver" in window)) {
+        clips.forEach((v) => { v.controls = true; });
+        if (still) { const hero = document.querySelector(".video video"); hero.removeAttribute("autoplay"); hero.pause(); hero.controls = true; }
+        return;
+      }
+      const seen = new IntersectionObserver((entries) => {
+        entries.forEach((e) => { if (e.isIntersecting) e.target.play().catch(() => {}); else e.target.pause(); });
+      }, { threshold: 0.4 });
+      clips.forEach((v) => seen.observe(v));
+    })();
+
     document.querySelectorAll(".copy").forEach((btn) => {
       btn.addEventListener("click", async () => {
         const text = btn.previousElementSibling.textContent;
