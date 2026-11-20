@@ -61,6 +61,7 @@ What changed in each OmaDeck release. The [GitHub releases](https://github.com/M
 
 First release: the phone touch deck with five profiles, typing and dictation into the PC, and voice commands with Groq, Ollama, OpenAI, OpenRouter, DeepSeek, Mistral, NVIDIA NIM or a custom endpoint.
 
+[0.6.0]: https://github.com/Mohsintl/omadeck/releases/tag/v0.6.0
 [0.5.0]: https://github.com/Mohsintl/omadeck/releases/tag/v0.5.0
 [0.4.0]: https://github.com/Mohsintl/omadeck/releases/tag/v0.4.0
 [0.1.0]: https://github.com/Mohsintl/omadeck/releases/tag/v0.1.0

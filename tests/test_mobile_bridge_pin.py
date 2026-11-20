@@ -1293,6 +1293,51 @@ class MobileBridgePinTests(unittest.TestCase):
         with _IP_LOCK:
             _IP_CONNECTIONS.clear()
 
+    def test_a_thread_that_fails_to_start_gives_its_connection_slot_back(self):
+        import socketserver
+        from omarchy_voice.mobile_bridge import (
+            BridgeServer,
+            _CONNECTION_SEMAPHORE,
+            _IP_CONNECTIONS,
+            _IP_LOCK,
+        )
+        server = BridgeServer.__new__(BridgeServer)
+        free_before = _CONNECTION_SEMAPHORE._value
+        with mock.patch.object(socketserver.ThreadingMixIn, "process_request",
+                               side_effect=RuntimeError("can't start new thread")):
+            with self.assertRaises(RuntimeError):
+                server.process_request(mock.MagicMock(), ("192.168.1.101", 54321))
+        self.assertEqual(_CONNECTION_SEMAPHORE._value, free_before)
+        with _IP_LOCK:
+            self.assertNotIn("192.168.1.101", _IP_CONNECTIONS)
+
+    def test_a_non_ascii_token_is_refused_not_crashed(self):
+        status_line, _ = self._call_post("/clear", {}, token="töken")
+        self.assertIn("401", status_line)
+
+    def test_a_non_ascii_pin_is_refused_not_crashed(self):
+        status_line, data = self._call_post("/auth", {"pin": "١٢٣٤"}, token="")
+        self.assertIn("401", status_line)
+        self.assertEqual(data.get("error"), "Incorrect PIN")
+
+    def test_a_non_ascii_current_pin_is_refused_not_crashed(self):
+        _, auth = self._call_post("/auth", {"pin": "1234"}, token="")
+        status_line, _ = self._call_post(
+            "/pin", {"action": "disable", "current_pin": "éééé"}, token=auth["token"])
+        self.assertIn("403", status_line)
+
+    def test_the_lan_address_is_never_the_bind_all_address(self):
+        from omarchy_voice.mobile_bridge import _lan_ip
+        offline = mock.MagicMock()
+        offline.__enter__.return_value.connect.side_effect = OSError("Network is unreachable")
+        with mock.patch("socket.socket", return_value=offline):
+            with mock.patch("socket.gethostbyname", return_value="192.168.1.7"):
+                self.assertEqual(_lan_ip(), "192.168.1.7")
+            with mock.patch("socket.gethostbyname", return_value="127.0.1.1"):
+                self.assertEqual(_lan_ip(), "127.0.0.1")
+            with mock.patch("socket.gethostbyname", side_effect=OSError):
+                self.assertEqual(_lan_ip(), "127.0.0.1")
+
 
 if __name__ == "__main__":
     unittest.main()
