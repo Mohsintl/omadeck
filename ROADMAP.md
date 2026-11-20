@@ -12,7 +12,7 @@ Community feedback and contributions are highly encouraged!
 - [x] **Zero-Scroll PWA Mobile Deck**: Fullscreen touch deck on iOS & Android.
 - [x] **Direct PC Typing**: Real-time typing from phone keyboard directly into focused PC window.
 - [x] **Decoupled STT Configuration**: Support independent `STT_API_KEY` for Whisper alongside local LLMs.
-- [x] **Quick Sound Mute Button**: Header toggle to instantly mute/unmute OmaDeck audio and cancel voice speech.
+- [x] **Quick Sound Mute Button**: A toggle in the `⋯` menu to instantly mute/unmute OmaDeck audio and cancel voice speech.
 - [x] **Voice Commands That Open Apps**: "Open Chrome on workspace 5" works for any installed app (v0.4.0).
 - [x] **Copy, Paste and Select-All Keys**: Work in normal apps, terminals and Neovim (v0.4.0).
 - [x] **Two-Minute Install**: `./install.sh --quick` ends with pairing QR codes (v0.5.0).

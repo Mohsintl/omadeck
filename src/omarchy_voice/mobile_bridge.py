@@ -389,6 +389,12 @@ def _ensure_tls(host: str) -> tuple[Path, Path] | None:
         ca_valid = CA_CERT_FILE.exists() and CA_KEY_FILE.exists() and _ca_valid(CA_CERT_FILE, 86400)
         ca_regenerated = False
         if not ca_valid:
+            if CA_CERT_FILE.exists():
+                # Phones trust the old CA. A new one means they have to install
+                # the certificate again, so say so instead of failing quietly.
+                print("  The local CA was missing its key or had expired, so OmaDeck is making a new one.")
+                print("  Phones set up before this need the new certificate: pair them again.")
+                write_log("warn    replaced the local CA; phones must install the new certificate")
             _openssl("req", "-x509", "-newkey", "rsa:2048", "-nodes",
                      "-days", "730",
                      "-keyout", str(CA_KEY_FILE), "-out", str(CA_CERT_FILE),
@@ -6946,7 +6952,7 @@ class BridgeHandler(http.server.BaseHTTPRequestHandler):
             self.wfile.write(b'{"error":"unauthorized"}')
             return False
 
-        if secrets.compare_digest(tok, self.token):
+        if secrets.compare_digest(tok.encode(), self.token.encode()):
             return True
 
         now = time.monotonic()
@@ -7200,7 +7206,7 @@ class BridgeHandler(http.server.BaseHTTPRequestHandler):
 
             pin_attempt = str(payload.get("pin") or "").strip()
             time.sleep(0.2)
-            if self.pin and secrets.compare_digest(pin_attempt, self.pin):
+            if self.pin and secrets.compare_digest(pin_attempt.encode(), self.pin.encode()):
                 _forgive_auth_attempt(client_ip, now)
                 session_tok = secrets.token_urlsafe(24)
                 with _SESSION_LOCK:
@@ -7215,7 +7221,7 @@ class BridgeHandler(http.server.BaseHTTPRequestHandler):
 
         if path == "/pin":
             tok = self.headers.get("X-Token", "")
-            is_master = bool(self.token and secrets.compare_digest(tok, self.token))
+            is_master = bool(self.token and secrets.compare_digest(tok.encode(), self.token.encode()))
             action = str(payload.get("action") or "").strip().lower()
             new_pin = str(payload.get("pin") or "").strip()
             current_pin = str(payload.get("current_pin") or "").strip()
@@ -7229,7 +7235,7 @@ class BridgeHandler(http.server.BaseHTTPRequestHandler):
                     self._json({"ok": False, "error": refusal}, 429)
                     return
                 time.sleep(0.2)
-                if not current_pin or not secrets.compare_digest(current_pin, self.pin):
+                if not current_pin or not secrets.compare_digest(current_pin.encode(), self.pin.encode()):
                     self._json({"ok": False, "error": "Current PIN is required to modify PIN settings."}, 403)
                     return
                 _forgive_auth_attempt(client_ip, now)
@@ -8745,7 +8751,23 @@ class BridgeServer(http.server.ThreadingHTTPServer):
                 self.shutdown_request(request)
                 return
             _IP_CONNECTIONS[client_ip] = active + 1
-        super().process_request(request, client_address)
+        try:
+            super().process_request(request, client_address)
+        except BaseException:
+            # The thread never started, so its finally block won't give the
+            # slot back. Do it here, or the limit slowly locks everyone out.
+            self._release_slot(client_ip)
+            raise
+
+    @staticmethod
+    def _release_slot(client_ip: str) -> None:
+        with _IP_LOCK:
+            curr = _IP_CONNECTIONS.get(client_ip, 1)
+            if curr <= 1:
+                _IP_CONNECTIONS.pop(client_ip, None)
+            else:
+                _IP_CONNECTIONS[client_ip] = curr - 1
+        _CONNECTION_SEMAPHORE.release()
 
     def process_request_thread(self, request, client_address):
         client_ip = client_address[0] if client_address else "127.0.0.1"
@@ -8783,13 +8805,7 @@ class BridgeServer(http.server.ThreadingHTTPServer):
                     return
             super().process_request_thread(sock, client_address)
         finally:
-            with _IP_LOCK:
-                curr = _IP_CONNECTIONS.get(client_ip, 1)
-                if curr <= 1:
-                    _IP_CONNECTIONS.pop(client_ip, None)
-                else:
-                    _IP_CONNECTIONS[client_ip] = curr - 1
-            _CONNECTION_SEMAPHORE.release()
+            self._release_slot(client_ip)
 
     def handle_error(self, request, client_address) -> None:
         # A phone that navigates away mid-request is not an error worth a
@@ -8914,17 +8930,37 @@ def _print_pairing_guide(url: str, https_url: str, token: str) -> None:
     print(f"\n  Already set up? The deck itself: {https_url}/?token={token}\n", flush=True)
 
 
+def _lan_ip() -> str:
+    """The address a phone on the same network reaches this PC at.
+
+    Falls back to the hostname's address, then to 127.0.0.1. Never 0.0.0.0:
+    that is a bind address, and a pairing link or certificate made for it
+    can't be reached.
+    """
+    try:
+        with socket.socket(socket.AF_INET, socket.SOCK_DGRAM) as s:
+            s.connect(("8.8.8.8", 80))
+            host = s.getsockname()[0]
+        if host and host != "0.0.0.0":
+            return host
+    except OSError:
+        pass
+    try:
+        host = socket.gethostbyname(socket.gethostname())
+        if host and not host.startswith("127.") and host != "0.0.0.0":
+            return host
+    except OSError:
+        pass
+    return "127.0.0.1"
+
+
 def run(config, port: int = DEFAULT_PORT) -> int:
     token = _load_or_create_token()
 
-    # find LAN IP
-    try:
-        s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-        s.connect(("8.8.8.8", 80))
-        host = s.getsockname()[0]
-        s.close()
-    except Exception:
-        host = "0.0.0.0"
+    host = _lan_ip()
+    if host == "127.0.0.1":
+        print("\n  No network found, so the pairing link only works on this PC.")
+        print("  Connect to Wi-Fi or Ethernet, then run: omadeck restart", flush=True)
 
     from .local_engine import _local_config
     local_cfg = _local_config(config)

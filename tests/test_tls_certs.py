@@ -102,6 +102,29 @@ class TlsCertificateTests(unittest.TestCase):
             self.assertEqual(res_v6.returncode, 0)
             self.assertIn("OK", res_v6.stdout)
 
+    def test_a_ca_that_loses_its_key_says_phones_must_pair_again(self):
+        import contextlib
+        import io
+        d = self.config_dir
+        with mock.patch("omarchy_voice.mobile_bridge.CONFIG_DIR", d), \
+             mock.patch("omarchy_voice.mobile_bridge.CA_CERT_FILE", d / "ca.pem"), \
+             mock.patch("omarchy_voice.mobile_bridge.CA_KEY_FILE", d / "ca.key"), \
+             mock.patch("omarchy_voice.mobile_bridge.CA_DER_FILE", d / "ca.der"), \
+             mock.patch("omarchy_voice.mobile_bridge.CERT_FILE", d / "mobile.pem"), \
+             mock.patch("omarchy_voice.mobile_bridge.KEY_FILE", d / "mobile.key"), \
+             mock.patch("omarchy_voice.mobile_bridge.CERT_HOST_FILE", d / "mobile.host"), \
+             mock.patch("omarchy_voice.mobile_bridge.write_log"):
+            first = io.StringIO()
+            with contextlib.redirect_stdout(first):
+                self.assertIsNotNone(_ensure_tls("192.168.1.50"))
+            self.assertNotIn("pair them again", first.getvalue())
+
+            (d / "ca.key").unlink()
+            second = io.StringIO()
+            with contextlib.redirect_stdout(second):
+                self.assertIsNotNone(_ensure_tls("192.168.1.50"))
+            self.assertIn("pair them again", second.getvalue())
+
 
 if __name__ == "__main__":
     unittest.main()

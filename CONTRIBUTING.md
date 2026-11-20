@@ -6,7 +6,7 @@ Thank you for your interest in contributing to OmaDeck! Whether you are submitti
 
 ## 🛠️ Development Setup
 
-OmaDeck runs locally on your Linux machine with Python 3.10+ and Hyprland.
+OmaDeck runs locally on your Linux machine with Python 3.11+ and Hyprland.
 
 1. **Fork and Clone the Repository**:
    ```bash
@@ -70,7 +70,7 @@ The mobile deck UI is self-contained in `src/omarchy_voice/mobile_bridge.py` ins
 
 **How PRs get merged:**
 - **One change per PR.** A fix and an unrelated feature belong in separate PRs.
-- **CI must pass.** The tests run on Python 3.11, 3.12 and 3.13. If you're contributing for the first time, a maintainer approves the CI run first.
+- **CI must pass.** The tests run on Python 3.11, 3.12, 3.13 and 3.14. If you're contributing for the first time, a maintainer approves the CI run first.
 - **Tests come with fixes.** A bug fix should include a test that fails without it.
 - **The maintainer merges.** PRs are squash-merged, so each one becomes a single commit on `main`.
 - **Say what you didn't test.** If you couldn't try something on a real phone or Hyprland, say so in the PR. That's fine; claiming it was tested when it wasn't is not.
